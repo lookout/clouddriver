@@ -279,7 +279,7 @@ public class AmazonClientProvider {
     return awsSdkClientSupplier.getClient(AmazonEC2ClientBuilder.class, AmazonEC2.class, accountName, awsCredentialsProvider, region);
   }
 
-  public AmazonECS getAmazonEcs(String accountName, AWSCredentialsProvider awsCredentialsProvider, String region) {
+  public AmazonECS getAmazonECS(String accountName, AWSCredentialsProvider awsCredentialsProvider, String region) {
     return awsSdkClientSupplier.getClient(AmazonECSClientBuilder.class, AmazonECS.class, accountName, awsCredentialsProvider, region);
   }
 
