@@ -45,6 +45,8 @@ public class EcsInstanceProvider implements InstanceProvider<EcsInstance> {
 
   @Override
   public EcsInstance getInstance(String account, String region, String id) {
+    if (!isValidId(id, region))
+      return null;
 
     EcsInstance ecsInstance = null;
 
@@ -97,6 +99,13 @@ public class EcsInstanceProvider implements InstanceProvider<EcsInstance> {
     }
 
     return accountCredentials;
+  }
+
+  private boolean isValidId(String id, String region) {
+    String id_regex = "[\\da-f]{8}-[\\da-f]{4}-[\\da-f]{4}-[\\da-f]{4}-[\\da-f]{12}";
+    String id_only = String.format("^%s$", id_regex);
+    String arn = String.format("arn:aws:ecs:%s:\\d*:task/%s", region, id_regex);
+    return id.matches(id_only) || id.matches(arn);
   }
 
   private Task getTask(AmazonECS amazonECS, String taskId) {
