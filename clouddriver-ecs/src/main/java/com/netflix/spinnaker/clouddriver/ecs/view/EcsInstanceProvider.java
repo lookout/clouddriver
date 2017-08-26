@@ -1,11 +1,16 @@
 package com.netflix.spinnaker.clouddriver.ecs.view;
 
 import com.amazonaws.auth.AWSCredentialsProvider;
+import com.amazonaws.services.ec2.AmazonEC2;
+import com.amazonaws.services.ec2.model.DescribeInstanceStatusRequest;
+import com.amazonaws.services.ec2.model.InstanceStatus;
 import com.amazonaws.services.ecs.AmazonECS;
+import com.amazonaws.services.ecs.model.ContainerInstance;
+import com.amazonaws.services.ecs.model.DescribeContainerInstancesRequest;
 import com.amazonaws.services.ecs.model.DescribeTasksRequest;
+import com.amazonaws.services.ecs.model.ListClustersRequest;
 import com.amazonaws.services.ecs.model.ListClustersResult;
 import com.amazonaws.services.ecs.model.Task;
-import com.amazonaws.services.ecs.model.ListClustersRequest;
 import com.netflix.spinnaker.clouddriver.aws.security.AmazonClientProvider;
 import com.netflix.spinnaker.clouddriver.aws.security.NetflixAmazonCredentials;
 import com.netflix.spinnaker.clouddriver.ecs.EcsCloudProvider;
@@ -38,6 +43,42 @@ public class EcsInstanceProvider implements InstanceProvider<EcsInstance> {
     return cloudProvider;
   }
 
+  @Override
+  public EcsInstance getInstance(String account, String region, String id) {
+
+    EcsInstance ecsInstance = null;
+
+    AWSCredentialsProvider awsCredentialsProvider = getCredentials(account).getCredentialsProvider();
+    AmazonECS amazonECS = amazonClientProvider.getAmazonECS(account, awsCredentialsProvider, region);
+    AmazonEC2 amazonEC2 = amazonClientProvider.getAmazonEC2(account, awsCredentialsProvider, region);
+
+    Task ecsTask = getTask(amazonECS, id);
+    InstanceStatus instanceStatus = getEC2InstanceStatus(amazonEC2, getContainerInstance(amazonECS, ecsTask));
+
+    if (ecsTask != null && instanceStatus != null) {
+      ecsInstance = new EcsInstance(id, ecsTask, instanceStatus);
+    }
+
+    return ecsInstance;
+  }
+
+  @Override
+  public String getConsoleOutput(String account, String region, String id) {
+    return null;
+  }
+
+  private List<String> getAllClusters(AmazonECS amazonECS) {
+    ListClustersResult listClustersResult = amazonECS.listClusters();
+    List<String> clusterList = listClustersResult.getClusterArns();
+    while (listClustersResult.getNextToken() != null) {
+      listClustersResult = amazonECS.listClusters(
+        new ListClustersRequest().withNextToken(listClustersResult.getNextToken())
+      );
+      clusterList.addAll(listClustersResult.getClusterArns());
+    }
+    return clusterList;
+  }
+
   private NetflixAmazonCredentials getCredentials(String account) {
     NetflixAmazonCredentials accountCredentials = null;
     for (AccountCredentials credentials: accountCredentialsProvider.getAll()) {
@@ -58,54 +99,64 @@ public class EcsInstanceProvider implements InstanceProvider<EcsInstance> {
     return accountCredentials;
   }
 
-  @Override
-  public EcsInstance getInstance(String account, String region, String id) {
-    if (!is_valid_task_id(id)) {
-      return null;
-    }
+  private Task getTask(AmazonECS amazonECS, String taskId) {
+    Task task = null;
 
-    AWSCredentialsProvider awsCredentialsProvider = getCredentials(account).getCredentialsProvider();
-    AmazonECS amazonECS = amazonClientProvider.getAmazonECS(account, awsCredentialsProvider, region);
+    List<String> queryList = new ArrayList<>();
+    queryList.add(taskId);
 
-    ListClustersResult listClustersResult = amazonECS.listClusters();
-    List<String> clusterList = listClustersResult.getClusterArns();
-    while (listClustersResult.getNextToken() != null) {
-      listClustersResult = amazonECS.listClusters(
-        new ListClustersRequest().withNextToken(listClustersResult.getNextToken())
-      );
-      clusterList.addAll(listClustersResult.getClusterArns());
-    }
-
-    EcsInstance instance = null;
-
-    List<String> queryTaskList = new ArrayList<>();
-    queryTaskList.add(id);
-
-    for (String cluster: clusterList) {
-      List<Task> responseTaskList = amazonECS.describeTasks(
-          new DescribeTasksRequest().withCluster(cluster).withTasks(queryTaskList))
+    for (String cluster: getAllClusters(amazonECS)) {
+      List<Task> taskList = amazonECS.describeTasks(
+        new DescribeTasksRequest().withCluster(cluster).withTasks(queryList))
         .getTasks();
-      if (responseTaskList.size() == 1) {
-        instance = new EcsInstance();
+      if (!taskList.isEmpty()) {
+        task = taskList.get(0);
         break;
       }
     }
-
-    return instance;
+    return task;
   }
 
-  /**
-   * Returns a Boolean that validates that the id parameter is a valid ECS Task ID
-   *
-   * @param  id  Task ID to validate
-   * @return     Whether the Task ID is valid or not
-   */
-  private boolean is_valid_task_id(String id) {
-    return true;
+
+  private ContainerInstance getContainerInstance(AmazonECS amazonECS, Task task) {
+    if (task == null) {
+      return null;
+    }
+
+    ContainerInstance container = null;
+
+    List<String> queryList = new ArrayList<>();
+    queryList.add(task.getContainerInstanceArn());
+    DescribeContainerInstancesRequest request = new DescribeContainerInstancesRequest()
+      .withCluster(task.getClusterArn())
+      .withContainerInstances(queryList);
+    List<ContainerInstance> containerList = amazonECS.describeContainerInstances(request).getContainerInstances();
+
+    if (!containerList.isEmpty()) {
+      container = containerList.get(0);
+    }
+
+    return container;
   }
 
-  @Override
-  public String getConsoleOutput(String account, String region, String id) {
-    return null;
+  private InstanceStatus getEC2InstanceStatus(AmazonEC2 amazonEC2, ContainerInstance container) {
+    if (container == null) {
+      return null;
+    }
+
+    InstanceStatus instanceStatus = null;
+
+    List<String> queryList = new ArrayList<>();
+    queryList.add(container.getEc2InstanceId());
+    List<InstanceStatus> instanceStatusList = amazonEC2.describeInstanceStatus(
+      new DescribeInstanceStatusRequest().withInstanceIds(queryList)
+    ).getInstanceStatuses();
+
+    if (!instanceStatusList.isEmpty()) {
+      instanceStatus = instanceStatusList.get(0);
+    }
+
+    return instanceStatus;
   }
 }
+
