@@ -8,6 +8,7 @@ import com.amazonaws.services.ecs.AmazonECS;
 import com.amazonaws.services.ecs.model.ContainerInstance;
 import com.amazonaws.services.ecs.model.DescribeContainerInstancesRequest;
 import com.amazonaws.services.ecs.model.DescribeTasksRequest;
+import com.amazonaws.services.ecs.model.InvalidParameterException;
 import com.amazonaws.services.ecs.model.ListClustersRequest;
 import com.amazonaws.services.ecs.model.ListClustersResult;
 import com.amazonaws.services.ecs.model.Task;
@@ -99,6 +100,10 @@ public class EcsInstanceProvider implements InstanceProvider<EcsTask> {
         new DescribeTasksRequest().withCluster(cluster).withTasks(queryList))
         .getTasks();
       if (!taskList.isEmpty()) {
+        if (taskList.size() != 1) {
+          String message = String.format("Task ID: %s should only match one record. Multiple found.", taskId);
+          throw new InvalidParameterException(message);
+        }
         task = taskList.get(0);
         break;
       }
@@ -122,6 +127,9 @@ public class EcsInstanceProvider implements InstanceProvider<EcsTask> {
     List<ContainerInstance> containerList = amazonECS.describeContainerInstances(request).getContainerInstances();
 
     if (!containerList.isEmpty()) {
+      if (containerList.size() != 1) {
+        throw new InvalidParameterException("Tasks should only have one container associated to them. Multiple found");
+      }
       container = containerList.get(0);
     }
 
@@ -142,6 +150,10 @@ public class EcsInstanceProvider implements InstanceProvider<EcsTask> {
     ).getInstanceStatuses();
 
     if (!instanceStatusList.isEmpty()) {
+      if (instanceStatusList.size() != 1) {
+        String message = "Container instances should only have only one Instance Status. Multiple found";
+        throw new InvalidParameterException(message);
+      }
       instanceStatus = instanceStatusList.get(0);
     }
 
