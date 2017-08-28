@@ -63,15 +63,25 @@ public class EcsInstance implements Instance, Serializable {
     return name;
   }
 
+  /**
+   * Maps the Last Status and Desired Status of a Tasks to a Health State understandable by Spinnaker
+   *
+   * The mapping is based on:
+   *
+   * Task Life Cycle: http://docs.aws.amazon.com/AmazonECS/latest/developerguide/task_life_cycle.html
+   *
+   * @param lastStatus    Last reported status of the Task
+   * @param desiredStatus Desired status of the Task
+   * @return              Spinnaker understandable Health State
+   */
   private HealthState calculateHealthState(String lastStatus, String desiredStatus) {
-    // Task Life Cycle: http://docs.aws.amazon.com/AmazonECS/latest/developerguide/task_life_cycle.html
     HealthState currentState = null;
 
-    if (desiredStatus.equals("RUNNING") && lastStatus.equals("PENDING")) {
+    if ("RUNNING".equals(desiredStatus) && "PENDING".equals(lastStatus)) {
       currentState = HealthState.Starting;
-    } else if (lastStatus.equals("RUNNING")) {
+    } else if ("RUNNING".equals(lastStatus)) {
       currentState = HealthState.Up;
-    } else if (desiredStatus.equals("STOPPED")) {
+    } else if ("STOPPED".equals(desiredStatus)) {
       currentState = HealthState.Down;
     } else {
       currentState = HealthState.Unknown;
