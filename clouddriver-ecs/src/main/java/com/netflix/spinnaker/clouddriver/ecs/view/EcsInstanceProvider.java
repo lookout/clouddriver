@@ -96,9 +96,10 @@ public class EcsInstanceProvider implements InstanceProvider<EcsTask> {
     queryList.add(taskId);
 
     for (String cluster: getAllClusters(amazonECS)) {
-      List<Task> taskList = amazonECS.describeTasks(
-        new DescribeTasksRequest().withCluster(cluster).withTasks(queryList))
-        .getTasks();
+      DescribeTasksRequest request = new DescribeTasksRequest()
+        .withCluster(cluster)
+        .withTasks(queryList);
+      List<Task> taskList = amazonECS.describeTasks(request).getTasks();
       if (!taskList.isEmpty()) {
         if (taskList.size() != 1) {
           String message = String.format("Task ID: %s should only match one record. Multiple found.", taskId);
@@ -145,9 +146,9 @@ public class EcsInstanceProvider implements InstanceProvider<EcsTask> {
 
     List<String> queryList = new ArrayList<>();
     queryList.add(container.getEc2InstanceId());
-    List<InstanceStatus> instanceStatusList = amazonEC2.describeInstanceStatus(
-      new DescribeInstanceStatusRequest().withInstanceIds(queryList)
-    ).getInstanceStatuses();
+    DescribeInstanceStatusRequest request = new DescribeInstanceStatusRequest()
+      .withInstanceIds(queryList);
+    List<InstanceStatus> instanceStatusList = amazonEC2.describeInstanceStatus(request).getInstanceStatuses();
 
     if (!instanceStatusList.isEmpty()) {
       if (instanceStatusList.size() != 1) {
