@@ -14,7 +14,7 @@ import com.amazonaws.services.ecs.model.Task;
 import com.netflix.spinnaker.clouddriver.aws.security.AmazonClientProvider;
 import com.netflix.spinnaker.clouddriver.aws.security.NetflixAmazonCredentials;
 import com.netflix.spinnaker.clouddriver.ecs.EcsCloudProvider;
-import com.netflix.spinnaker.clouddriver.ecs.model.EcsInstance;
+import com.netflix.spinnaker.clouddriver.ecs.model.EcsTask;
 import com.netflix.spinnaker.clouddriver.model.InstanceProvider;
 import com.netflix.spinnaker.clouddriver.security.AccountCredentials;
 import com.netflix.spinnaker.clouddriver.security.AccountCredentialsProvider;
@@ -27,7 +27,7 @@ import java.util.List;
 
 
 @Component
-public class EcsInstanceProvider implements InstanceProvider<EcsInstance> {
+public class EcsInstanceProvider implements InstanceProvider<EcsTask> {
 
   private final String cloudProvider = EcsCloudProvider.ID;
 
@@ -44,11 +44,11 @@ public class EcsInstanceProvider implements InstanceProvider<EcsInstance> {
   }
 
   @Override
-  public EcsInstance getInstance(String account, String region, String id) {
+  public EcsTask getInstance(String account, String region, String id) {
     if (!isValidId(id, region))
       return null;
 
-    EcsInstance ecsInstance = null;
+    EcsTask ecsInstance = null;
 
     AWSCredentialsProvider awsCredentialsProvider = getCredentials(account).getCredentialsProvider();
     AmazonECS amazonECS = amazonClientProvider.getAmazonEcs(account, awsCredentialsProvider, region);
@@ -58,7 +58,7 @@ public class EcsInstanceProvider implements InstanceProvider<EcsInstance> {
     InstanceStatus instanceStatus = getEC2InstanceStatus(amazonEC2, getContainerInstance(amazonECS, ecsTask));
 
     if (ecsTask != null && instanceStatus != null) {
-      ecsInstance = new EcsInstance(id, ecsTask, instanceStatus);
+      ecsInstance = new EcsTask(id, ecsTask, instanceStatus);
     }
 
     return ecsInstance;

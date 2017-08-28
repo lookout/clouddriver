@@ -10,7 +10,7 @@ import java.io.Serializable;
 import java.util.List;
 import java.util.Map;
 
-public class EcsInstance implements Instance, Serializable {
+public class EcsTask implements Instance, Serializable {
   private String name;
   private HealthState healthState;
   private Long launchTime;
@@ -19,13 +19,40 @@ public class EcsInstance implements Instance, Serializable {
   private String providerType;
   private String cloudProvider;
 
-  public EcsInstance(String name, Task task, InstanceStatus ec2Instance) {
+  public EcsTask(String name, Task task, InstanceStatus ec2Instance) {
     this.name = name;
     providerType = cloudProvider = EcsCloudProvider.ID;
     launchTime = task.getStartedAt().getTime();
     health =  null;
     healthState = calculateHealthState(task.getLastStatus(), task.getDesiredStatus());
     zone = ec2Instance.getAvailabilityZone();
+  }
+
+  /**
+   * Maps the Last Status and Desired Status of a Tasks to a Health State understandable by Spinnaker
+   *
+   * The mapping is based on:
+   *
+   * Task Life Cycle: http://docs.aws.amazon.com/AmazonECS/latest/developerguide/task_life_cycle.html
+   *
+   * @param lastStatus    Last reported status of the Task
+   * @param desiredStatus Desired status of the Task
+   * @return              Spinnaker understandable Health State
+   */
+  private HealthState calculateHealthState(String lastStatus, String desiredStatus) {
+    HealthState currentState = null;
+
+    if ("RUNNING".equals(desiredStatus) && "PENDING".equals(lastStatus)) {
+      currentState = HealthState.Starting;
+    } else if ("RUNNING".equals(lastStatus)) {
+      currentState = HealthState.Up;
+    } else if ("STOPPED".equals(desiredStatus)) {
+      currentState = HealthState.Down;
+    } else {
+      currentState = HealthState.Unknown;
+    }
+
+    return currentState;
   }
 
   @Override
@@ -61,32 +88,5 @@ public class EcsInstance implements Instance, Serializable {
   @Override
   public String getName() {
     return name;
-  }
-
-  /**
-   * Maps the Last Status and Desired Status of a Tasks to a Health State understandable by Spinnaker
-   *
-   * The mapping is based on:
-   *
-   * Task Life Cycle: http://docs.aws.amazon.com/AmazonECS/latest/developerguide/task_life_cycle.html
-   *
-   * @param lastStatus    Last reported status of the Task
-   * @param desiredStatus Desired status of the Task
-   * @return              Spinnaker understandable Health State
-   */
-  private HealthState calculateHealthState(String lastStatus, String desiredStatus) {
-    HealthState currentState = null;
-
-    if ("RUNNING".equals(desiredStatus) && "PENDING".equals(lastStatus)) {
-      currentState = HealthState.Starting;
-    } else if ("RUNNING".equals(lastStatus)) {
-      currentState = HealthState.Up;
-    } else if ("STOPPED".equals(desiredStatus)) {
-      currentState = HealthState.Down;
-    } else {
-      currentState = HealthState.Unknown;
-    }
-
-    return currentState;
   }
 }
