@@ -51,7 +51,7 @@ public class EcsInstanceProvider implements InstanceProvider<EcsInstance> {
     EcsInstance ecsInstance = null;
 
     AWSCredentialsProvider awsCredentialsProvider = getCredentials(account).getCredentialsProvider();
-    AmazonECS amazonECS = amazonClientProvider.getAmazonECS(account, awsCredentialsProvider, region);
+    AmazonECS amazonECS = amazonClientProvider.getAmazonEcs(account, awsCredentialsProvider, region);
     AmazonEC2 amazonEC2 = amazonClientProvider.getAmazonEC2(account, awsCredentialsProvider, region);
 
     Task ecsTask = getTask(amazonECS, id);
