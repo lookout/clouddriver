@@ -16,9 +16,7 @@ import com.netflix.spinnaker.clouddriver.aws.security.NetflixAmazonCredentials;
 import com.netflix.spinnaker.clouddriver.ecs.EcsCloudProvider;
 import com.netflix.spinnaker.clouddriver.ecs.model.EcsTask;
 import com.netflix.spinnaker.clouddriver.model.InstanceProvider;
-import com.netflix.spinnaker.clouddriver.security.AccountCredentials;
 import com.netflix.spinnaker.clouddriver.security.AccountCredentialsProvider;
-import com.netflix.spinnaker.kork.web.exceptions.NotFoundException;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.stereotype.Component;
 
@@ -50,7 +48,9 @@ public class EcsInstanceProvider implements InstanceProvider<EcsTask> {
 
     EcsTask ecsInstance = null;
 
-    AWSCredentialsProvider awsCredentialsProvider = getCredentials(account).getCredentialsProvider();
+    NetflixAmazonCredentials netflixAmazonCredentials =
+      (NetflixAmazonCredentials) accountCredentialsProvider.getCredentials(account);
+    AWSCredentialsProvider awsCredentialsProvider = netflixAmazonCredentials.getCredentialsProvider();
     AmazonECS amazonECS = amazonClientProvider.getAmazonEcs(account, awsCredentialsProvider, region);
     AmazonEC2 amazonEC2 = amazonClientProvider.getAmazonEC2(account, awsCredentialsProvider, region);
 
@@ -79,26 +79,6 @@ public class EcsInstanceProvider implements InstanceProvider<EcsTask> {
       clusterList.addAll(listClustersResult.getClusterArns());
     }
     return clusterList;
-  }
-
-  private NetflixAmazonCredentials getCredentials(String account) {
-    NetflixAmazonCredentials accountCredentials = null;
-    for (AccountCredentials credentials: accountCredentialsProvider.getAll()) {
-      if (credentials.getName().equals(account)) {
-        if (credentials instanceof NetflixAmazonCredentials) {
-          accountCredentials = (NetflixAmazonCredentials) credentials;
-          break;
-        }
-      }
-    }
-
-    if (accountCredentials == null) {
-      throw new NotFoundException(
-        String.format("AWS account %s was not found.  Please specify a valid account name", account)
-      );
-    }
-
-    return accountCredentials;
   }
 
   private boolean isValidId(String id, String region) {
