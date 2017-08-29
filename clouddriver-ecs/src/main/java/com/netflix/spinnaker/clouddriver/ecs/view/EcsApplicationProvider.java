@@ -50,8 +50,15 @@ public class EcsApplicationProvider implements ApplicationProvider {
   }
 
   private Set<Application> findApplications(AmazonCredentials credentials) {
-    Set<Application> applications = new HashSet<>();
 
+    Set<Application> applications = findApplicationsForAllRegions(credentials);
+
+
+    return applications;
+  }
+
+  private Set<Application> findApplicationsForAllRegions(AmazonCredentials credentials) {
+    Set<Application> applications = new HashSet<>();
 
     for (AmazonCredentials.AWSRegion awsRegion: credentials.getRegions()) {
       AmazonECS amazonECS = amazonClientProvider.getAmazonEcs(
@@ -63,23 +70,31 @@ public class EcsApplicationProvider implements ApplicationProvider {
       applications.addAll(findApplicationsForRegion(amazonECS));
     }
 
-
     return applications;
   }
 
   private Set<Application> findApplicationsForRegion(AmazonECS amazonECS) {
-    Set<Application> applications = new HashSet<>();
+    HashMap<String, Application> applicationHashMap = populateApplicationMap(amazonECS);
+    Set<Application> applications = transposeApplicationMapToSet(applicationHashMap);
 
+    return applications;
+  }
+
+  private HashMap<String, Application> populateApplicationMap(AmazonECS amazonECS) {
     HashMap<String, Application> applicationHashMap = new HashMap<>();
-
     for (String clusterArn: amazonECS.listClusters().getClusterArns()) {
       String clusterName = inferClusterNameFromArn(clusterArn);
 
       ListServicesResult result = amazonECS.listServices(new ListServicesRequest().withCluster(clusterName));
       for (String serviceArn: result.getServiceArns()) {
-        inferApplicationsFromService(amazonECS, applicationHashMap, clusterName, serviceArn);
+        inferApplicationFromServices(amazonECS, applicationHashMap, clusterName, serviceArn);
       }
     }
+    return applicationHashMap;
+  }
+
+  private Set<Application> transposeApplicationMapToSet(HashMap<String, Application> applicationHashMap) {
+    Set<Application> applications = new HashSet<>();
 
     for (Map.Entry<String, Application> entry :applicationHashMap.entrySet()) {
       applications.add(entry.getValue());
@@ -92,7 +107,10 @@ public class EcsApplicationProvider implements ApplicationProvider {
     return clusterArn.split("/")[1];
   }
 
-  private HashMap<String, Application> inferApplicationsFromService(AmazonECS amazonECS, HashMap<String, Application> applicationHashMap, String clusterName, String serviceArn) {
+  private HashMap<String, Application> inferApplicationFromServices(AmazonECS amazonECS,
+                                                                    HashMap<String, Application> applicationHashMap,
+                                                                    String clusterName,
+                                                                    String serviceArn) {
     DescribeServicesResult describeResult = amazonECS.describeServices(new DescribeServicesRequest().withServices(serviceArn).withCluster(clusterName));
 
     for (Service service: describeResult.getServices()) {
