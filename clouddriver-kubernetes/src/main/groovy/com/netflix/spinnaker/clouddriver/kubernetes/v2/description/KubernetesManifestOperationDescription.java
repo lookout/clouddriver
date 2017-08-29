@@ -27,7 +27,7 @@ import java.util.ArrayList;
 import java.util.List;
 
 @Data
-public class KubernetesManifestOperationDescription implements DeployDescription, CredentialsNameable, ApplicationNameable {
+public abstract class KubernetesManifestOperationDescription implements DeployDescription, CredentialsNameable, ApplicationNameable {
   String application;
   String account;
   List<KubernetesManifest> manifest = new ArrayList<>();
