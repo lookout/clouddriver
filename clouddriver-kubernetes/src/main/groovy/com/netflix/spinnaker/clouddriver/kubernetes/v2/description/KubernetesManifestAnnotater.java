@@ -63,20 +63,21 @@ public class KubernetesManifestAnnotater {
   public static void annotateManifestWithRelationships(KubernetesManifest manifest, KubernetesManifestSpinnakerRelationships relationships) {
     Map<String, String> annotations = manifest.getAnnotations();
 
-    storeAnnotation(annotations, LOAD_BALANCERS, relationships.getLoadBalancers());
-    storeAnnotation(annotations, SECURITY_GROUPS, relationships.getSecurityGroups());
-    storeAnnotation(annotations, CLUSTER, relationships.getCluster());
-    storeAnnotation(annotations, APPLICATION, relationships.getApplication());
+//    storeAnnotation(annotations, LOAD_BALANCERS, relationships.getLoadBalancers());
+//    storeAnnotation(annotations, SECURITY_GROUPS, relationships.getSecurityGroups());
+//    storeAnnotation(annotations, CLUSTER, relationships.getCluster());
+//    storeAnnotation(annotations, APPLICATION, relationships.getApplication());
   }
 
   public static KubernetesManifestSpinnakerRelationships getManifestRelationships(KubernetesManifest manifest) {
     Map<String, String> annotations = manifest.getAnnotations();
 
-    return KubernetesManifestSpinnakerRelationships.builder()
-        .loadBalancers(getAnnotation(annotations, LOAD_BALANCERS, new TypeReference<List<String>>() {}))
-        .securityGroups(getAnnotation(annotations, SECURITY_GROUPS, new TypeReference<List<String>>() {}))
-        .cluster(getAnnotation(annotations, CLUSTER, new TypeReference<String>() {}))
-        .application(getAnnotation(annotations, APPLICATION, new TypeReference<String>() {}))
-        .build();
+    return null;
+//    return KubernetesManifestSpinnakerRelationships.builder()
+//        .loadBalancers(getAnnotation(annotations, LOAD_BALANCERS, new TypeReference<List<String>>() {}))
+//        .securityGroups(getAnnotation(annotations, SECURITY_GROUPS, new TypeReference<List<String>>() {}))
+//        .cluster(getAnnotation(annotations, CLUSTER, new TypeReference<String>() {}))
+//        .application(getAnnotation(annotations, APPLICATION, new TypeReference<String>() {}))
+//        .build();
   }
 }

@@ -20,6 +20,7 @@ package com.netflix.spinnaker.clouddriver.kubernetes.v2.description;
 import com.fasterxml.jackson.annotation.JsonIgnore;
 import com.netflix.spinnaker.clouddriver.deploy.DeployDescription;
 import com.netflix.spinnaker.clouddriver.kubernetes.security.KubernetesNamedAccountCredentials;
+import com.netflix.spinnaker.clouddriver.security.resources.ApplicationNameable;
 import com.netflix.spinnaker.clouddriver.security.resources.CredentialsNameable;
 import lombok.Data;
 

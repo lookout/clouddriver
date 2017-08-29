@@ -17,6 +17,7 @@
 package com.netflix.spinnaker.clouddriver.ecs.model;
 
 import com.netflix.spinnaker.clouddriver.aws.model.AmazonTargetGroup;
+import com.netflix.spinnaker.clouddriver.ecs.EcsCloudProvider;
 import com.netflix.spinnaker.clouddriver.model.Cluster;
 import com.netflix.spinnaker.clouddriver.model.LoadBalancer;
 import com.netflix.spinnaker.clouddriver.model.ServerGroup;
@@ -42,19 +43,65 @@ public class EcsServerCluster implements Cluster {
 
   @Override
   public Set<ServerGroup> getServerGroups() {
-    return null;
+    return serverGroups;
   }
 
   @Override
   public Set<LoadBalancer> getLoadBalancers() {
-    return null;
+    return loadBalancers;
   }
 
   String name;
-  String type = "ecs";
+  private final String type = EcsCloudProvider.ID;
+//  private final String type = "aws";
+
   String accountName;
 
   Set<AmazonTargetGroup> targetGroups = Collections.synchronizedSet(new HashSet<AmazonTargetGroup>());
   Set<ServerGroup> serverGroups = Collections.synchronizedSet(new HashSet<ServerGroup>());
   Set<LoadBalancer> loadBalancers = Collections.synchronizedSet(new HashSet<LoadBalancer>());
+
+  public EcsServerCluster() {
+  }
+
+  public EcsServerCluster withName(String name) {
+    this.name = name;
+    return this;
+  }
+
+  public EcsServerCluster withAccountName(String accountName) {
+    this.accountName = accountName;
+    return this;
+  }
+
+  public EcsServerCluster withTargetGroups(Set<AmazonTargetGroup> targetGroups) {
+    this.targetGroups = targetGroups;
+    return this;
+  }
+
+  public EcsServerCluster withServerGroups(Set<ServerGroup> serverGroups) {
+    this.serverGroups = serverGroups;
+    return this;
+  }
+
+  public EcsServerCluster withLoadBalancers(Set<LoadBalancer> loadBalancers) {
+    this.loadBalancers = loadBalancers;
+    return this;
+  }
+
+  public void addLoadBalancer(LoadBalancer loadBalancer) {
+    loadBalancers.add(loadBalancer);
+  }
+
+  @Override
+  public String toString() {
+    return "EcsServerCluster{" +
+      "name='" + name + '\'' +
+      ", type='" + type + '\'' +
+      ", accountName='" + accountName + '\'' +
+      ", targetGroups=" + targetGroups +
+      ", serverGroups=" + serverGroups +
+      ", loadBalancers=" + loadBalancers +
+      '}' + "       loadBalancers.size() = " + loadBalancers.size();
+  }
 }

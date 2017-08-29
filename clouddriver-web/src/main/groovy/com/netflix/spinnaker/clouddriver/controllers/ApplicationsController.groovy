@@ -75,7 +75,8 @@ class ApplicationsController {
         return transform(apps)
       }
     } catch (e) {
-      throw new NotFoundException("Application does not exist (name: ${name})")
+      throw e
+//      throw new NotFoundException("Application does not exist (name: ${name})")
     }
   }
 
