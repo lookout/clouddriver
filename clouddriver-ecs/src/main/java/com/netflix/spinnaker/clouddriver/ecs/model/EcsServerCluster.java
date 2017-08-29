@@ -22,44 +22,22 @@ import com.netflix.spinnaker.clouddriver.model.Cluster;
 import com.netflix.spinnaker.clouddriver.model.LoadBalancer;
 import com.netflix.spinnaker.clouddriver.model.ServerGroup;
 
-import java.util.*;
+import java.util.Collections;
+import java.util.HashSet;
+import java.util.Set;
+
 
 public class EcsServerCluster implements Cluster {
 
-  @Override
-  public String getName() {
-    return name;
-  }
+  private String name;
 
-  @Override
-  public String getType() {
-    return type;
-  }
-
-  @Override
-  public String getAccountName() {
-    return accountName;
-  }
-
-  @Override
-  public Set<ServerGroup> getServerGroups() {
-    return serverGroups;
-  }
-
-  @Override
-  public Set<LoadBalancer> getLoadBalancers() {
-    return loadBalancers;
-  }
-
-  String name;
   private final String type = EcsCloudProvider.ID;
-//  private final String type = "aws";
 
-  String accountName;
+  private String accountName;
 
-  Set<AmazonTargetGroup> targetGroups = Collections.synchronizedSet(new HashSet<AmazonTargetGroup>());
-  Set<ServerGroup> serverGroups = Collections.synchronizedSet(new HashSet<ServerGroup>());
-  Set<LoadBalancer> loadBalancers = Collections.synchronizedSet(new HashSet<LoadBalancer>());
+  private Set<AmazonTargetGroup> targetGroups = Collections.synchronizedSet(new HashSet<AmazonTargetGroup>());
+  private Set<ServerGroup> serverGroups = Collections.synchronizedSet(new HashSet<ServerGroup>());
+  private Set<LoadBalancer> loadBalancers = Collections.synchronizedSet(new HashSet<LoadBalancer>());
 
   public EcsServerCluster() {
   }
@@ -89,19 +67,28 @@ public class EcsServerCluster implements Cluster {
     return this;
   }
 
-  public void addLoadBalancer(LoadBalancer loadBalancer) {
-    loadBalancers.add(loadBalancer);
+  @Override
+  public String getName() {
+    return name;
   }
 
   @Override
-  public String toString() {
-    return "EcsServerCluster{" +
-      "name='" + name + '\'' +
-      ", type='" + type + '\'' +
-      ", accountName='" + accountName + '\'' +
-      ", targetGroups=" + targetGroups +
-      ", serverGroups=" + serverGroups +
-      ", loadBalancers=" + loadBalancers +
-      '}' + "       loadBalancers.size() = " + loadBalancers.size();
+  public String getType() {
+    return type;
+  }
+
+  @Override
+  public String getAccountName() {
+    return accountName;
+  }
+
+  @Override
+  public Set<ServerGroup> getServerGroups() {
+    return serverGroups;
+  }
+
+  @Override
+  public Set<LoadBalancer> getLoadBalancers() {
+    return loadBalancers;
   }
 }

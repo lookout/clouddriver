@@ -16,30 +16,36 @@
 
 package com.netflix.spinnaker.clouddriver.ecs.provider.view;
 
-import com.amazonaws.services.autoscaling.model.*;
+import com.amazonaws.services.autoscaling.model.DescribeAutoScalingGroupsResult;
 import com.amazonaws.services.ec2.AmazonEC2;
 import com.amazonaws.services.ecs.AmazonECS;
-import com.amazonaws.services.ecs.model.*;
+import com.amazonaws.services.ecs.model.DescribeTasksRequest;
+import com.amazonaws.services.ecs.model.DescribeTasksResult;
+import com.amazonaws.services.ecs.model.ListServicesRequest;
+import com.amazonaws.services.ecs.model.ListServicesResult;
+import com.amazonaws.services.ecs.model.ListTasksRequest;
+import com.amazonaws.services.ecs.model.ListTasksResult;
+import com.amazonaws.services.ecs.model.Task;
 import com.google.common.collect.Sets;
 import com.netflix.spinnaker.clouddriver.aws.model.AmazonLoadBalancer;
-import com.netflix.spinnaker.clouddriver.aws.model.AmazonServerGroup;
 import com.netflix.spinnaker.clouddriver.aws.security.AmazonClientProvider;
 import com.netflix.spinnaker.clouddriver.aws.security.AmazonCredentials;
 import com.netflix.spinnaker.clouddriver.ecs.EcsCloudProvider;
 import com.netflix.spinnaker.clouddriver.ecs.model.EcsServerCluster;
 import com.netflix.spinnaker.clouddriver.ecs.model.EcsServerGroup;
 import com.netflix.spinnaker.clouddriver.ecs.model.EcsTask;
-import com.netflix.spinnaker.clouddriver.ecs.view.EcsInstanceProvider;
-import com.netflix.spinnaker.clouddriver.model.*;
-import com.netflix.spinnaker.clouddriver.model.Cluster;
+import com.netflix.spinnaker.clouddriver.model.ClusterProvider;
 import com.netflix.spinnaker.clouddriver.model.Instance;
-import com.netflix.spinnaker.clouddriver.model.LoadBalancer;
+import com.netflix.spinnaker.clouddriver.model.ServerGroup;
 import com.netflix.spinnaker.clouddriver.security.AccountCredentials;
 import com.netflix.spinnaker.clouddriver.security.AccountCredentialsProvider;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.stereotype.Component;
 
-import java.util.*;
+import java.util.HashMap;
+import java.util.HashSet;
+import java.util.Map;
+import java.util.Set;
 
 import static com.netflix.spinnaker.clouddriver.ecs.view.EcsInstanceProvider.getContainerInstance;
 import static com.netflix.spinnaker.clouddriver.ecs.view.EcsInstanceProvider.getEC2InstanceStatus;
@@ -49,7 +55,6 @@ import static com.netflix.spinnaker.clouddriver.ecs.view.EcsInstanceProvider.get
  server group = services
  cluster = services for an environment like prod
 */
-
 @Component
 public class EcsServerClusterProvider implements ClusterProvider<EcsServerCluster> {
 
@@ -122,11 +127,6 @@ public class EcsServerClusterProvider implements ClusterProvider<EcsServerCluste
         loadBalancer.setName("LOAD-BALANCER-NAME");
 
 
-        EcsServerCluster spinnakerCluster = new EcsServerCluster()
-          .withAccountName(credentials.getName())
-          .withName(metadata.cloudStack);
-        spinnakerCluster.addLoadBalancer(loadBalancer);
-
 
         ListTasksResult listTasksResult = amazonECS.listTasks(new ListTasksRequest().withServiceName(serviceArn).withCluster(ecsClusterName));
         if (listTasksResult.getTaskArns() != null && listTasksResult.getTaskArns().size() > 0) {
@@ -138,14 +138,17 @@ public class EcsServerClusterProvider implements ClusterProvider<EcsServerCluste
         }
 
         EcsServerGroup ecsServerGroup = new EcsServerGroup()
-          .withName("springfun-" + metadata.cloudStack + "-" + metadata.serverGroupVersion)
+          .withName(metadata.applicationName + "-" +  metadata.cloudStack + "-" + metadata.serverGroupVersion) // This should be refactored using the `extract method` refactoring
           .withCloudProvider("aws")
           .withType("aws")
           .withRegion("us-west-2")
           .withInstances(instances);
-        spinnakerCluster.withServerGroups(Sets.newHashSet(ecsServerGroup))
-//        .withLoadBalancers(Sets.newHashSet(loadBalancer));
-          ;
+
+        EcsServerCluster spinnakerCluster = new EcsServerCluster()
+          .withAccountName(credentials.getName())
+          .withName(metadata.cloudStack)
+          .withLoadBalancers(Sets.newHashSet(loadBalancer))
+          .withServerGroups(Sets.newHashSet(ecsServerGroup));
 
 
         if (clusterMap.get(metadata.applicationName) != null) {
@@ -156,11 +159,8 @@ public class EcsServerClusterProvider implements ClusterProvider<EcsServerCluste
       }
     }
 
-
     return clusterMap;
   }
-
-
 
   private ServiceMetadata extractMetadataFromArn(String arn) {
     if (!arn.contains("/")) {
@@ -195,11 +195,6 @@ public class EcsServerClusterProvider implements ClusterProvider<EcsServerCluste
   private String inferClusterNameFromArn(String clusterArn) {
     return clusterArn.split("/")[1];
   }
-
-  private HashMap<String, Set<EcsServerCluster>> inferClustersFromService(AmazonECS amazonECS, HashMap<String, Set<EcsServerCluster>> clusterHashMap, String clusterName, String serviceArn) {
-    return null;
-  }
-
 
   @Override
   public Map<String, Set<EcsServerCluster>> getClusterSummaries(String application) {
