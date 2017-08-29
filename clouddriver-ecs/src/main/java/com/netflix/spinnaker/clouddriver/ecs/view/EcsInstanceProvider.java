@@ -113,7 +113,7 @@ public class EcsInstanceProvider implements InstanceProvider<EcsTask> {
   }
 
 
-  private ContainerInstance getContainerInstance(AmazonECS amazonECS, Task task) {
+  public static ContainerInstance getContainerInstance(AmazonECS amazonECS, Task task) {
     if (task == null) {
       return null;
     }
@@ -137,7 +137,7 @@ public class EcsInstanceProvider implements InstanceProvider<EcsTask> {
     return container;
   }
 
-  private InstanceStatus getEC2InstanceStatus(AmazonEC2 amazonEC2, ContainerInstance container) {
+  public static InstanceStatus getEC2InstanceStatus(AmazonEC2 amazonEC2, ContainerInstance container) {
     if (container == null) {
       return null;
     }

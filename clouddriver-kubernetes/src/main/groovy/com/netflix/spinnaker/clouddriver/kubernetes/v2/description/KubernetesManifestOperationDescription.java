@@ -20,6 +20,7 @@ package com.netflix.spinnaker.clouddriver.kubernetes.v2.description;
 import com.fasterxml.jackson.annotation.JsonIgnore;
 import com.netflix.spinnaker.clouddriver.deploy.DeployDescription;
 import com.netflix.spinnaker.clouddriver.kubernetes.security.KubernetesNamedAccountCredentials;
+import com.netflix.spinnaker.clouddriver.security.resources.ApplicationNameable;
 import com.netflix.spinnaker.clouddriver.security.resources.CredentialsNameable;
 import lombok.Data;
 
@@ -27,7 +28,8 @@ import java.util.ArrayList;
 import java.util.List;
 
 @Data
-public abstract class KubernetesManifestOperationDescription implements DeployDescription, CredentialsNameable {
+public abstract class KubernetesManifestOperationDescription implements DeployDescription, CredentialsNameable, ApplicationNameable {
+  String application;
   String account;
   List<KubernetesManifestMetadataPair> manifestMetadataPairs = new ArrayList<>();
   @JsonIgnore
