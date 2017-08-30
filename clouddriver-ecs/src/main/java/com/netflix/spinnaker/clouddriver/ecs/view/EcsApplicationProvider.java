@@ -31,7 +31,6 @@ public class EcsApplicationProvider implements ApplicationProvider {
   public EcsApplicationProvider(AccountCredentialsProvider accountCredentialsProvider, AmazonClientProvider amazonClientProvider) {
     this.accountCredentialsProvider = accountCredentialsProvider;
     this.amazonClientProvider = amazonClientProvider;
-    getApplications(false);
   }
 
 
@@ -47,6 +46,9 @@ public class EcsApplicationProvider implements ApplicationProvider {
     return null;
   }
 
+  /**
+   * TODO - Implement this method as fully intended by the interface, once the POC is over, which includes using the expand boolean
+   */
   @Override
   public Set<Application> getApplications(boolean expand) {
     Set<Application> applications = new HashSet<>();
@@ -88,7 +90,7 @@ public class EcsApplicationProvider implements ApplicationProvider {
 
       ListServicesResult result = amazonECS.listServices(new ListServicesRequest().withCluster(clusterName));
       for (String serviceArn: result.getServiceArns()) {
-        inferApplicationFromServices(amazonECS, applicationHashMap, clusterName, serviceArn);
+        applicationHashMap = inferApplicationFromServices(amazonECS, applicationHashMap, clusterName, serviceArn);
       }
     }
     return applicationHashMap;
@@ -136,10 +138,16 @@ public class EcsApplicationProvider implements ApplicationProvider {
     return applicationHashMap;
   }
 
+  /**
+   * Temporary method for the duration of the POC, while we still don't use the cache system.
+   */
   private String inferAppNameFromServiceName(String serviceName) {
     return serviceName.split(SERVICE_DELIMITER)[0];
   }
 
+  /**
+   * Temporary method for the duration of the POC, while we still don't use the cache system.
+   */
   private String inferClusterNameFromArn(String clusterArn) {
     return clusterArn.split("/")[1];
   }
