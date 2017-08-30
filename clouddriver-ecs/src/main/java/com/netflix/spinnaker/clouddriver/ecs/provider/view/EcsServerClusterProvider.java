@@ -17,6 +17,7 @@
 package com.netflix.spinnaker.clouddriver.ecs.provider.view;
 
 import com.amazonaws.services.ec2.AmazonEC2;
+import com.amazonaws.services.ec2.model.InstanceStatus;
 import com.amazonaws.services.ecs.AmazonECS;
 import com.amazonaws.services.ecs.model.DescribeTasksRequest;
 import com.amazonaws.services.ecs.model.DescribeTasksResult;
@@ -77,8 +78,6 @@ public class EcsServerClusterProvider implements ClusterProvider<EcsServerCluste
 
   private Map<String, Set<EcsServerCluster>> findClusters(Map<String, Set<EcsServerCluster>> clusterMap,
                                                           AmazonCredentials credentials) {
-
-
     for (AmazonCredentials.AWSRegion awsRegion: credentials.getRegions()) {
       clusterMap = findClustersForRegion(clusterMap, credentials, awsRegion);
     }
@@ -90,66 +89,34 @@ public class EcsServerClusterProvider implements ClusterProvider<EcsServerCluste
                                                                    AmazonCredentials credentials,
                                                                    AmazonCredentials.AWSRegion awsRegion) {
 
-
-    AmazonECS amazonECS = amazonClientProvider.getAmazonEcs(
-      credentials.getName(),
-      credentials.getCredentialsProvider(),
-      awsRegion.getName()
-    );
-
-    AmazonEC2 amazonEC2 = amazonClientProvider.getAmazonEC2(
-      credentials.getName(),
-      credentials.getCredentialsProvider(),
-      awsRegion.getName()
-    );
-
-    AmazonElasticLoadBalancing amazonELB = amazonClientProvider.getAmazonElasticLoadBalancingV2(
-      credentials.getName(),
-      credentials.getCredentialsProvider(),
-      awsRegion.getName()
-    );
+    AmazonECS amazonECS = amazonClientProvider.getAmazonEcs(credentials.getName(), credentials.getCredentialsProvider(), awsRegion.getName());
+    AmazonEC2 amazonEC2 = amazonClientProvider.getAmazonEC2(credentials.getName(), credentials.getCredentialsProvider(), awsRegion.getName());
+    AmazonElasticLoadBalancing amazonELB = amazonClientProvider.getAmazonElasticLoadBalancingV2(credentials.getName(), credentials.getCredentialsProvider(), awsRegion.getName());
 
     for (String clusterArn: amazonECS.listClusters().getClusterArns()) {
-      String ecsClusterName = inferClusterNameFromArn(clusterArn);
+      String ecsClusterName = inferClusterNameFromClusterArn(clusterArn);
 
       ListServicesResult result = amazonECS.listServices(new ListServicesRequest().withCluster(ecsClusterName));
       for (String serviceArn: result.getServiceArns()) {
 
-        ServiceMetadata metadata = extractMetadataFromArn(serviceArn);
+        ServiceMetadata metadata = extractMetadataFromServiceArn(serviceArn);
         Set<Instance> instances = new HashSet<>();
 
-        DescribeLoadBalancersRequest loadBalancersRequest = new DescribeLoadBalancersRequest();
-        DescribeLoadBalancersResult loadBalancersResult = amazonELB.describeLoadBalancers(loadBalancersRequest);
-        List<LoadBalancer> loadBalancerDescriptionList = loadBalancersResult.getLoadBalancers();
-
-        AmazonLoadBalancer loadBalancer = new AmazonLoadBalancer();
-
-        for (LoadBalancer elb: loadBalancerDescriptionList) {
-          loadBalancer.setName(elb.getLoadBalancerName());
-        }
+        DescribeLoadBalancersResult loadBalancersResult = amazonELB.describeLoadBalancers(new DescribeLoadBalancersRequest());
+        Set<com.netflix.spinnaker.clouddriver.model.LoadBalancer> loadBalancers = extractLoadBalancersData(loadBalancersResult);
 
         ListTasksResult listTasksResult = amazonECS.listTasks(new ListTasksRequest().withServiceName(serviceArn).withCluster(ecsClusterName));
         if (listTasksResult.getTaskArns() != null && listTasksResult.getTaskArns().size() > 0) {
-
           DescribeTasksResult describeTasksResult = amazonECS.describeTasks(new DescribeTasksRequest().withCluster(ecsClusterName).withTasks(listTasksResult.getTaskArns()));
+
           for (Task task: describeTasksResult.getTasks()) {
-            instances.add(new EcsTask(task.getTaskArn().split("/")[1], task, containerInformationService.getEC2InstanceStatus(amazonEC2, containerInformationService.getContainerInstance(amazonECS, task))));
+            InstanceStatus ec2InstanceStatus = containerInformationService.getEC2InstanceStatus(amazonEC2, containerInformationService.getContainerInstance(amazonECS, task));
+            instances.add(new EcsTask(extractTaskIdFromTaskArn(task.getTaskArn()), task, ec2InstanceStatus));
           }
         }
 
-        EcsServerGroup ecsServerGroup = new EcsServerGroup()
-          .withName(metadata.applicationName + "-" +  metadata.cloudStack + "-" + metadata.serverGroupVersion) // This should be refactored using the `extract method` refactoring
-          .withCloudProvider("aws")
-          .withType("aws")
-          .withRegion("us-west-2")
-          .withInstances(instances);
-
-        EcsServerCluster spinnakerCluster = new EcsServerCluster()
-          .withAccountName(credentials.getName())
-          .withName(metadata.cloudStack)
-          .withLoadBalancers(Sets.newHashSet(loadBalancer))
-          .withServerGroups(Sets.newHashSet(ecsServerGroup));
-
+        EcsServerGroup ecsServerGroup = generateServerGroup(awsRegion, metadata, instances);
+        EcsServerCluster spinnakerCluster = generateSpinnakerServerCluster(credentials, metadata, loadBalancers, ecsServerGroup);
 
         if (clusterMap.get(metadata.applicationName) != null) {
           clusterMap.get(metadata.applicationName).add(spinnakerCluster);
@@ -162,14 +129,45 @@ public class EcsServerClusterProvider implements ClusterProvider<EcsServerCluste
     return clusterMap;
   }
 
-  private ServiceMetadata extractMetadataFromArn(String arn) {
+  private Set<com.netflix.spinnaker.clouddriver.model.LoadBalancer> extractLoadBalancersData(DescribeLoadBalancersResult loadBalancersResult) {
+    Set<com.netflix.spinnaker.clouddriver.model.LoadBalancer> loadBalancers = Sets.newHashSet();
+    for (LoadBalancer elb: loadBalancersResult.getLoadBalancers()) {
+      AmazonLoadBalancer loadBalancer = new AmazonLoadBalancer();
+      loadBalancer.setName(elb.getLoadBalancerName());
+      loadBalancers.add(loadBalancer);
+    }
+    return loadBalancers;
+  }
+
+  private EcsServerCluster generateSpinnakerServerCluster(AmazonCredentials credentials, ServiceMetadata metadata, Set<com.netflix.spinnaker.clouddriver.model.LoadBalancer> loadBalancers, EcsServerGroup ecsServerGroup) {
+    return new EcsServerCluster()
+          .withAccountName(credentials.getName())
+          .withName(metadata.cloudStack)
+          .withLoadBalancers(loadBalancers)
+          .withServerGroups(Sets.newHashSet(ecsServerGroup));
+  }
+
+  private EcsServerGroup generateServerGroup(AmazonCredentials.AWSRegion awsRegion, ServiceMetadata metadata, Set<Instance> instances) {
+    return new EcsServerGroup()
+          .withName(constructServerGroupName(metadata))
+          .withCloudProvider("aws")   // TODO - Implement ECS in Deck so we can stop tricking the front-end app here
+          .withType("aws")            // TODO - Implement ECS in Deck so we can stop tricking the front-end app here
+          .withRegion(awsRegion.getName())
+          .withInstances(instances);
+  }
+
+  private String constructServerGroupName(ServiceMetadata metadata) {
+    return metadata.applicationName + "-" +  metadata.cloudStack + "-" + metadata.serverGroupVersion; // TODO - support CLOUD_DETAIL variable
+  }
+
+  private ServiceMetadata extractMetadataFromServiceArn(String arn) {
     if (!arn.contains("/")) {
-      return null;
+      return null; // TODO - do a better verification,
     }
 
     String[] splitArn = arn.split("/");
     if (splitArn.length != 2) {
-      return null;
+      return null; // TODO - do a better verification,
     }
 
     String[] splitResourceName = splitArn[1].split("-");
@@ -192,38 +190,66 @@ public class EcsServerClusterProvider implements ClusterProvider<EcsServerCluste
     String serverGroupVersion;
   }
 
-  private String inferClusterNameFromArn(String clusterArn) {
+  private String inferClusterNameFromClusterArn(String clusterArn) {
     return clusterArn.split("/")[1];
   }
 
+  private String extractTaskIdFromTaskArn(String taskArn) {
+    return taskArn.split("/")[1];
+  }
+
+  /**
+   Temporary implementation to satisfy the interface's implementation.
+   This will be modified and updated properly once we finish the POC
+   */
   @Override
   public Map<String, Set<EcsServerCluster>> getClusterSummaries(String application) {
     return getClusters();
   }
 
+  /**
+   Temporary implementation to satisfy the interface's implementation.
+   This will be modified and updated properly once we finish the POC
+   */
   @Override
   public Map<String, Set<EcsServerCluster>> getClusterDetails(String application) {
     return getClusters();
   }
 
+  /**
+   Temporary implementation to satisfy the interface's implementation.
+   This will be modified and updated properly once we finish the POC
+   */
   @Override
   public Set<EcsServerCluster> getClusters(String application, String account) {
     return getClusters().get(application);
   }
 
+  /**
+   Temporary implementation to satisfy the interface's implementation.
+   This will be modified and updated properly once we finish the POC
+   */
   @Override
   public EcsServerCluster getCluster(String application, String account, String name) {
     return getClusters().get(application).iterator().next();
   }
 
+  /**
+   Temporary implementation to satisfy the interface's implementation.
+   This will be modified and updated properly once we finish the POC
+   */
   @Override
   public EcsServerCluster getCluster(String application, String account, String name, boolean includeDetails) {
     return getClusters().get(application).iterator().next();
   }
 
+  /**
+   Temporary implementation to satisfy the interface's implementation.
+   This will be modified and updated properly once we finish the POC
+   */
   @Override
   public ServerGroup getServerGroup(String account, String region, String name) {
-    return getClusters().get("springfun").iterator().next().getServerGroups().iterator().next();
+    return getClusters().get(name).iterator().next().getServerGroups().iterator().next();
   }
 
   @Override
@@ -231,6 +257,10 @@ public class EcsServerClusterProvider implements ClusterProvider<EcsServerCluste
     return EcsCloudProvider.ID;
   }
 
+  /**
+   Temporary implementation to satisfy the interface's implementation.
+   This will be modified and updated properly once we finish the POC
+   */
   @Override
   public boolean supportsMinimalClusters() {
     return false;
