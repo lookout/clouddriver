@@ -16,7 +16,6 @@
 
 package com.netflix.spinnaker.clouddriver.ecs.provider.view;
 
-import com.amazonaws.services.autoscaling.model.DescribeAutoScalingGroupsResult;
 import com.amazonaws.services.ec2.AmazonEC2;
 import com.amazonaws.services.ecs.AmazonECS;
 import com.amazonaws.services.ecs.model.DescribeTasksRequest;
@@ -26,6 +25,10 @@ import com.amazonaws.services.ecs.model.ListServicesResult;
 import com.amazonaws.services.ecs.model.ListTasksRequest;
 import com.amazonaws.services.ecs.model.ListTasksResult;
 import com.amazonaws.services.ecs.model.Task;
+import com.amazonaws.services.elasticloadbalancingv2.AmazonElasticLoadBalancing;
+import com.amazonaws.services.elasticloadbalancingv2.model.DescribeLoadBalancersRequest;
+import com.amazonaws.services.elasticloadbalancingv2.model.DescribeLoadBalancersResult;
+import com.amazonaws.services.elasticloadbalancingv2.model.LoadBalancer;
 import com.google.common.collect.Sets;
 import com.netflix.spinnaker.clouddriver.aws.model.AmazonLoadBalancer;
 import com.netflix.spinnaker.clouddriver.aws.security.AmazonClientProvider;
@@ -34,6 +37,7 @@ import com.netflix.spinnaker.clouddriver.ecs.EcsCloudProvider;
 import com.netflix.spinnaker.clouddriver.ecs.model.EcsServerCluster;
 import com.netflix.spinnaker.clouddriver.ecs.model.EcsServerGroup;
 import com.netflix.spinnaker.clouddriver.ecs.model.EcsTask;
+import com.netflix.spinnaker.clouddriver.ecs.services.ContainerInformationService;
 import com.netflix.spinnaker.clouddriver.model.ClusterProvider;
 import com.netflix.spinnaker.clouddriver.model.Instance;
 import com.netflix.spinnaker.clouddriver.model.ServerGroup;
@@ -42,33 +46,20 @@ import com.netflix.spinnaker.clouddriver.security.AccountCredentialsProvider;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.stereotype.Component;
 
-import java.util.HashMap;
-import java.util.HashSet;
-import java.util.Map;
-import java.util.Set;
+import java.util.*;
 
-import static com.netflix.spinnaker.clouddriver.ecs.view.EcsInstanceProvider.getContainerInstance;
-import static com.netflix.spinnaker.clouddriver.ecs.view.EcsInstanceProvider.getEC2InstanceStatus;
-
-/*
- Spinnaker    | AWS
- server group = services
- cluster = services for an environment like prod
-*/
 @Component
 public class EcsServerClusterProvider implements ClusterProvider<EcsServerCluster> {
 
-  @Autowired
-  AccountCredentialsProvider accountCredentialsProvider;
+  private AccountCredentialsProvider accountCredentialsProvider;
+  private AmazonClientProvider amazonClientProvider;
+  private ContainerInformationService containerInformationService;
 
   @Autowired
-  AmazonClientProvider amazonClientProvider;
-  private DescribeAutoScalingGroupsResult autoScalingGroupsResult;
-
-  @Autowired
-  public EcsServerClusterProvider(AccountCredentialsProvider accountCredentialsProvider, AmazonClientProvider amazonClientProvider) {
+  public EcsServerClusterProvider(AccountCredentialsProvider accountCredentialsProvider, AmazonClientProvider amazonClientProvider, ContainerInformationService containerInformationService) {
     this.accountCredentialsProvider = accountCredentialsProvider;
     this.amazonClientProvider = amazonClientProvider;
+    this.containerInformationService = containerInformationService;
     getClusters();
   }
 
@@ -112,28 +103,37 @@ public class EcsServerClusterProvider implements ClusterProvider<EcsServerCluste
       awsRegion.getName()
     );
 
+    AmazonElasticLoadBalancing amazonELB = amazonClientProvider.getAmazonElasticLoadBalancingV2(
+      credentials.getName(),
+      credentials.getCredentialsProvider(),
+      awsRegion.getName()
+    );
+
     for (String clusterArn: amazonECS.listClusters().getClusterArns()) {
       String ecsClusterName = inferClusterNameFromArn(clusterArn);
 
       ListServicesResult result = amazonECS.listServices(new ListServicesRequest().withCluster(ecsClusterName));
       for (String serviceArn: result.getServiceArns()) {
 
-        // Define all the server groups
-
         ServiceMetadata metadata = extractMetadataFromArn(serviceArn);
-
         Set<Instance> instances = new HashSet<>();
+
+        DescribeLoadBalancersRequest loadBalancersRequest = new DescribeLoadBalancersRequest();
+        DescribeLoadBalancersResult loadBalancersResult = amazonELB.describeLoadBalancers(loadBalancersRequest);
+        List<LoadBalancer> loadBalancerDescriptionList = loadBalancersResult.getLoadBalancers();
+
         AmazonLoadBalancer loadBalancer = new AmazonLoadBalancer();
-        loadBalancer.setName("LOAD-BALANCER-NAME");
 
-
+        for (LoadBalancer elb: loadBalancerDescriptionList) {
+          loadBalancer.setName(elb.getLoadBalancerName());
+        }
 
         ListTasksResult listTasksResult = amazonECS.listTasks(new ListTasksRequest().withServiceName(serviceArn).withCluster(ecsClusterName));
         if (listTasksResult.getTaskArns() != null && listTasksResult.getTaskArns().size() > 0) {
 
           DescribeTasksResult describeTasksResult = amazonECS.describeTasks(new DescribeTasksRequest().withCluster(ecsClusterName).withTasks(listTasksResult.getTaskArns()));
           for (Task task: describeTasksResult.getTasks()) {
-            instances.add(new EcsTask(task.getTaskArn().split("/")[1], task, getEC2InstanceStatus(amazonEC2, getContainerInstance(amazonECS, task))));
+            instances.add(new EcsTask(task.getTaskArn().split("/")[1], task, containerInformationService.getEC2InstanceStatus(amazonEC2, containerInformationService.getContainerInstance(amazonECS, task))));
           }
         }
 
