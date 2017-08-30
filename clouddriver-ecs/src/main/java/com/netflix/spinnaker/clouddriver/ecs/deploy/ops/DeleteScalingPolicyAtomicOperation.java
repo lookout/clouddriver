@@ -14,27 +14,28 @@
  * limitations under the License.
  */
 
-package com.netflix.spinnaker.clouddriver.ecs.deploy.handlers;
+package com.netflix.spinnaker.clouddriver.ecs.deploy.ops;
 
-import com.netflix.spinnaker.clouddriver.deploy.DeployDescription;
-import com.netflix.spinnaker.clouddriver.deploy.DeployHandler;
 import com.netflix.spinnaker.clouddriver.deploy.DeploymentResult;
-import com.netflix.spinnaker.clouddriver.ecs.deploy.description.BasicEcsDeployDescription;
+import com.netflix.spinnaker.clouddriver.ecs.deploy.description.DeleteScalingPolicyDescription;
+import com.netflix.spinnaker.clouddriver.orchestration.AtomicOperation;
 
 import java.util.List;
 
-public class BasicEcsDeployHandler implements DeployHandler<BasicEcsDeployDescription> {
+public class DeleteScalingPolicyAtomicOperation implements AtomicOperation<Void> {
 
-  @Override
-  public boolean handles(DeployDescription description) {
-    return description instanceof BasicEcsDeployDescription;
+  DeleteScalingPolicyDescription description;
+
+  public DeleteScalingPolicyAtomicOperation(DeleteScalingPolicyDescription description) {
+    this.description = description;
   }
 
   @Override
-  public DeploymentResult handle(BasicEcsDeployDescription description, List priorOutputs) {
+  public Void operate(List priorOutputs) {
 
-    //TODO - Implement this stub
+    // TODO - implement this stub
 
-    return new DeploymentResult();
+    return null;
   }
+
 }

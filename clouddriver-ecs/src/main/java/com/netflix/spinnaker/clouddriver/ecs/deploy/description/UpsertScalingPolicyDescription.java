@@ -14,12 +14,11 @@
  * limitations under the License.
  */
 
-package com.netflix.spinnaker.clouddriver.ecs;
+package com.netflix.spinnaker.clouddriver.ecs.deploy.description;
 
-import org.springframework.boot.context.properties.ConfigurationProperties;
+import com.netflix.spinnaker.clouddriver.aws.deploy.description.AbstractAmazonCredentialsDescription;
 
-@ConfigurationProperties("ecs")
-class EcsConfigurationProperties {
+public class UpsertScalingPolicyDescription extends AbstractAmazonCredentialsDescription {
 
-
+  // TODO - implement this stub
 }

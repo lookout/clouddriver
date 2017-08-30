@@ -24,9 +24,9 @@ import org.springframework.validation.Errors;
 
 import java.util.List;
 
-@EcsOperation(AtomicOperations.CREATE_SERVER_GROUP)
-@Component("ecsCreateServerGroupAtomicOperationValidator")
-public class EcsCreateServerGroupAtomicOperationValidator extends DescriptionValidator {
+@EcsOperation(AtomicOperations.CLONE_SERVER_GROUP)
+@Component("cloneServiceAtomicOperationValidator")
+public class CloneServiceAtomicOperationValidator extends DescriptionValidator {
 
   @Override
   public void validate(List priorDescriptions, Object description, Errors errors) {
