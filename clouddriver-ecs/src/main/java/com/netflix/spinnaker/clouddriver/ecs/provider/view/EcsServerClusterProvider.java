@@ -44,10 +44,16 @@ import com.netflix.spinnaker.clouddriver.model.Instance;
 import com.netflix.spinnaker.clouddriver.model.ServerGroup;
 import com.netflix.spinnaker.clouddriver.security.AccountCredentials;
 import com.netflix.spinnaker.clouddriver.security.AccountCredentialsProvider;
+import lombok.Data;
+import lombok.NoArgsConstructor;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.stereotype.Component;
 
-import java.util.*;
+import java.util.HashMap;
+import java.util.HashSet;
+import java.util.Map;
+import java.util.Set;
+
 
 @Component
 public class EcsServerClusterProvider implements ClusterProvider<EcsServerCluster> {
@@ -61,7 +67,6 @@ public class EcsServerClusterProvider implements ClusterProvider<EcsServerCluste
     this.accountCredentialsProvider = accountCredentialsProvider;
     this.amazonClientProvider = amazonClientProvider;
     this.containerInformationService = containerInformationService;
-    getClusters();
   }
 
   @Override
@@ -89,28 +94,39 @@ public class EcsServerClusterProvider implements ClusterProvider<EcsServerCluste
                                                                    AmazonCredentials credentials,
                                                                    AmazonCredentials.AWSRegion awsRegion) {
 
-    AmazonECS amazonECS = amazonClientProvider.getAmazonEcs(credentials.getName(), credentials.getCredentialsProvider(), awsRegion.getName());
-    AmazonEC2 amazonEC2 = amazonClientProvider.getAmazonEC2(credentials.getName(), credentials.getCredentialsProvider(), awsRegion.getName());
-    AmazonElasticLoadBalancing amazonELB = amazonClientProvider.getAmazonElasticLoadBalancingV2(credentials.getName(), credentials.getCredentialsProvider(), awsRegion.getName());
+    AmazonECS amazonECS = amazonClientProvider.getAmazonEcs(credentials.getName(),
+      credentials.getCredentialsProvider(),
+      awsRegion.getName());
+    AmazonEC2 amazonEC2 = amazonClientProvider.getAmazonEC2(credentials.getName(),
+      credentials.getCredentialsProvider(),
+      awsRegion.getName());
+    AmazonElasticLoadBalancing amazonELB = amazonClientProvider.getAmazonElasticLoadBalancingV2(credentials.getName(),
+      credentials.getCredentialsProvider(),
+      awsRegion.getName());
 
     for (String clusterArn: amazonECS.listClusters().getClusterArns()) {
-      String ecsClusterName = inferClusterNameFromClusterArn(clusterArn);
 
-      ListServicesResult result = amazonECS.listServices(new ListServicesRequest().withCluster(ecsClusterName));
+      ListServicesResult result = amazonECS.listServices(new ListServicesRequest().withCluster(clusterArn));
       for (String serviceArn: result.getServiceArns()) {
 
         ServiceMetadata metadata = extractMetadataFromServiceArn(serviceArn);
         Set<Instance> instances = new HashSet<>();
 
-        DescribeLoadBalancersResult loadBalancersResult = amazonELB.describeLoadBalancers(new DescribeLoadBalancersRequest());
-        Set<com.netflix.spinnaker.clouddriver.model.LoadBalancer> loadBalancers = extractLoadBalancersData(loadBalancersResult);
+        DescribeLoadBalancersResult loadBalancersResult = amazonELB.describeLoadBalancers(
+          new DescribeLoadBalancersRequest());
+        Set<com.netflix.spinnaker.clouddriver.model.LoadBalancer> loadBalancers
+          = extractLoadBalancersData(loadBalancersResult);
 
-        ListTasksResult listTasksResult = amazonECS.listTasks(new ListTasksRequest().withServiceName(serviceArn).withCluster(ecsClusterName));
+        ListTasksResult listTasksResult = amazonECS.listTasks(
+          new ListTasksRequest().withServiceName(serviceArn).withCluster(clusterArn));
         if (listTasksResult.getTaskArns() != null && listTasksResult.getTaskArns().size() > 0) {
-          DescribeTasksResult describeTasksResult = amazonECS.describeTasks(new DescribeTasksRequest().withCluster(ecsClusterName).withTasks(listTasksResult.getTaskArns()));
+          DescribeTasksResult describeTasksResult = amazonECS.describeTasks(
+            new DescribeTasksRequest().withCluster(clusterArn).withTasks(listTasksResult.getTaskArns()));
 
           for (Task task: describeTasksResult.getTasks()) {
-            InstanceStatus ec2InstanceStatus = containerInformationService.getEC2InstanceStatus(amazonEC2, containerInformationService.getContainerInstance(amazonECS, task));
+            InstanceStatus ec2InstanceStatus = containerInformationService.getEC2InstanceStatus(
+              amazonEC2,
+              containerInformationService.getContainerInstance(amazonECS, task));
             instances.add(new EcsTask(extractTaskIdFromTaskArn(task.getTaskArn()), task, ec2InstanceStatus));
           }
         }
@@ -129,7 +145,8 @@ public class EcsServerClusterProvider implements ClusterProvider<EcsServerCluste
     return clusterMap;
   }
 
-  private Set<com.netflix.spinnaker.clouddriver.model.LoadBalancer> extractLoadBalancersData(DescribeLoadBalancersResult loadBalancersResult) {
+  private Set<com.netflix.spinnaker.clouddriver.model.LoadBalancer> extractLoadBalancersData(
+    DescribeLoadBalancersResult loadBalancersResult) {
     Set<com.netflix.spinnaker.clouddriver.model.LoadBalancer> loadBalancers = Sets.newHashSet();
     for (LoadBalancer elb: loadBalancersResult.getLoadBalancers()) {
       AmazonLoadBalancer loadBalancer = new AmazonLoadBalancer();
@@ -139,21 +156,26 @@ public class EcsServerClusterProvider implements ClusterProvider<EcsServerCluste
     return loadBalancers;
   }
 
-  private EcsServerCluster generateSpinnakerServerCluster(AmazonCredentials credentials, ServiceMetadata metadata, Set<com.netflix.spinnaker.clouddriver.model.LoadBalancer> loadBalancers, EcsServerGroup ecsServerGroup) {
+  private EcsServerCluster generateSpinnakerServerCluster(AmazonCredentials credentials,
+                                                          ServiceMetadata metadata,
+                                                          Set<com.netflix.spinnaker.clouddriver.model.LoadBalancer> loadBalancers,
+                                                          EcsServerGroup ecsServerGroup) {
     return new EcsServerCluster()
-          .withAccountName(credentials.getName())
-          .withName(metadata.cloudStack)
-          .withLoadBalancers(loadBalancers)
-          .withServerGroups(Sets.newHashSet(ecsServerGroup));
+          .setAccountName(credentials.getName())
+          .setName(metadata.cloudStack)
+          .setLoadBalancers(loadBalancers)
+          .setServerGroups(Sets.newHashSet(ecsServerGroup));
   }
 
-  private EcsServerGroup generateServerGroup(AmazonCredentials.AWSRegion awsRegion, ServiceMetadata metadata, Set<Instance> instances) {
+  private EcsServerGroup generateServerGroup(AmazonCredentials.AWSRegion awsRegion,
+                                             ServiceMetadata metadata,
+                                             Set<Instance> instances) {
     return new EcsServerGroup()
-          .withName(constructServerGroupName(metadata))
-          .withCloudProvider("aws")   // TODO - Implement ECS in Deck so we can stop tricking the front-end app here
-          .withType("aws")            // TODO - Implement ECS in Deck so we can stop tricking the front-end app here
-          .withRegion(awsRegion.getName())
-          .withInstances(instances);
+          .setName(constructServerGroupName(metadata))
+          .setCloudProvider("aws")   // TODO - Implement ECS in Deck so we can stop tricking the front-end app here
+          .setType("aws")            // TODO - Implement ECS in Deck so we can stop tricking the front-end app here
+          .setRegion(awsRegion.getName())
+          .setInstances(instances);
   }
 
   private String constructServerGroupName(ServiceMetadata metadata) {
@@ -177,13 +199,16 @@ public class EcsServerClusterProvider implements ClusterProvider<EcsServerCluste
     }
 
     ServiceMetadata serviceMetadata = new ServiceMetadata();
-    serviceMetadata.applicationName = splitResourceName[0];
-    serviceMetadata.cloudStack = splitResourceName[1];
-    serviceMetadata.serverGroupVersion = splitResourceName[2];
+    serviceMetadata
+      .setApplicationName(splitResourceName[0])
+      .setCloudStack(splitResourceName[1])
+      .setServerGroupVersion(splitResourceName[2]);
 
     return serviceMetadata;
   }
 
+  @Data
+  @NoArgsConstructor
   class ServiceMetadata {
     String applicationName;
     String cloudStack;

@@ -21,11 +21,13 @@ import com.amazonaws.services.ecs.model.Task;
 import com.netflix.spinnaker.clouddriver.ecs.EcsCloudProvider;
 import com.netflix.spinnaker.clouddriver.model.HealthState;
 import com.netflix.spinnaker.clouddriver.model.Instance;
+import lombok.Data;
 
 import java.io.Serializable;
 import java.util.List;
 import java.util.Map;
 
+@Data
 public class EcsTask implements Instance, Serializable {
   private String name;
   private HealthState healthState;
@@ -69,40 +71,5 @@ public class EcsTask implements Instance, Serializable {
     }
 
     return currentState;
-  }
-
-  @Override
-  public String getZone() {
-    return zone;
-  }
-
-  @Override
-  public List<Map<String, String>> getHealth() {
-    return health;
-  }
-
-  @Override
-  public String getProviderType() {
-    return providerType;
-  }
-
-  @Override
-  public String getCloudProvider() {
-    return cloudProvider;
-  }
-
-  @Override
-  public Long getLaunchTime() {
-    return launchTime;
-  }
-
-  @Override
-  public HealthState getHealthState() {
-    return healthState;
-  }
-
-  @Override
-  public String getName() {
-    return name;
   }
 }

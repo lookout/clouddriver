@@ -21,17 +21,18 @@ import com.netflix.spinnaker.clouddriver.ecs.EcsCloudProvider;
 import com.netflix.spinnaker.clouddriver.model.Cluster;
 import com.netflix.spinnaker.clouddriver.model.LoadBalancer;
 import com.netflix.spinnaker.clouddriver.model.ServerGroup;
+import lombok.Data;
 
 import java.util.Collections;
 import java.util.HashSet;
 import java.util.Set;
 
-
+@Data
 public class EcsServerCluster implements Cluster {
 
-  private String name;
-
   private final String type = EcsCloudProvider.ID;
+
+  private String name;
 
   private String accountName;
 
@@ -42,53 +43,4 @@ public class EcsServerCluster implements Cluster {
   public EcsServerCluster() {
   }
 
-  public EcsServerCluster withName(String name) {
-    this.name = name;
-    return this;
-  }
-
-  public EcsServerCluster withAccountName(String accountName) {
-    this.accountName = accountName;
-    return this;
-  }
-
-  public EcsServerCluster withTargetGroups(Set<AmazonTargetGroup> targetGroups) {
-    this.targetGroups = targetGroups;
-    return this;
-  }
-
-  public EcsServerCluster withServerGroups(Set<ServerGroup> serverGroups) {
-    this.serverGroups = serverGroups;
-    return this;
-  }
-
-  public EcsServerCluster withLoadBalancers(Set<LoadBalancer> loadBalancers) {
-    this.loadBalancers = loadBalancers;
-    return this;
-  }
-
-  @Override
-  public String getName() {
-    return name;
-  }
-
-  @Override
-  public String getType() {
-    return type;
-  }
-
-  @Override
-  public String getAccountName() {
-    return accountName;
-  }
-
-  @Override
-  public Set<ServerGroup> getServerGroups() {
-    return serverGroups;
-  }
-
-  @Override
-  public Set<LoadBalancer> getLoadBalancers() {
-    return loadBalancers;
-  }
 }
