@@ -26,8 +26,6 @@ import com.amazonaws.services.cloudwatch.AmazonCloudWatch;
 import com.amazonaws.services.cloudwatch.AmazonCloudWatchClientBuilder;
 import com.amazonaws.services.ec2.AmazonEC2;
 import com.amazonaws.services.ec2.AmazonEC2ClientBuilder;
-import com.amazonaws.services.ecr.AmazonECR;
-import com.amazonaws.services.ecr.AmazonECRClientBuilder;
 import com.amazonaws.services.ecs.AmazonECS;
 import com.amazonaws.services.ecs.AmazonECSClientBuilder;
 import com.amazonaws.services.elasticloadbalancing.AmazonElasticLoadBalancing;
@@ -40,6 +38,8 @@ import com.amazonaws.services.lambda.AWSLambdaAsyncClientBuilder;
 import com.amazonaws.services.lambda.AWSLambdaClientBuilder;
 import com.amazonaws.services.route53.AmazonRoute53;
 import com.amazonaws.services.route53.AmazonRoute53ClientBuilder;
+import com.amazonaws.services.s3.AmazonS3;
+import com.amazonaws.services.s3.AmazonS3ClientBuilder;
 import com.amazonaws.services.simpleworkflow.AmazonSimpleWorkflow;
 import com.amazonaws.services.simpleworkflow.AmazonSimpleWorkflowClientBuilder;
 import com.amazonaws.services.sns.AmazonSNS;
@@ -47,10 +47,14 @@ import com.amazonaws.services.sns.AmazonSNSClientBuilder;
 import com.amazonaws.services.sqs.AmazonSQS;
 import com.amazonaws.services.sqs.AmazonSQSClientBuilder;
 import com.fasterxml.jackson.databind.ObjectMapper;
-import com.netflix.awsobjectmapper.AmazonObjectMapperConfigurer;
 import com.netflix.spectator.api.NoopRegistry;
 import com.netflix.spectator.api.Registry;
-import com.netflix.spinnaker.clouddriver.aws.security.sdkclient.*;
+import com.netflix.awsobjectmapper.AmazonObjectMapperConfigurer;
+import com.netflix.spinnaker.clouddriver.aws.security.sdkclient.AmazonClientInvocationHandler;
+import com.netflix.spinnaker.clouddriver.aws.security.sdkclient.AwsSdkClientSupplier;
+import com.netflix.spinnaker.clouddriver.aws.security.sdkclient.ProxyHandlerBuilder;
+import com.netflix.spinnaker.clouddriver.aws.security.sdkclient.RateLimiterSupplier;
+import com.netflix.spinnaker.clouddriver.aws.security.sdkclient.SpinnakerAwsRegionProvider;
 import com.netflix.spinnaker.clouddriver.core.limits.ServiceLimitConfiguration;
 import com.netflix.spinnaker.clouddriver.core.limits.ServiceLimitConfigurationBuilder;
 import org.apache.http.client.HttpClient;
@@ -281,10 +285,6 @@ public class AmazonClientProvider {
     return awsSdkClientSupplier.getClient(AmazonECSClientBuilder.class, AmazonECS.class, accountName, awsCredentialsProvider, region);
   }
 
-  public AmazonECR getAmazonEcr(String accountName, AWSCredentialsProvider awsCredentialsProvider, String region) {
-    return awsSdkClientSupplier.getClient(AmazonECRClientBuilder.class, AmazonECR.class, accountName, awsCredentialsProvider, region);
-  }
-
   public AWSLambda getAmazonLambda(NetflixAmazonCredentials amazonCredentials, String region) {
     return proxyHandlerBuilder.getProxyHandler(AWSLambda.class, AWSLambdaClientBuilder.class, amazonCredentials, region);
   }
@@ -299,6 +299,10 @@ public class AmazonClientProvider {
 
   public AWSLambdaAsync getAmazonLambdaAsync(String accountName, AWSCredentialsProvider awsCredentialsProvider, String region) {
     return awsSdkClientSupplier.getClient(AWSLambdaAsyncClientBuilder.class, AWSLambdaAsync.class, accountName, awsCredentialsProvider, region);
+  }
+
+  public AmazonS3 getAmazonS3(NetflixAmazonCredentials amazonCredentials, String region) {
+    return proxyHandlerBuilder.getProxyHandler(AmazonS3.class, AmazonS3ClientBuilder.class, amazonCredentials, region, true);
   }
 
   public AmazonAutoScaling getAutoScaling(NetflixAmazonCredentials amazonCredentials, String region) {
