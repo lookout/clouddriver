@@ -19,13 +19,7 @@ package com.netflix.spinnaker.clouddriver.ecs.provider.view;
 import com.amazonaws.services.ec2.AmazonEC2;
 import com.amazonaws.services.ec2.model.InstanceStatus;
 import com.amazonaws.services.ecs.AmazonECS;
-import com.amazonaws.services.ecs.model.DescribeTasksRequest;
-import com.amazonaws.services.ecs.model.DescribeTasksResult;
-import com.amazonaws.services.ecs.model.ListServicesRequest;
-import com.amazonaws.services.ecs.model.ListServicesResult;
-import com.amazonaws.services.ecs.model.ListTasksRequest;
-import com.amazonaws.services.ecs.model.ListTasksResult;
-import com.amazonaws.services.ecs.model.Task;
+import com.amazonaws.services.ecs.model.*;
 import com.amazonaws.services.elasticloadbalancingv2.AmazonElasticLoadBalancing;
 import com.amazonaws.services.elasticloadbalancingv2.model.DescribeLoadBalancersRequest;
 import com.amazonaws.services.elasticloadbalancingv2.model.DescribeLoadBalancersResult;
@@ -131,7 +125,15 @@ public class EcsServerClusterProvider implements ClusterProvider<EcsServerCluste
           }
         }
 
-        EcsServerGroup ecsServerGroup = generateServerGroup(awsRegion, metadata, instances);
+        DescribeServicesResult describeServicesResult =
+          amazonECS.describeServices(new DescribeServicesRequest().withCluster(clusterArn).withServices(serviceArn));
+        ServerGroup.Capacity capacity = new ServerGroup.Capacity();
+        capacity.setDesired(describeServicesResult.getServices().get(0).getDesiredCount());
+        capacity.setMin(describeServicesResult.getServices().get(0).getDesiredCount());  // TODO - perhaps we want to look at the % min and max for the service?
+        capacity.setMax(describeServicesResult.getServices().get(0).getDesiredCount());  // TODO - perhaps we want to look at the % min and max for the service?
+
+
+        EcsServerGroup ecsServerGroup = generateServerGroup(awsRegion, metadata, instances, capacity);
         EcsServerCluster spinnakerCluster = generateSpinnakerServerCluster(credentials, metadata, loadBalancers, ecsServerGroup);
 
         if (clusterMap.get(metadata.applicationName) != null) {
@@ -169,13 +171,16 @@ public class EcsServerClusterProvider implements ClusterProvider<EcsServerCluste
 
   private EcsServerGroup generateServerGroup(AmazonCredentials.AWSRegion awsRegion,
                                              ServiceMetadata metadata,
-                                             Set<Instance> instances) {
+                                             Set<Instance> instances,
+                                             ServerGroup.Capacity capacity) {
     return new EcsServerGroup()
-          .setName(constructServerGroupName(metadata))
-          .setCloudProvider("aws")   // TODO - Implement ECS in Deck so we can stop tricking the front-end app here
-          .setType("aws")            // TODO - Implement ECS in Deck so we can stop tricking the front-end app here
-          .setRegion(awsRegion.getName())
-          .setInstances(instances);
+      .setName(constructServerGroupName(metadata))
+      .setCloudProvider("ecs")   // TODO - Implement ECS in Deck so we can stop tricking the front-end app here
+      .setType("ecs")            // TODO - Implement ECS in Deck so we can stop tricking the front-end app here
+      .setRegion(awsRegion.getName())
+      .setInstances(instances)
+      .setCapacity(capacity)
+      ;
   }
 
   private String constructServerGroupName(ServiceMetadata metadata) {
@@ -281,7 +286,7 @@ public class EcsServerClusterProvider implements ClusterProvider<EcsServerCluste
    */
   @Override
   public ServerGroup getServerGroup(String account, String region, String name) {
-    return getClusters().get(name).iterator().next().getServerGroups().iterator().next();
+    return getClusters().get("orcafix").iterator().next().getServerGroups().iterator().next();  // TODO - implement this properly since it is required for deployments!
   }
 
   @Override

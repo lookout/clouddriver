@@ -14,26 +14,7 @@
  * limitations under the License.
  */
 
-package com.netflix.spinnaker.clouddriver.ecs.deploy.description;
+package com.netflix.spinnaker.clouddriver.ecs.view;
 
-import com.netflix.spinnaker.clouddriver.model.ServerGroup;
-import lombok.Data;
-
-import java.util.List;
-
-@Data
-public class CreateServerGroupDescription extends AbstractECSDescription {
-  String ecsClusterName;
-  String iamRole;
-  Integer containerPort;
-  List<String> targetGroups;
-  List<String> securityGroups;
-
-  String serverGroupVersion;
-  String portProtocol;
-
-  Integer computeUnits;
-  Integer reservedMemory;
-
-  ServerGroup.Capacity capacity;
+public class InstanceHealthProvider {
 }

@@ -14,16 +14,21 @@ import com.netflix.spinnaker.clouddriver.aws.security.AmazonClientProvider;
 import com.netflix.spinnaker.clouddriver.aws.security.AmazonCredentials;
 import com.netflix.spinnaker.clouddriver.data.task.Task;
 import com.netflix.spinnaker.clouddriver.data.task.TaskRepository;
+import com.netflix.spinnaker.clouddriver.deploy.DeploymentResult;
 import com.netflix.spinnaker.clouddriver.ecs.deploy.description.CreateServerGroupDescription;
 import com.netflix.spinnaker.clouddriver.orchestration.AtomicOperation;
 import com.netflix.spinnaker.clouddriver.security.AccountCredentialsProvider;
 import org.springframework.beans.factory.annotation.Autowired;
 
+import java.util.Arrays;
 import java.util.Collection;
+import java.util.HashMap;
 import java.util.LinkedList;
 import java.util.List;
+import java.util.Map;
+import java.util.Random;
 
-public class CreateServerGroupAtomicOperation implements AtomicOperation<Void> {
+public class CreateServerGroupAtomicOperation implements AtomicOperation<DeploymentResult> {
   private static final String BASE_PHASE = "CREATE_ECS_SERVER_GROUP";
 
   private static final String DOCKER_IMAGE = "769716316905.dkr.ecr.us-west-2.amazonaws.com/continuous-delivery:latest";
@@ -48,7 +53,7 @@ public class CreateServerGroupAtomicOperation implements AtomicOperation<Void> {
   }
 
   @Override
-  public Void operate(List priorOutputs) {
+  public DeploymentResult operate(List priorOutputs) {
     getTask().updateStatus(BASE_PHASE, "Initializing Create Amazon ECS Server Group Operation...");
     AmazonCredentials credentials = (AmazonCredentials) accountCredentialsProvider.getCredentials(description.getCredentialAccount());
     // TODO: Remove the ternary operator when region is fixed.
@@ -64,17 +69,19 @@ public class CreateServerGroupAtomicOperation implements AtomicOperation<Void> {
     loadBalancer.setContainerName(CONTAINER_NAME);
     loadBalancer.setContainerPort(description.getContainerPort());
     String targetGroupARN = TARGET_GROUP_ARN;
-    if (description.getTargetGroups() != null && description.getTargetGroups().size() > 0) {
-      targetGroupARN = description.getTargetGroups().get(0);
-    }
+//    if (description.getTargetGroups() != null && description.getTargetGroups().size() > 0) {
+//      targetGroupARN = description.getTargetGroups().get(0);  // TODO -
+//    }
     loadBalancer.setTargetGroupArn(targetGroupARN);
 
     Collection<LoadBalancer> loadBalancers = new LinkedList<>();
     loadBalancers.add(loadBalancer);
 
+    String serviceName = familyName + "-" + new Random().nextInt(1000);
+
     CreateServiceRequest request = new CreateServiceRequest();
-    request.setServiceName(familyName + "-" + APP_VERSION);
-    request.setDesiredCount(description.getDesiredCount() != null ? description.getDesiredCount() : 0);
+    request.setServiceName(serviceName);
+    request.setDesiredCount(description.getCapacity().getDesired()!= null ? description.getCapacity().getDesired() : 1);
     request.setCluster(description.getEcsClusterName());
     request.setRole(description.getIamRole());
     request.setDeploymentConfiguration(deploymentConfiguration);
@@ -82,13 +89,22 @@ public class CreateServerGroupAtomicOperation implements AtomicOperation<Void> {
     request.setTaskDefinition(taskDefinition.getTaskDefinitionArn());
 
 
-    getTask().updateStatus(BASE_PHASE, "Creating " + description.getDesiredCount() + " of " + familyName +
+    getTask().updateStatus(BASE_PHASE, "Creating " + description.getCapacity().getDesired() + " of " + familyName +
       " with " + taskDefinition.getTaskDefinitionArn() + " for " + description.getCredentialAccount() + ".");
     ecs.createService(request);
-    getTask().updateStatus(BASE_PHASE, "Done creating " + description.getDesiredCount() + " of " + familyName +
+    getTask().updateStatus(BASE_PHASE, "Done creating " + description.getCapacity().getDesired() + " of " + familyName +
       " with " + taskDefinition.getTaskDefinitionArn() + " for " + description.getCredentialAccount() + ".");
 
-    return null;
+    String serverGroupName = REGION + ":" + serviceName;  // See in Orca MonitorKatoTask#getServerGroupNames for a reason for this
+
+    DeploymentResult result = new DeploymentResult();
+    result.setServerGroupNames(Arrays.asList(serverGroupName));
+    Map<String, String> namesByRegion = new HashMap<>();
+    namesByRegion.put(REGION, serviceName);
+
+    result.setServerGroupNameByRegion(namesByRegion);
+
+    return result;
   }
 
   private TaskDefinition registerTaskDefinition(AmazonECS ecs) {
@@ -136,7 +152,6 @@ public class CreateServerGroupAtomicOperation implements AtomicOperation<Void> {
     getTask().updateStatus(BASE_PHASE, "Creating Amazon ECS Task Definition...");
     RegisterTaskDefinitionResult registerTaskDefinitionResult = ecs.registerTaskDefinition(registerTaskDefinitionRequest);
     getTask().updateStatus(BASE_PHASE, "Done creating Amazon ECS Task Definition...");
-
     return registerTaskDefinitionResult.getTaskDefinition();
   }
 
