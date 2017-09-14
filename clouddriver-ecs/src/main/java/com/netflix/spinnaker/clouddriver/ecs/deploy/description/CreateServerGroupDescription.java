@@ -35,5 +35,7 @@ public class CreateServerGroupDescription extends AbstractECSDescription {
   Integer computeUnits;
   Integer reservedMemory;
 
+  String imageId;
+
   ServerGroup.Capacity capacity;
 }

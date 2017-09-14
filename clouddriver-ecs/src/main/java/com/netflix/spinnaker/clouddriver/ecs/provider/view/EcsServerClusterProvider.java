@@ -45,6 +45,7 @@ import org.springframework.stereotype.Component;
 
 import java.util.HashMap;
 import java.util.HashSet;
+import java.util.List;
 import java.util.Map;
 import java.util.Set;
 
@@ -121,7 +122,9 @@ public class EcsServerClusterProvider implements ClusterProvider<EcsServerCluste
             InstanceStatus ec2InstanceStatus = containerInformationService.getEC2InstanceStatus(
               amazonEC2,
               containerInformationService.getContainerInstance(amazonECS, task));
-            instances.add(new EcsTask(extractTaskIdFromTaskArn(task.getTaskArn()), task, ec2InstanceStatus));
+
+            List<Map<String, String>> healthStatus = containerInformationService.getHealthStatus(task.getTaskArn(), serviceArn, "continuous-delivery", "us-west-2");
+            instances.add(new EcsTask(extractTaskIdFromTaskArn(task.getTaskArn()), task, ec2InstanceStatus, healthStatus));
           }
         }
 

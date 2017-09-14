@@ -24,17 +24,57 @@ import com.amazonaws.services.ec2.model.InstanceStatus;
 import com.amazonaws.services.ecs.AmazonECS;
 import com.amazonaws.services.ecs.model.ContainerInstance;
 import com.amazonaws.services.ecs.model.DescribeContainerInstancesRequest;
+import com.amazonaws.services.ecs.model.DescribeServicesRequest;
+import com.amazonaws.services.ecs.model.DescribeServicesResult;
 import com.amazonaws.services.ecs.model.InvalidParameterException;
 import com.amazonaws.services.ecs.model.Task;
+import com.netflix.spinnaker.clouddriver.aws.security.AmazonClientProvider;
+import com.netflix.spinnaker.clouddriver.aws.security.NetflixAmazonCredentials;
+import com.netflix.spinnaker.clouddriver.security.AccountCredentialsProvider;
+import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.stereotype.Component;
 
 import java.util.ArrayList;
+import java.util.HashMap;
 import java.util.List;
+import java.util.Map;
 
 @Component
 public class ContainerInformationService {
 
-    public ContainerInstance getContainerInstance(AmazonECS amazonECS, Task task) {
+  @Autowired
+  private AccountCredentialsProvider accountCredentialsProvider;
+
+  @Autowired
+  private AmazonClientProvider amazonClientProvider;
+
+
+  public List<Map<String, String>> getHealthStatus(String taskId, String serviceArn, String accountName, String region) {
+    // TODO - remove the cheese here
+
+    NetflixAmazonCredentials accountCredentials = (NetflixAmazonCredentials) accountCredentialsProvider.getCredentials(accountName);
+    AmazonECS amazonECS = amazonClientProvider.getAmazonEcs(accountName, accountCredentials.getCredentialsProvider(), region);
+
+//    DescribeServicesResult describeServicesResult = amazonECS.describeServices(new DescribeServicesRequest().withServices(serviceArn));
+
+    List<Map<String, String>> healthMetrics = new ArrayList<>();
+    Map<String, String> loadBalancerHealth = new HashMap<>();
+    loadBalancerHealth.put("instanceId", taskId);
+    loadBalancerHealth.put("state", "Up");
+    loadBalancerHealth.put("type", "loadBalancer");
+
+    Map<String, String> firstLoadBalancer = new HashMap<>();
+    firstLoadBalancer.put("healthState", "Up");
+    firstLoadBalancer.put("instanceId", "i-055cc597eec0597eb");
+    firstLoadBalancer.put("loadBalancerName", "ALB-Name");
+    firstLoadBalancer.put("loadBalancerType", "classic");
+    firstLoadBalancer.put("state", "InService");
+
+    healthMetrics.add(loadBalancerHealth);
+    return healthMetrics;
+  }
+
+  public ContainerInstance getContainerInstance(AmazonECS amazonECS, Task task) {
     if (task == null) {
       return null;
     }

@@ -21,6 +21,7 @@ import org.springframework.stereotype.Component;
 
 import java.util.ArrayList;
 import java.util.List;
+import java.util.Map;
 
 
 @Component
@@ -59,7 +60,8 @@ public class EcsInstanceProvider implements InstanceProvider<EcsTask> {
     InstanceStatus instanceStatus = containerInformationService.getEC2InstanceStatus(amazonEC2, containerInformationService.getContainerInstance(amazonECS, ecsTask));
 
     if (ecsTask != null && instanceStatus != null) {
-      ecsInstance = new EcsTask(id, ecsTask, instanceStatus);
+      List<Map<String, String>> healthStatus = containerInformationService.getHealthStatus(ecsTask.getTaskArn(), null, "continuous-delivery", "us-west-2");  // TODO - remove the null and replace it with a valid value
+      ecsInstance = new EcsTask(id, ecsTask, instanceStatus, null);
     }
 
     return ecsInstance;
