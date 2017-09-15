@@ -29,7 +29,6 @@ import java.util.HashMap;
 import java.util.LinkedList;
 import java.util.List;
 import java.util.Map;
-import java.util.Random;
 
 public class CreateServerGroupAtomicOperation implements AtomicOperation<DeploymentResult> {
   private static final String BASE_PHASE = "CREATE_ECS_SERVER_GROUP";
@@ -121,13 +120,9 @@ public class CreateServerGroupAtomicOperation implements AtomicOperation<Deploym
       String lastPortionOfSplitName = splitName[splitName.length - 1];
       lastPortionOfSplitName = lastPortionOfSplitName.replace("v", "");
 
-      String numberAsText = String.valueOf(Integer.valueOf(lastPortionOfSplitName) + 1);
-      while (numberAsText.length() < 4) {
-        numberAsText = "0" + numberAsText;
-      }
+      String numberAsText = String.format("v%04d", (Integer.valueOf(lastPortionOfSplitName) + 1));
 
-      String newVersion = "v" + numberAsText;
-      return newVersion;
+      return numberAsText;
     }
   }
 
