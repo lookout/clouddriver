@@ -20,6 +20,7 @@ import com.netflix.spinnaker.clouddriver.model.ServerGroup;
 import lombok.Data;
 
 import java.util.List;
+import java.util.Map;
 
 @Data
 public class CreateServerGroupDescription extends AbstractECSDescription {
@@ -35,7 +36,16 @@ public class CreateServerGroupDescription extends AbstractECSDescription {
   Integer computeUnits;
   Integer reservedMemory;
 
-  String imageId;
+  String dockerImageAddress;
 
   ServerGroup.Capacity capacity;
+
+  Source source;
+
+  Map<String, List<String>> availabilityZones;
+
+  @Data
+  public class Source {
+    String asgName, serverGroupName, account, region, useSourceCapacity;
+  }
 }

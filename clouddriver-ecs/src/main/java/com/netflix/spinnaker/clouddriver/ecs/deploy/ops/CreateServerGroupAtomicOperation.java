@@ -10,6 +10,9 @@ import com.amazonaws.services.ecs.model.PortMapping;
 import com.amazonaws.services.ecs.model.RegisterTaskDefinitionRequest;
 import com.amazonaws.services.ecs.model.RegisterTaskDefinitionResult;
 import com.amazonaws.services.ecs.model.TaskDefinition;
+import com.amazonaws.services.elasticloadbalancingv2.AmazonElasticLoadBalancing;
+import com.amazonaws.services.elasticloadbalancingv2.model.DescribeTargetGroupsRequest;
+import com.amazonaws.services.elasticloadbalancingv2.model.DescribeTargetGroupsResult;
 import com.netflix.spinnaker.clouddriver.aws.security.AmazonClientProvider;
 import com.netflix.spinnaker.clouddriver.aws.security.AmazonCredentials;
 import com.netflix.spinnaker.clouddriver.data.task.Task;
@@ -31,12 +34,6 @@ import java.util.Random;
 public class CreateServerGroupAtomicOperation implements AtomicOperation<DeploymentResult> {
   private static final String BASE_PHASE = "CREATE_ECS_SERVER_GROUP";
 
-  private static final String DOCKER_IMAGE = "769716316905.dkr.ecr.us-west-2.amazonaws.com/continuous-delivery:latest";
-  private static final String TARGET_GROUP_ARN = "arn:aws:elasticloadbalancing:us-west-2:769716316905:targetgroup/ecs-poc-test/9e8997b7cff00c62";
-  private static final String REGION = "us-west-2";
-  private static final String CONTAINER_NAME = "springfun-yay";
-  private static final String APP_VERSION = "v1337";
-
   private final CreateServerGroupDescription description;
 
   @Autowired
@@ -56,28 +53,37 @@ public class CreateServerGroupAtomicOperation implements AtomicOperation<Deploym
   public DeploymentResult operate(List priorOutputs) {
     getTask().updateStatus(BASE_PHASE, "Initializing Create Amazon ECS Server Group Operation...");
     AmazonCredentials credentials = (AmazonCredentials) accountCredentialsProvider.getCredentials(description.getCredentialAccount());
-    // TODO: Remove the ternary operator when region is fixed.
-    AmazonECS ecs = amazonClientProvider.getAmazonEcs(description.getCredentialAccount(), credentials.getCredentialsProvider(), description.getRegion() != null ? description.getRegion() : REGION);
+
     String familyName = getFamilyName();
-    TaskDefinition taskDefinition = registerTaskDefinition(ecs);
+    String serviceName = familyName + "-" + inferServergroupVersion();
+
+    if (description.getAvailabilityZones().size() != 1) {
+      throw new Error(String.format("You must specify exactly 1 region to be used.  You specified %s region(s)"));
+    }
+
+    String region = description.getAvailabilityZones().keySet().iterator().next();
+    AmazonECS ecs = amazonClientProvider.getAmazonEcs(description.getCredentialAccount(), credentials.getCredentialsProvider(), region);
+    TaskDefinition taskDefinition = registerTaskDefinition(ecs, serviceName);
 
     DeploymentConfiguration deploymentConfiguration = new DeploymentConfiguration();
     deploymentConfiguration.setMinimumHealthyPercent(50);
     deploymentConfiguration.setMaximumPercent(100);
 
     LoadBalancer loadBalancer = new LoadBalancer();
-    loadBalancer.setContainerName(CONTAINER_NAME);
+    loadBalancer.setContainerName(inferServergroupVersion());
     loadBalancer.setContainerPort(description.getContainerPort());
-    String targetGroupARN = TARGET_GROUP_ARN;
-//    if (description.getTargetGroups() != null && description.getTargetGroups().size() > 0) {
-//      targetGroupARN = description.getTargetGroups().get(0);  // TODO -
-//    }
-    loadBalancer.setTargetGroupArn(targetGroupARN);
+
+    if (description.getTargetGroups().size() == 1) {
+      AmazonElasticLoadBalancing loadBalancingV2 = amazonClientProvider.getAmazonElasticLoadBalancingV2(description.getCredentialAccount(), credentials.getCredentialsProvider(), region);
+      String targetGroupName = description.getTargetGroups().get(0);  // TODO - make target group a single value field in Deck instead of an array here
+      DescribeTargetGroupsResult describeTargetGroupsResult = loadBalancingV2.describeTargetGroups(new DescribeTargetGroupsRequest().withNames(targetGroupName));
+      loadBalancer.setTargetGroupArn(describeTargetGroupsResult.getTargetGroups().get(0).getTargetGroupArn());
+    }
 
     Collection<LoadBalancer> loadBalancers = new LinkedList<>();
     loadBalancers.add(loadBalancer);
 
-    String serviceName = familyName + "-" + new Random().nextInt(1000);
+
 
     CreateServiceRequest request = new CreateServiceRequest();
     request.setServiceName(serviceName);
@@ -95,19 +101,37 @@ public class CreateServerGroupAtomicOperation implements AtomicOperation<Deploym
     getTask().updateStatus(BASE_PHASE, "Done creating " + description.getCapacity().getDesired() + " of " + familyName +
       " with " + taskDefinition.getTaskDefinitionArn() + " for " + description.getCredentialAccount() + ".");
 
-    String serverGroupName = REGION + ":" + serviceName;  // See in Orca MonitorKatoTask#getServerGroupNames for a reason for this
+    String serverGroupName = region + ":" + serviceName;  // See in Orca MonitorKatoTask#getServerGroupNames for a reason for this
 
     DeploymentResult result = new DeploymentResult();
     result.setServerGroupNames(Arrays.asList(serverGroupName));
     Map<String, String> namesByRegion = new HashMap<>();
-    namesByRegion.put(REGION, serviceName);
+    namesByRegion.put(region, serviceName);
 
     result.setServerGroupNameByRegion(namesByRegion);
 
     return result;
   }
 
-  private TaskDefinition registerTaskDefinition(AmazonECS ecs) {
+  private String inferServergroupVersion() {
+    if (description.getSource() == null) {
+      return "v0001";
+    } else {
+      String[] splitName = description.getSource().getServerGroupName().split("-");
+      String lastPortionOfSplitName = splitName[splitName.length - 1];
+      lastPortionOfSplitName = lastPortionOfSplitName.replace("v", "");
+
+      String numberAsText = String.valueOf(Integer.valueOf(lastPortionOfSplitName) + 1);
+      while (numberAsText.length() < 4) {
+        numberAsText = "0" + numberAsText;
+      }
+
+      String newVersion = "v" + numberAsText;
+      return newVersion;
+    }
+  }
+
+  private TaskDefinition registerTaskDefinition(AmazonECS ecs, String serviceName) {
     KeyValuePair serverGroupEnv = new KeyValuePair();
     serverGroupEnv.setName("SERVER_GROUP");
     serverGroupEnv.setValue(description.getServerGroupVersion());
@@ -138,8 +162,8 @@ public class CreateServerGroupAtomicOperation implements AtomicOperation<Deploym
     containerDefinition.setPortMappings(portMappings);
     containerDefinition.setCpu(description.getComputeUnits());
     containerDefinition.setMemoryReservation(description.getReservedMemory());
-    containerDefinition.setImage(DOCKER_IMAGE);
-    containerDefinition.setName(CONTAINER_NAME);
+    containerDefinition.setImage(description.getDockerImageAddress());
+    containerDefinition.setName(inferServergroupVersion());
 
     Collection<ContainerDefinition> containerDefinitions = new LinkedList<>();
     containerDefinitions.add(containerDefinition);
@@ -148,7 +172,6 @@ public class CreateServerGroupAtomicOperation implements AtomicOperation<Deploym
     registerTaskDefinitionRequest.setContainerDefinitions(containerDefinitions);
     registerTaskDefinitionRequest.setFamily(getFamilyName());
 
-    //TODO: add security group to the task def.
     getTask().updateStatus(BASE_PHASE, "Creating Amazon ECS Task Definition...");
     RegisterTaskDefinitionResult registerTaskDefinitionResult = ecs.registerTaskDefinition(registerTaskDefinitionRequest);
     getTask().updateStatus(BASE_PHASE, "Done creating Amazon ECS Task Definition...");

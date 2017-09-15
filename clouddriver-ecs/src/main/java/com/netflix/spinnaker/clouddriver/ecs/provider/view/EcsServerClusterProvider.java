@@ -123,7 +123,7 @@ public class EcsServerClusterProvider implements ClusterProvider<EcsServerCluste
               amazonEC2,
               containerInformationService.getContainerInstance(amazonECS, task));
 
-            List<Map<String, String>> healthStatus = containerInformationService.getHealthStatus(task.getTaskArn(), serviceArn, "continuous-delivery", "us-west-2");
+            List<Map<String, String>> healthStatus = containerInformationService.getHealthStatus(clusterArn, task.getTaskArn(), serviceArn, "continuous-delivery", "us-west-2");
             instances.add(new EcsTask(extractTaskIdFromTaskArn(task.getTaskArn()), task, ec2InstanceStatus, healthStatus));
           }
         }
@@ -178,8 +178,8 @@ public class EcsServerClusterProvider implements ClusterProvider<EcsServerCluste
                                              ServerGroup.Capacity capacity) {
     return new EcsServerGroup()
       .setName(constructServerGroupName(metadata))
-      .setCloudProvider("ecs")   // TODO - Implement ECS in Deck so we can stop tricking the front-end app here
-      .setType("ecs")            // TODO - Implement ECS in Deck so we can stop tricking the front-end app here
+      .setCloudProvider(EcsCloudProvider.ID)
+      .setType(EcsCloudProvider.ID)
       .setRegion(awsRegion.getName())
       .setInstances(instances)
       .setCapacity(capacity)
@@ -187,7 +187,15 @@ public class EcsServerClusterProvider implements ClusterProvider<EcsServerCluste
   }
 
   private String constructServerGroupName(ServiceMetadata metadata) {
-    return metadata.applicationName + "-" +  metadata.cloudStack + "-" + metadata.serverGroupVersion; // TODO - support CLOUD_DETAIL variable
+    StringBuilder stringBuilder = new StringBuilder();
+    stringBuilder.append(metadata.applicationName).append("-");
+
+    if (metadata.cloudStack != null) {
+      stringBuilder.append(metadata.cloudStack).append("-");
+    }
+
+    stringBuilder.append(metadata.serverGroupVersion);
+    return stringBuilder.toString(); // TODO - support CLOUD_DETAIL variable
   }
 
   private ServiceMetadata extractMetadataFromServiceArn(String arn) {
@@ -288,8 +296,24 @@ public class EcsServerClusterProvider implements ClusterProvider<EcsServerCluste
    This will be modified and updated properly once we finish the POC
    */
   @Override
-  public ServerGroup getServerGroup(String account, String region, String name) {
-    return getClusters().get("orcafix").iterator().next().getServerGroups().iterator().next();  // TODO - implement this properly since it is required for deployments!
+  public ServerGroup getServerGroup(String account, String region, String serverGroupName) {
+    // TODO - use a caching system, and also check for account which is currently not the case here
+    Map<String, Set<EcsServerCluster>> clusters = getClusters();
+
+    for (Map.Entry<String, Set<EcsServerCluster>> entry: clusters.entrySet()) {
+      if (entry.getKey().equals(serverGroupName.split("-")[0])) {
+        for (EcsServerCluster ecsServerCluster: entry.getValue()) {
+          for (ServerGroup serverGroup: ecsServerCluster.getServerGroups()) {
+            if (region.equals(serverGroup.getRegion())
+                  && serverGroupName.equals(serverGroup.getName())) {
+              return serverGroup;
+            }
+          }
+        }
+      }
+    }
+
+    throw new Error(String.format("Server group %s not found", serverGroupName));
   }
 
   @Override
