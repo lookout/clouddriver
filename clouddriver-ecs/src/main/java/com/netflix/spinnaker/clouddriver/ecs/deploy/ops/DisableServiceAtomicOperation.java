@@ -19,6 +19,7 @@ package com.netflix.spinnaker.clouddriver.ecs.deploy.ops;
 import com.amazonaws.services.ecs.AmazonECS;
 import com.amazonaws.services.ecs.model.Container;
 import com.amazonaws.services.ecs.model.ContainerInstance;
+import com.amazonaws.services.ecs.model.DeploymentConfiguration;
 import com.amazonaws.services.ecs.model.DescribeContainerInstancesRequest;
 import com.amazonaws.services.ecs.model.DescribeContainerInstancesResult;
 import com.amazonaws.services.ecs.model.DescribeServicesRequest;
@@ -30,6 +31,7 @@ import com.amazonaws.services.ecs.model.ListTasksResult;
 import com.amazonaws.services.ecs.model.LoadBalancer;
 import com.amazonaws.services.ecs.model.NetworkBinding;
 import com.amazonaws.services.ecs.model.Service;
+import com.amazonaws.services.ecs.model.UpdateServiceRequest;
 import com.amazonaws.services.elasticloadbalancingv2.AmazonElasticLoadBalancing;
 import com.amazonaws.services.elasticloadbalancingv2.model.DeregisterTargetsRequest;
 import com.amazonaws.services.elasticloadbalancingv2.model.TargetDescription;
@@ -50,8 +52,9 @@ import java.util.List;
 
 public class DisableServiceAtomicOperation implements AtomicOperation<Void> {
   private static final String BASE_PHASE = "DISABLE_ECS_SERVER_GROUP";
-  private static final String REGION = "us-west-2";
-  private static final String APP_VERSION = "v1337";
+
+  // TODO: Remove hardcoded CLUSTER_NAME
+  private static final String CLUSTER_NAME = "poc";
 
   @Autowired
   AmazonClientProvider amazonClientProvider;
@@ -74,50 +77,37 @@ public class DisableServiceAtomicOperation implements AtomicOperation<Void> {
     getTask().updateStatus(BASE_PHASE, "Initializing Disable Amazon ECS Server Group Operation...");
 
     AmazonCredentials credentials = (AmazonCredentials) accountCredentialsProvider.getCredentials(description.getCredentialAccount());
-    AmazonECS ecs = amazonClientProvider.getAmazonEcs(description.getCredentialAccount(), credentials.getCredentialsProvider(), REGION);
-    AmazonElasticLoadBalancing elb = amazonClientProvider.getAmazonElasticLoadBalancingV2(description.getCredentialAccount(), credentials.getCredentialsProvider(), REGION);
-
-    String serviceName = description.getApplication();
-    if (description.getStack() != null) {
-      serviceName += "-" + description.getStack();
-    }
-    if (description.getDetail() != null) {
-      serviceName += "-" + description.getDetail();
-    }
-    serviceName += "-" + APP_VERSION;
+    AmazonECS ecs = amazonClientProvider.getAmazonEcs(description.getCredentialAccount(), credentials.getCredentialsProvider(), description.getRegion());
+    AmazonElasticLoadBalancing elb = amazonClientProvider.getAmazonElasticLoadBalancingV2(description.getCredentialAccount(), credentials.getCredentialsProvider(), description.getRegion());
 
     Collection<String> services = new LinkedList<>();
-    services.add(serviceName);
+    services.add(description.getServerGroupName());
 
-    DescribeServicesRequest describeServicesRequest = new DescribeServicesRequest();
-    describeServicesRequest.setServices(services);
-
-    getTask().updateStatus(BASE_PHASE, "Describing " + serviceName + " service.");
-    DescribeServicesResult describeServicesResult = ecs.describeServices(describeServicesRequest);
+    getTask().updateStatus(BASE_PHASE, "Describing " + description.getServerGroupName() + " service.");
+    DescribeServicesResult describeServicesResult = ecs.describeServices(
+      new DescribeServicesRequest().withServices(services).withCluster(CLUSTER_NAME));
 
     Service service = null;
     for (Service returnedService : describeServicesResult.getServices()) {
-      if (returnedService.getServiceName().equals(serviceName)) {
+      if (returnedService.getServiceName().equals(description.getServerGroupName())) {
         service = returnedService;
         break;
       }
     }
 
     if (service == null) {
-      getTask().updateStatus(BASE_PHASE, "Failed to describe " + serviceName + " service.");
+      getTask().updateStatus(BASE_PHASE, "Failed to describe " + description.getServerGroupName() + " service.");
       getTask().fail();
       return null;
     }
 
-    getTask().updateStatus(BASE_PHASE, "Listing tasks for " + serviceName + " service.");
-    ListTasksRequest listTasksRequest = new ListTasksRequest();
-    listTasksRequest.setServiceName(serviceName);
-    ListTasksResult listTasksResult = ecs.listTasks(listTasksRequest);
+    getTask().updateStatus(BASE_PHASE, "Listing tasks for " + description.getServerGroupName() + " service.");
+    ListTasksResult listTasksResult = ecs.listTasks(
+      new ListTasksRequest().withServiceName(description.getServerGroupName()).withCluster(CLUSTER_NAME));
 
-    getTask().updateStatus(BASE_PHASE, "Describing tasks for " + serviceName + " service.");
-    DescribeTasksRequest describeTasksRequest = new DescribeTasksRequest();
-    describeTasksRequest.setTasks(listTasksResult.getTaskArns());
-    DescribeTasksResult describeTasksResult = ecs.describeTasks(describeTasksRequest);
+    getTask().updateStatus(BASE_PHASE, "Describing tasks for " + description.getServerGroupName() + " service.");
+    DescribeTasksResult describeTasksResult = ecs.describeTasks(
+      new DescribeTasksRequest().withTasks(listTasksResult.getTaskArns()).withCluster(CLUSTER_NAME));
 
     HashMap<String, List<Integer>> containerInstancePorts = new HashMap<>();
     for (com.amazonaws.services.ecs.model.Task task : describeTasksResult.getTasks()) {
@@ -130,19 +120,15 @@ public class DisableServiceAtomicOperation implements AtomicOperation<Void> {
       containerInstancePorts.put(task.getContainerInstanceArn(), portList);
     }
 
-    getTask().updateStatus(BASE_PHASE, "Describing container instances " + serviceName + " service.");
-    DescribeContainerInstancesRequest describeContainerInstancesRequest = new DescribeContainerInstancesRequest();
-    describeContainerInstancesRequest.setContainerInstances(containerInstancePorts.keySet());
-    DescribeContainerInstancesResult describeContainerInstancesResult = ecs.describeContainerInstances(describeContainerInstancesRequest);
+    getTask().updateStatus(BASE_PHASE, "Describing container instances " + description.getServerGroupName() + " service.");
+    DescribeContainerInstancesResult describeContainerInstancesResult = ecs.describeContainerInstances(
+      new DescribeContainerInstancesRequest().withContainerInstances(containerInstancePorts.keySet()).withCluster(CLUSTER_NAME));
 
     getTask().updateStatus(BASE_PHASE, "Creating TargetDescription set to deregister.");
     Collection<TargetDescription> targetDescriptions = new HashSet<>();
     for (ContainerInstance containerInstance : describeContainerInstancesResult.getContainerInstances()) {
       for (Integer port : containerInstancePorts.get(containerInstance.getContainerInstanceArn())) {
-        TargetDescription targetDescription = new TargetDescription();
-        targetDescription.setId(containerInstance.getEc2InstanceId());
-        targetDescription.setPort(port);
-        targetDescriptions.add(targetDescription);
+        targetDescriptions.add(new TargetDescription().withPort(port).withId(containerInstance.getEc2InstanceId()));
       }
     }
 
@@ -150,10 +136,7 @@ public class DisableServiceAtomicOperation implements AtomicOperation<Void> {
     // Currently there should only be 1 load balancer based on what's written in AWS docs.
     List<LoadBalancer> loadBalancers = service.getLoadBalancers();
     for (LoadBalancer loadBalancer : loadBalancers) {
-      DeregisterTargetsRequest deregisterTargetsRequest = new DeregisterTargetsRequest();
-      deregisterTargetsRequest.setTargets(targetDescriptions);
-      deregisterTargetsRequest.setTargetGroupArn(loadBalancer.getTargetGroupArn());
-      elb.deregisterTargets(deregisterTargetsRequest);
+      elb.deregisterTargets(new DeregisterTargetsRequest().withTargets(targetDescriptions).withTargetGroupArn(loadBalancer.getTargetGroupArn()));
     }
 
     return null;

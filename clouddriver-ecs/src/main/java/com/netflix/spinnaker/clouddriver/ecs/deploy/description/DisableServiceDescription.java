@@ -16,7 +16,11 @@
 
 package com.netflix.spinnaker.clouddriver.ecs.deploy.description;
 
-public class DisableServiceDescription extends AbstractECSDescription {
+import lombok.Data;
 
-  // TODO - implement this stub
+@Data
+public class DisableServiceDescription extends AbstractECSDescription {
+  String cluster;
+  String serverGroupName;
+  String asgName;
 }
