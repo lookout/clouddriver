@@ -223,6 +223,11 @@ public class EcsServerClusterProvider implements ClusterProvider<EcsServerCluste
         case Succeeded:
           instanceCounts.setUp(instanceCounts.getUp());
           break;
+        default:
+          throw new Error(String.format(
+            "Unexpected health state: %s.  Don't know how to proceed - update %s",
+            instance.getHealthState(),
+            this.getClass().getSimpleName()));
       }
       instanceCounts.setTotal(instanceCounts.getTotal() + 1);
     }
