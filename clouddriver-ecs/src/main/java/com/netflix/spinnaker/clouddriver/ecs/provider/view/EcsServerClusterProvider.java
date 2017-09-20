@@ -77,7 +77,7 @@ public class EcsServerClusterProvider implements ClusterProvider<EcsServerCluste
   public Map<String, Set<EcsServerCluster>> getClusters() {
     Map<String, Set<EcsServerCluster>> clusterMap = new HashMap<>();
 
-    for (AccountCredentials credentials: accountCredentialsProvider.getAll()) {
+    for (AccountCredentials credentials : accountCredentialsProvider.getAll()) {
       if (credentials instanceof AmazonCredentials && credentials.getCloudProvider().equals(EcsCloudProvider.ID)) {  // TODO - the first if condition can be problematic for AWS logic.  We'll probably need to look into this after POC, and figure out how to deal with account credentials for AWS and ECS in a smart way, without AWS trying to use ECS credentials
         clusterMap = findClusters(clusterMap, (AmazonCredentials) credentials);
       }
@@ -87,7 +87,7 @@ public class EcsServerClusterProvider implements ClusterProvider<EcsServerCluste
 
   private Map<String, Set<EcsServerCluster>> findClusters(Map<String, Set<EcsServerCluster>> clusterMap,
                                                           AmazonCredentials credentials) {
-    for (AmazonCredentials.AWSRegion awsRegion: credentials.getRegions()) {
+    for (AmazonCredentials.AWSRegion awsRegion : credentials.getRegions()) {
       clusterMap = findClustersForRegion(clusterMap, credentials, awsRegion);
     }
 
@@ -108,10 +108,10 @@ public class EcsServerClusterProvider implements ClusterProvider<EcsServerCluste
       credentials.getCredentialsProvider(),
       awsRegion.getName());
 
-    for (String clusterArn: amazonECS.listClusters().getClusterArns()) {
+    for (String clusterArn : amazonECS.listClusters().getClusterArns()) {
 
       ListServicesResult result = amazonECS.listServices(new ListServicesRequest().withCluster(clusterArn));
-      for (String serviceArn: result.getServiceArns()) {
+      for (String serviceArn : result.getServiceArns()) {
 
         ServiceMetadata metadata = extractMetadataFromServiceArn(serviceArn);
         Set<Instance> instances = new HashSet<>();
@@ -127,7 +127,7 @@ public class EcsServerClusterProvider implements ClusterProvider<EcsServerCluste
           DescribeTasksResult describeTasksResult = amazonECS.describeTasks(
             new DescribeTasksRequest().withCluster(clusterArn).withTasks(listTasksResult.getTaskArns()));
 
-          for (Task task: describeTasksResult.getTasks()) {
+          for (Task task : describeTasksResult.getTasks()) {
             InstanceStatus ec2InstanceStatus = containerInformationService.getEC2InstanceStatus(
               amazonEC2,
               containerInformationService.getContainerInstance(amazonECS, task));
@@ -162,7 +162,7 @@ public class EcsServerClusterProvider implements ClusterProvider<EcsServerCluste
   private Set<com.netflix.spinnaker.clouddriver.model.LoadBalancer> extractLoadBalancersData(
     DescribeLoadBalancersResult loadBalancersResult) {
     Set<com.netflix.spinnaker.clouddriver.model.LoadBalancer> loadBalancers = Sets.newHashSet();
-    for (LoadBalancer elb: loadBalancersResult.getLoadBalancers()) {
+    for (LoadBalancer elb : loadBalancersResult.getLoadBalancers()) {
       AmazonLoadBalancer loadBalancer = new AmazonLoadBalancer();
       loadBalancer.setName(elb.getLoadBalancerName());
       loadBalancers.add(loadBalancer);
@@ -175,10 +175,10 @@ public class EcsServerClusterProvider implements ClusterProvider<EcsServerCluste
                                                           Set<com.netflix.spinnaker.clouddriver.model.LoadBalancer> loadBalancers,
                                                           EcsServerGroup ecsServerGroup) {
     return new EcsServerCluster()
-          .setAccountName(credentials.getName())
-          .setName(metadata.cloudStack)
-          .setLoadBalancers(loadBalancers)
-          .setServerGroups(Sets.newHashSet(ecsServerGroup));
+      .setAccountName(credentials.getName())
+      .setName(ecsServerGroup.getName())
+      .setLoadBalancers(loadBalancers)
+      .setServerGroups(Sets.newHashSet(ecsServerGroup));
   }
 
   private EcsServerGroup generateServerGroup(AmazonCredentials.AWSRegion awsRegion,
@@ -200,7 +200,7 @@ public class EcsServerClusterProvider implements ClusterProvider<EcsServerCluste
 
   private ServerGroup.InstanceCounts generateInstanceCount(Set<Instance> instances) {
     ServerGroup.InstanceCounts instanceCounts = new ServerGroup.InstanceCounts();
-    for (Instance instance: instances) {
+    for (Instance instance : instances) {
       switch (instance.getHealthState()) {
         case Up:
           instanceCounts.setUp(instanceCounts.getUp() + 1);
@@ -242,13 +242,19 @@ public class EcsServerClusterProvider implements ClusterProvider<EcsServerCluste
       stringBuilder.append(metadata.cloudStack).append("-");
     }
 
-    stringBuilder.append(metadata.serverGroupVersion);
-    return stringBuilder.toString(); // TODO - support CLOUD_DETAIL variable
+    if (metadata.cloudDetail != null) {
+      stringBuilder.append(metadata.cloudDetail).append("-");
+    }
+
+    if(metadata.serverGroupVersion != null){
+      stringBuilder.append(metadata.serverGroupVersion);
+    }
+    return stringBuilder.toString();
   }
 
   private ServiceMetadata extractMetadataFromServiceArn(String arn) {
     if (!arn.contains("/")) {
-      return null; // TODO - do a better verification,
+      return null; // TODO - do a better verification - Regex: arn:(.*):(.*):(\d*):(.*)\/((.*)-(v\d*))
     }
 
     String[] splitArn = arn.split("/");
@@ -263,21 +269,25 @@ public class EcsServerClusterProvider implements ClusterProvider<EcsServerCluste
     }
 
     ServiceMetadata serviceMetadata = new ServiceMetadata();
-    String serverGroupVersion = splitResourceName.length > 2 ? splitResourceName[2] : "v0001"; // TODO - implement proper logic here
-    serviceMetadata
-      .setApplicationName(splitResourceName[0])
-      .setCloudStack(splitResourceName[1])
-      .setServerGroupVersion(serverGroupVersion);
+    serviceMetadata.setApplicationName(splitResourceName[0]);
+
+    String versionString = splitResourceName[splitResourceName.length - 1];
+    try {
+      Integer.parseInt(versionString.replaceAll("v",""));
+      serviceMetadata.setServerGroupVersion(versionString);
+    } catch (NumberFormatException e) {
+      // TODO - handle errorinous versions.
+    }
+
+    // TODO - Assuming that if present is always before detail.
+    if (splitResourceName.length >= 3) {
+      serviceMetadata.setCloudStack(splitResourceName[1]);
+    }
+    if (splitResourceName.length >= 4) {
+      serviceMetadata.setCloudDetail(splitResourceName[2]);
+    }
 
     return serviceMetadata;
-  }
-
-  @Data
-  @NoArgsConstructor
-  class ServiceMetadata {
-    String applicationName;
-    String cloudStack;
-    String serverGroupVersion;
   }
 
   private String inferClusterNameFromClusterArn(String clusterArn) {
@@ -289,8 +299,8 @@ public class EcsServerClusterProvider implements ClusterProvider<EcsServerCluste
   }
 
   /**
-   Temporary implementation to satisfy the interface's implementation.
-   This will be modified and updated properly once we finish the POC
+   * Temporary implementation to satisfy the interface's implementation.
+   * This will be modified and updated properly once we finish the POC
    */
   @Override
   public Map<String, Set<EcsServerCluster>> getClusterSummaries(String application) {
@@ -298,8 +308,8 @@ public class EcsServerClusterProvider implements ClusterProvider<EcsServerCluste
   }
 
   /**
-   Temporary implementation to satisfy the interface's implementation.
-   This will be modified and updated properly once we finish the POC
+   * Temporary implementation to satisfy the interface's implementation.
+   * This will be modified and updated properly once we finish the POC
    */
   @Override
   public Map<String, Set<EcsServerCluster>> getClusterDetails(String application) {
@@ -318,8 +328,8 @@ public class EcsServerClusterProvider implements ClusterProvider<EcsServerCluste
   }
 
   /**
-   Temporary implementation to satisfy the interface's implementation.
-   This will be modified and updated properly once we finish the POC
+   * Temporary implementation to satisfy the interface's implementation.
+   * This will be modified and updated properly once we finish the POC
    */
   @Override
   public Set<EcsServerCluster> getClusters(String application, String account) {
@@ -327,8 +337,8 @@ public class EcsServerClusterProvider implements ClusterProvider<EcsServerCluste
   }
 
   /**
-   Temporary implementation to satisfy the interface's implementation.
-   This will be modified and updated properly once we finish the POC
+   * Temporary implementation to satisfy the interface's implementation.
+   * This will be modified and updated properly once we finish the POC
    */
   @Override
   public EcsServerCluster getCluster(String application, String account, String name) {
@@ -336,8 +346,8 @@ public class EcsServerClusterProvider implements ClusterProvider<EcsServerCluste
   }
 
   /**
-   Temporary implementation to satisfy the interface's implementation.
-   This will be modified and updated properly once we finish the POC
+   * Temporary implementation to satisfy the interface's implementation.
+   * This will be modified and updated properly once we finish the POC
    */
   @Override
   public EcsServerCluster getCluster(String application, String account, String name, boolean includeDetails) {
@@ -351,20 +361,20 @@ public class EcsServerClusterProvider implements ClusterProvider<EcsServerCluste
   }
 
   /**
-   Temporary implementation to satisfy the interface's implementation.
-   This will be modified and updated properly once we finish the POC
+   * Temporary implementation to satisfy the interface's implementation.
+   * This will be modified and updated properly once we finish the POC
    */
   @Override
   public ServerGroup getServerGroup(String account, String region, String serverGroupName) {
     // TODO - use a caching system, and also check for account which is currently not the case here
     Map<String, Set<EcsServerCluster>> clusters = getClusters();
 
-    for (Map.Entry<String, Set<EcsServerCluster>> entry: clusters.entrySet()) {
+    for (Map.Entry<String, Set<EcsServerCluster>> entry : clusters.entrySet()) {
       if (entry.getKey().equals(serverGroupName.split("-")[0])) {
-        for (EcsServerCluster ecsServerCluster: entry.getValue()) {
-          for (ServerGroup serverGroup: ecsServerCluster.getServerGroups()) {
+        for (EcsServerCluster ecsServerCluster : entry.getValue()) {
+          for (ServerGroup serverGroup : ecsServerCluster.getServerGroups()) {
             if (region.equals(serverGroup.getRegion())
-                  && serverGroupName.equals(serverGroup.getName())) {
+              && serverGroupName.equals(serverGroup.getName())) {
               return serverGroup;
             }
           }
@@ -381,12 +391,21 @@ public class EcsServerClusterProvider implements ClusterProvider<EcsServerCluste
   }
 
   /**
-   Temporary implementation to satisfy the interface's implementation.
-   This will be modified and updated properly once we finish the POC
+   * Temporary implementation to satisfy the interface's implementation.
+   * This will be modified and updated properly once we finish the POC
    */
   @Override
   public boolean supportsMinimalClusters() {
     return false;
+  }
+
+  @Data
+  @NoArgsConstructor
+  class ServiceMetadata {
+    String applicationName;
+    String cloudStack;
+    String cloudDetail;
+    String serverGroupVersion;
   }
 
 }
