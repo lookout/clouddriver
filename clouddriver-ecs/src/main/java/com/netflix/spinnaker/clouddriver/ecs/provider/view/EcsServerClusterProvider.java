@@ -279,7 +279,7 @@ public class EcsServerClusterProvider implements ClusterProvider<EcsServerCluste
       // TODO - handle errorinous versions.
     }
 
-    // TODO - Assuming that if present is always before detail.
+    // An assumption is made here: Stack always appears before detail in the server group name.
     if (splitResourceName.length >= 3) {
       serviceMetadata.setCloudStack(splitResourceName[1]);
     }
