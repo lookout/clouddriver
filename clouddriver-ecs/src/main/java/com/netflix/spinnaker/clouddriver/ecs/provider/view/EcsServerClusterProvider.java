@@ -48,6 +48,7 @@ import com.netflix.spinnaker.clouddriver.security.AccountCredentials;
 import com.netflix.spinnaker.clouddriver.security.AccountCredentialsProvider;
 import lombok.Data;
 import lombok.NoArgsConstructor;
+import org.apache.commons.lang3.StringUtils;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.stereotype.Component;
 
@@ -146,13 +147,34 @@ public class EcsServerClusterProvider implements ClusterProvider<EcsServerCluste
 
 
         EcsServerGroup ecsServerGroup = generateServerGroup(awsRegion, metadata, instances, capacity);
-        EcsServerCluster spinnakerCluster = generateSpinnakerServerCluster(credentials, metadata, loadBalancers, ecsServerGroup);
 
-        if (clusterMap.get(metadata.applicationName) != null) {
+
+        if (!clusterMap.containsKey(metadata.applicationName)) {
+          EcsServerCluster spinnakerCluster = generateSpinnakerServerCluster(credentials, metadata, loadBalancers, ecsServerGroup);
+          clusterMap.put(metadata.applicationName, Sets.newHashSet(spinnakerCluster));
+        } else {
+          String clusterName = removeVersion(ecsServerGroup.getName());
+          boolean found = false;
+
+          for (EcsServerCluster cluster : clusterMap.get(metadata.applicationName)) {
+            if(cluster.getName().equals(clusterName)){
+              cluster.getServerGroups().add(ecsServerGroup);
+              found = true;
+              break;
+            }
+          }
+
+          if(!found){
+            EcsServerCluster spinnakerCluster = generateSpinnakerServerCluster(credentials, metadata, loadBalancers, ecsServerGroup);
+            clusterMap.get(metadata.applicationName).add(spinnakerCluster);
+          }
+        }
+
+        /*if (clusterMap.get(metadata.applicationName) != null) {
           clusterMap.get(metadata.applicationName).add(spinnakerCluster);
         } else {
           clusterMap.put(metadata.applicationName, Sets.newHashSet(spinnakerCluster));
-        }
+        }*/
       }
     }
 
@@ -176,7 +198,7 @@ public class EcsServerClusterProvider implements ClusterProvider<EcsServerCluste
                                                           EcsServerGroup ecsServerGroup) {
     return new EcsServerCluster()
       .setAccountName(credentials.getName())
-      .setName(ecsServerGroup.getName())
+      .setName(removeVersion(ecsServerGroup.getName()))
       .setLoadBalancers(loadBalancers)
       .setServerGroups(Sets.newHashSet(ecsServerGroup));
   }
@@ -188,6 +210,7 @@ public class EcsServerClusterProvider implements ClusterProvider<EcsServerCluste
     ServerGroup.InstanceCounts instanceCounts = generateInstanceCount(instances);
 
     return new EcsServerGroup()
+      .setCreatedTime(System.currentTimeMillis())
       .setName(constructServerGroupName(metadata))
       .setCloudProvider(EcsCloudProvider.ID)
       .setType(EcsCloudProvider.ID)
@@ -250,6 +273,10 @@ public class EcsServerClusterProvider implements ClusterProvider<EcsServerCluste
       stringBuilder.append(metadata.serverGroupVersion);
     }
     return stringBuilder.toString();
+  }
+
+  private String removeVersion(String serverGroupName) {
+    return StringUtils.substringBeforeLast(serverGroupName, "-");
   }
 
   private ServiceMetadata extractMetadataFromServiceArn(String arn) {
@@ -353,11 +380,14 @@ public class EcsServerClusterProvider implements ClusterProvider<EcsServerCluste
   public EcsServerCluster getCluster(String application, String account, String name, boolean includeDetails) {
 
     Set<EcsServerCluster> ecsServerClusters = getClusters().get(application);
-    if (ecsServerClusters == null || ecsServerClusters.size() == 0) {
-      return null;
-    } else {
-      return ecsServerClusters.iterator().next();
+    if (ecsServerClusters != null && ecsServerClusters.size() > 0) {
+      for(EcsServerCluster cluster:ecsServerClusters){
+        if(cluster.getName().equals(name)){
+          return cluster;
+        }
+      }
     }
+    return null;
   }
 
   /**
