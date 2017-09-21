@@ -185,7 +185,8 @@ public class EcsServerClusterProvider implements ClusterProvider<EcsServerCluste
           .setEnvironmentVariables(containerDefinition.getEnvironment())
         ;
 
-        EcsServerGroup ecsServerGroup = generateServerGroup(awsRegion, metadata, instances, capacity);
+        EcsServerGroup ecsServerGroup = generateServerGroup(awsRegion, metadata, instances, capacity, creationTime,
+          clusterName, taskDefinition, vpcId, securityGroups);
 
         if (!clusterMap.containsKey(metadata.applicationName)) {
           EcsServerCluster spinnakerCluster = generateSpinnakerServerCluster(credentials, metadata, loadBalancers, ecsServerGroup);
