@@ -17,10 +17,15 @@
 package com.netflix.spinnaker.clouddriver.ecs.provider.view;
 
 import com.amazonaws.services.ec2.AmazonEC2;
+import com.amazonaws.services.ec2.model.DescribeInstancesRequest;
+import com.amazonaws.services.ec2.model.GroupIdentifier;
 import com.amazonaws.services.ec2.model.InstanceStatus;
 import com.amazonaws.services.ecs.AmazonECS;
+import com.amazonaws.services.ecs.model.ContainerDefinition;
 import com.amazonaws.services.ecs.model.DescribeServicesRequest;
 import com.amazonaws.services.ecs.model.DescribeServicesResult;
+import com.amazonaws.services.ecs.model.DescribeTaskDefinitionRequest;
+import com.amazonaws.services.ecs.model.DescribeTaskDefinitionResult;
 import com.amazonaws.services.ecs.model.DescribeTasksRequest;
 import com.amazonaws.services.ecs.model.DescribeTasksResult;
 import com.amazonaws.services.ecs.model.ListServicesRequest;
@@ -40,6 +45,7 @@ import com.netflix.spinnaker.clouddriver.ecs.EcsCloudProvider;
 import com.netflix.spinnaker.clouddriver.ecs.model.EcsServerCluster;
 import com.netflix.spinnaker.clouddriver.ecs.model.EcsServerGroup;
 import com.netflix.spinnaker.clouddriver.ecs.model.EcsTask;
+import com.netflix.spinnaker.clouddriver.ecs.model.TaskDefinition;
 import com.netflix.spinnaker.clouddriver.ecs.services.ContainerInformationService;
 import com.netflix.spinnaker.clouddriver.model.ClusterProvider;
 import com.netflix.spinnaker.clouddriver.model.Instance;
@@ -109,7 +115,10 @@ public class EcsServerClusterProvider implements ClusterProvider<EcsServerCluste
       credentials.getCredentialsProvider(),
       awsRegion.getName());
 
-    for (String clusterArn : amazonECS.listClusters().getClusterArns()) {
+    String vpcId = null; // TODO - the assumption that there is only 1 VPC associated with the cluster might not be true 100% of the time.  It should be, but I am sure some people out there are weird
+    Set<String> securityGroups = new HashSet<>();
+
+    for (String clusterArn: amazonECS.listClusters().getClusterArns()) {
 
       ListServicesResult result = amazonECS.listServices(new ListServicesRequest().withCluster(clusterArn));
       for (String serviceArn : result.getServiceArns()) {
@@ -133,8 +142,18 @@ public class EcsServerClusterProvider implements ClusterProvider<EcsServerCluste
               amazonEC2,
               containerInformationService.getContainerInstance(amazonECS, task));
 
-            List<Map<String, String>> healthStatus = containerInformationService.getHealthStatus(clusterArn, task.getTaskArn(), serviceArn, "continuous-delivery", "us-west-2");
-            instances.add(new EcsTask(extractTaskIdFromTaskArn(task.getTaskArn()), task, ec2InstanceStatus, healthStatus));
+            String address = containerInformationService.getTaskPrivateAddress(amazonECS, amazonEC2, task);
+
+            List<Map<String, String>> healthStatus = containerInformationService.getHealthStatus(clusterArn, task.getTaskArn(), serviceArn, credentials.getName(), "us-west-2");
+            instances.add(new EcsTask(extractTaskIdFromTaskArn(task.getTaskArn()), task, ec2InstanceStatus, healthStatus, address));
+
+            if (vpcId == null) {
+              com.amazonaws.services.ec2.model.Instance oneEc2Instance = amazonEC2.describeInstances(new DescribeInstancesRequest().withInstanceIds(containerInformationService.getContainerInstance(amazonECS, task).getEc2InstanceId())).getReservations().get(0).getInstances().get(0);
+              vpcId = oneEc2Instance.getVpcId();
+              for (GroupIdentifier groupIdentifier: oneEc2Instance.getSecurityGroups()) {
+                securityGroups.add(groupIdentifier.getGroupId());
+              }
+            }
           }
         }
 
@@ -144,20 +163,39 @@ public class EcsServerClusterProvider implements ClusterProvider<EcsServerCluste
         capacity.setDesired(describeServicesResult.getServices().get(0).getDesiredCount());
         capacity.setMin(describeServicesResult.getServices().get(0).getDesiredCount());  // TODO - perhaps we want to look at the % min and max for the service?
         capacity.setMax(describeServicesResult.getServices().get(0).getDesiredCount());  // TODO - perhaps we want to look at the % min and max for the service?
+        long creationTime = describeServicesResult.getServices().get(0).getCreatedAt().getTime();
+        String clusterName = inferClusterNameFromClusterArn(describeServicesResult.getServices().get(0).getClusterArn());
 
+        DescribeTaskDefinitionRequest taskDefinitionRequest = new DescribeTaskDefinitionRequest().withTaskDefinition(describeServicesResult.getServices().get(0).getTaskDefinition());
+        DescribeTaskDefinitionResult taskDefinitionResult = amazonECS.describeTaskDefinition(taskDefinitionRequest);
+
+        com.amazonaws.services.ecs.model.TaskDefinition definition = taskDefinitionResult.getTaskDefinition();
+        ContainerDefinition containerDefinition = definition.getContainerDefinitions().get(0);
+        String roleArn = describeServicesResult.getServices().get(0).getRoleArn();
+        String iamRole = roleArn != null ? roleArn.split("/")[1] : "None";
+
+        TaskDefinition taskDefinition = new TaskDefinition();
+        taskDefinition
+          .setContainerImage(containerDefinition.getImage())
+          .setContainerPort(containerDefinition.getPortMappings().get(0).getContainerPort())
+          .setCpuUnits(containerDefinition.getCpu())
+          .setMemoryReservation(containerDefinition.getMemoryReservation())
+          .setIamRole(iamRole)
+          .setTaskName(definition.getTaskDefinitionArn().split("/")[1])
+          .setEnvironmentVariables(containerDefinition.getEnvironment())
+        ;
 
         EcsServerGroup ecsServerGroup = generateServerGroup(awsRegion, metadata, instances, capacity);
-
 
         if (!clusterMap.containsKey(metadata.applicationName)) {
           EcsServerCluster spinnakerCluster = generateSpinnakerServerCluster(credentials, metadata, loadBalancers, ecsServerGroup);
           clusterMap.put(metadata.applicationName, Sets.newHashSet(spinnakerCluster));
         } else {
-          String clusterName = removeVersion(ecsServerGroup.getName());
+          String escClusterName = removeVersion(ecsServerGroup.getName());
           boolean found = false;
 
           for (EcsServerCluster cluster : clusterMap.get(metadata.applicationName)) {
-            if(cluster.getName().equals(clusterName)){
+            if(cluster.getName().equals(escClusterName)){
               cluster.getServerGroups().add(ecsServerGroup);
               found = true;
               break;
@@ -206,11 +244,15 @@ public class EcsServerClusterProvider implements ClusterProvider<EcsServerCluste
   private EcsServerGroup generateServerGroup(AmazonCredentials.AWSRegion awsRegion,
                                              ServiceMetadata metadata,
                                              Set<Instance> instances,
-                                             ServerGroup.Capacity capacity) {
+                                             ServerGroup.Capacity capacity,
+                                             long creationTime,
+                                             String ecsCluster,
+                                             TaskDefinition taskDefinition,
+                                             String vpcId,
+                                             Set<String> securityGroups) {
     ServerGroup.InstanceCounts instanceCounts = generateInstanceCount(instances);
 
     return new EcsServerGroup()
-      .setCreatedTime(System.currentTimeMillis())
       .setName(constructServerGroupName(metadata))
       .setCloudProvider(EcsCloudProvider.ID)
       .setType(EcsCloudProvider.ID)
@@ -218,6 +260,11 @@ public class EcsServerClusterProvider implements ClusterProvider<EcsServerCluste
       .setInstances(instances)
       .setCapacity(capacity)
       .setInstanceCounts(instanceCounts)
+      .setCreatedTime(creationTime)
+      .setEcsCluster(ecsCluster)
+      .setTaskDefinition(taskDefinition)
+      .setVpcId(vpcId)
+      .setSecurityGroups(securityGroups)
       ;
   }
 

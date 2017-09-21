@@ -44,6 +44,9 @@ public class EcsServerGroup implements ServerGroup {
   ImagesSummary imagesSummary;
   ImageSummary imageSummary;
   Map<String, Object> tags;
+  String ecsCluster;
+  TaskDefinition taskDefinition;
+  String vpcId;
 
   @Override
   public Boolean isDisabled() {
