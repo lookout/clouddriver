@@ -29,6 +29,7 @@ import org.springframework.beans.factory.annotation.Autowired;
 
 import java.util.List;
 
+// TODO: DisableServiceAtomicOperation should not be resizing the service to 0 taskes. It should do something such as removing the instance from the target group.
 public class DisableServiceAtomicOperation implements AtomicOperation<Void> {
   private static final String BASE_PHASE = "DISABLE_ECS_SERVER_GROUP";
   // TODO: Remove hardcoded CLUSTER_NAME.
