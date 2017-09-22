@@ -208,12 +208,6 @@ public class EcsServerClusterProvider implements ClusterProvider<EcsServerCluste
             clusterMap.get(metadata.applicationName).add(spinnakerCluster);
           }
         }
-
-        /*if (clusterMap.get(metadata.applicationName) != null) {
-          clusterMap.get(metadata.applicationName).add(spinnakerCluster);
-        } else {
-          clusterMap.put(metadata.applicationName, Sets.newHashSet(spinnakerCluster));
-        }*/
       }
     }
 
@@ -254,6 +248,7 @@ public class EcsServerClusterProvider implements ClusterProvider<EcsServerCluste
     ServerGroup.InstanceCounts instanceCounts = generateInstanceCount(instances);
 
     return new EcsServerGroup()
+      .setDisabled(capacity.getDesired() < 1)     // TODO: Whether the server group is disabled should be determined by another factor.
       .setName(constructServerGroupName(metadata))
       .setCloudProvider(EcsCloudProvider.ID)
       .setType(EcsCloudProvider.ID)

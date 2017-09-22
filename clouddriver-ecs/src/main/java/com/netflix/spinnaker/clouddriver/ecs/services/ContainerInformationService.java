@@ -24,6 +24,7 @@ import com.amazonaws.services.ec2.model.DescribeInstancesRequest;
 import com.amazonaws.services.ec2.model.DescribeInstancesResult;
 import com.amazonaws.services.ec2.model.InstanceStatus;
 import com.amazonaws.services.ecs.AmazonECS;
+import com.amazonaws.services.ecs.model.Container;
 import com.amazonaws.services.ecs.model.ContainerInstance;
 import com.amazonaws.services.ecs.model.DescribeContainerInstancesRequest;
 import com.amazonaws.services.ecs.model.DescribeContainerInstancesResult;
@@ -32,19 +33,20 @@ import com.amazonaws.services.ecs.model.DescribeServicesResult;
 import com.amazonaws.services.ecs.model.DescribeTasksRequest;
 import com.amazonaws.services.ecs.model.DescribeTasksResult;
 import com.amazonaws.services.ecs.model.InvalidParameterException;
+import com.amazonaws.services.ecs.model.ListClustersResult;
 import com.amazonaws.services.ecs.model.LoadBalancer;
+import com.amazonaws.services.ecs.model.NetworkBinding;
 import com.amazonaws.services.ecs.model.Service;
 import com.amazonaws.services.ecs.model.Task;
 import com.amazonaws.services.elasticloadbalancingv2.AmazonElasticLoadBalancing;
 import com.amazonaws.services.elasticloadbalancingv2.model.DescribeLoadBalancersRequest;
-import com.amazonaws.services.elasticloadbalancingv2.model.DescribeTargetGroupsRequest;
 import com.amazonaws.services.elasticloadbalancingv2.model.DescribeTargetHealthRequest;
 import com.amazonaws.services.elasticloadbalancingv2.model.DescribeTargetHealthResult;
 import com.amazonaws.services.elasticloadbalancingv2.model.TargetDescription;
-import com.google.common.collect.Sets;
 import com.netflix.spinnaker.clouddriver.aws.security.AmazonClientProvider;
 import com.netflix.spinnaker.clouddriver.aws.security.NetflixAmazonCredentials;
 import com.netflix.spinnaker.clouddriver.security.AccountCredentialsProvider;
+import org.apache.commons.lang3.StringUtils;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.stereotype.Component;
 
@@ -133,7 +135,17 @@ public class ContainerInformationService {
   }
 
   public String getTaskPrivateAddress(AmazonECS amazonECS, AmazonEC2 amazonEC2, Task task) {
-    int hostPort = task.getContainers().get(0).getNetworkBindings().get(0).getHostPort();
+    List<Container> containers = task.getContainers();
+    if (containers == null || containers.size() <1) {
+      return "unknown";
+    }
+
+    List<NetworkBinding> networkBindings = containers.get(0).getNetworkBindings();
+    if (networkBindings == null || networkBindings.size() <1) {
+      return "unknown";
+    }
+
+    int hostPort = networkBindings.get(0).getHostPort();
     String hostEc2InstanceId = getContainerInstance(amazonECS, task).getEc2InstanceId();
 
     DescribeInstancesResult describeInstancesResult = amazonEC2.describeInstances(new DescribeInstancesRequest().withInstanceIds(hostEc2InstanceId));
@@ -190,4 +202,21 @@ public class ContainerInformationService {
     return instanceStatus;
   }
 
+  public String getClusterName(String serviceName, String accountName, String region) {
+    NetflixAmazonCredentials accountCredentials = (NetflixAmazonCredentials) accountCredentialsProvider.getCredentials(accountName);
+    AmazonECS amazonECS = amazonClientProvider.getAmazonEcs(accountName, accountCredentials.getCredentialsProvider(), region);
+
+    ListClustersResult listClustersResult = amazonECS.listClusters();
+
+    for (String clusterARN : listClustersResult.getClusterArns()) {
+      DescribeServicesResult describeServicesResult = amazonECS.describeServices(new DescribeServicesRequest().withServices(serviceName).withCluster(clusterARN));
+      for (Service service : describeServicesResult.getServices()) {
+        if (service.getServiceName().equals(serviceName)) {
+          return StringUtils.substringAfterLast(clusterARN, "/");
+        }
+      }
+    }
+
+    return null;
+  }
 }
