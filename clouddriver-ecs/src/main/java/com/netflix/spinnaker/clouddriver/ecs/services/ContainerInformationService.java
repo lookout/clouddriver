@@ -20,21 +20,129 @@ package com.netflix.spinnaker.clouddriver.ecs.services;
 
 import com.amazonaws.services.ec2.AmazonEC2;
 import com.amazonaws.services.ec2.model.DescribeInstanceStatusRequest;
+import com.amazonaws.services.ec2.model.DescribeInstancesRequest;
+import com.amazonaws.services.ec2.model.DescribeInstancesResult;
 import com.amazonaws.services.ec2.model.InstanceStatus;
 import com.amazonaws.services.ecs.AmazonECS;
 import com.amazonaws.services.ecs.model.ContainerInstance;
 import com.amazonaws.services.ecs.model.DescribeContainerInstancesRequest;
+import com.amazonaws.services.ecs.model.DescribeContainerInstancesResult;
+import com.amazonaws.services.ecs.model.DescribeServicesRequest;
+import com.amazonaws.services.ecs.model.DescribeServicesResult;
+import com.amazonaws.services.ecs.model.DescribeTasksRequest;
+import com.amazonaws.services.ecs.model.DescribeTasksResult;
 import com.amazonaws.services.ecs.model.InvalidParameterException;
+import com.amazonaws.services.ecs.model.LoadBalancer;
+import com.amazonaws.services.ecs.model.Service;
 import com.amazonaws.services.ecs.model.Task;
+import com.amazonaws.services.elasticloadbalancingv2.AmazonElasticLoadBalancing;
+import com.amazonaws.services.elasticloadbalancingv2.model.DescribeLoadBalancersRequest;
+import com.amazonaws.services.elasticloadbalancingv2.model.DescribeTargetGroupsRequest;
+import com.amazonaws.services.elasticloadbalancingv2.model.DescribeTargetHealthRequest;
+import com.amazonaws.services.elasticloadbalancingv2.model.DescribeTargetHealthResult;
+import com.amazonaws.services.elasticloadbalancingv2.model.TargetDescription;
+import com.google.common.collect.Sets;
+import com.netflix.spinnaker.clouddriver.aws.security.AmazonClientProvider;
+import com.netflix.spinnaker.clouddriver.aws.security.NetflixAmazonCredentials;
+import com.netflix.spinnaker.clouddriver.security.AccountCredentialsProvider;
+import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.stereotype.Component;
 
 import java.util.ArrayList;
+import java.util.HashMap;
 import java.util.List;
+import java.util.Map;
 
 @Component
 public class ContainerInformationService {
 
-    public ContainerInstance getContainerInstance(AmazonECS amazonECS, Task task) {
+  @Autowired
+  private AccountCredentialsProvider accountCredentialsProvider;
+
+  @Autowired
+  private AmazonClientProvider amazonClientProvider;
+
+
+  public List<Map<String, String>> getHealthStatus(String clusterArn, String taskId, String serviceArn, String accountName, String region) {
+    // TODO - remove the cheese here
+
+    NetflixAmazonCredentials accountCredentials = (NetflixAmazonCredentials) accountCredentialsProvider.getCredentials(accountName);
+    AmazonECS amazonECS = amazonClientProvider.getAmazonEcs(accountName, accountCredentials.getCredentialsProvider(), region);
+
+    DescribeServicesResult describeServicesResult = amazonECS.describeServices(new DescribeServicesRequest().withServices(serviceArn).withCluster(clusterArn));
+
+    Service service = describeServicesResult.getServices().get(0);
+    if (service.getLoadBalancers().size() == 1) {
+      String loadBalancerName = service.getLoadBalancers().get(0).getLoadBalancerName();
+
+      AmazonElasticLoadBalancing AmazonloadBalancing = amazonClientProvider.getAmazonElasticLoadBalancingV2(accountName, accountCredentials.getCredentialsProvider(), region);
+      AmazonloadBalancing.describeLoadBalancers(new DescribeLoadBalancersRequest().withNames(loadBalancerName));
+
+      DescribeTasksResult taskDescription = amazonECS.describeTasks(new DescribeTasksRequest().withCluster(service.getClusterArn()).withTasks(taskId));
+      DescribeContainerInstancesResult containerDescriptions = amazonECS.describeContainerInstances(
+        new DescribeContainerInstancesRequest().withCluster(clusterArn).withContainerInstances(taskDescription.getTasks().get(0).getContainerInstanceArn()));
+      // TODO: Currently assuming there's 1 container with 1 port for the task given.
+      int port = taskDescription.getTasks().get(0).getContainers().get(0).getNetworkBindings().get(0).getHostPort();
+
+      DescribeTargetHealthResult targetGroupHealthResult = null;
+      List<LoadBalancer> loadBalancers = service.getLoadBalancers();
+      //There should only be 1 based on AWS documentation.
+      if(loadBalancers.size()>1){
+        throw new IllegalArgumentException("Cannot have more than 1 loadbalancer while checking ECS health.");
+      }
+      for (LoadBalancer loadBalancer : loadBalancers) {
+        targetGroupHealthResult = AmazonloadBalancing.describeTargetHealth(
+          new DescribeTargetHealthRequest().withTargetGroupArn(loadBalancer.getTargetGroupArn()).withTargets(
+            new TargetDescription().withId(containerDescriptions.getContainerInstances().get(0).getEc2InstanceId()).withPort(port)));
+      }
+
+      List<Map<String, String>> healthMetrics = new ArrayList<>();
+      Map<String, String> loadBalancerHealth = new HashMap<>();
+      loadBalancerHealth.put("instanceId", taskId);
+
+      String targetHealth = targetGroupHealthResult.getTargetHealthDescriptions().get(0).getTargetHealth().getState();
+
+      loadBalancerHealth.put("state", targetHealth.equals("healthy") ? "Up" : "Unknown");  // TODO - Return better values, and think of a better strategy at defining health
+      loadBalancerHealth.put("type", "loadBalancer");
+
+      Map<String, String> firstLoadBalancer = new HashMap<>();
+      firstLoadBalancer.put("healthState", "Up");
+      firstLoadBalancer.put("instanceId", "i-055cc597eec0597eb");
+      firstLoadBalancer.put("loadBalancerName", "ALB-Name");
+      firstLoadBalancer.put("loadBalancerType", "classic");
+      firstLoadBalancer.put("state", "InService");
+
+      healthMetrics.add(loadBalancerHealth);
+      return healthMetrics;
+    } else {
+      return null;
+    }
+
+  }
+
+  public String getClusterArn(AmazonECS amazonECS, String taskId) {
+    List<String> taskIds = new ArrayList<>();
+    taskIds.add(taskId);
+    for (String clusterArn : amazonECS.listClusters().getClusterArns()) {
+      DescribeTasksRequest request = new DescribeTasksRequest().withCluster(clusterArn).withTasks(taskIds);
+      if (!amazonECS.describeTasks(request).getTasks().isEmpty()) {
+        return clusterArn;
+      }
+    }
+    return null;
+  }
+
+  public String getTaskPrivateAddress(AmazonECS amazonECS, AmazonEC2 amazonEC2, Task task) {
+    int hostPort = task.getContainers().get(0).getNetworkBindings().get(0).getHostPort();
+    String hostEc2InstanceId = getContainerInstance(amazonECS, task).getEc2InstanceId();
+
+    DescribeInstancesResult describeInstancesResult = amazonEC2.describeInstances(new DescribeInstancesRequest().withInstanceIds(hostEc2InstanceId));
+    String hostPrivateIpAddress = describeInstancesResult.getReservations().get(0).getInstances().get(0).getPrivateIpAddress(); // TODO - lots of assumptions are made here and need to be relaxed.  get(0) are probably all no-no's
+
+    return String.format("%s:%s", hostPrivateIpAddress, hostPort);
+  }
+
+  public ContainerInstance getContainerInstance(AmazonECS amazonECS, Task task) {
     if (task == null) {
       return null;
     }

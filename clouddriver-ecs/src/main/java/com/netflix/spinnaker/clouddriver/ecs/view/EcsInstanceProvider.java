@@ -59,7 +59,9 @@ public class EcsInstanceProvider implements InstanceProvider<EcsTask> {
     InstanceStatus instanceStatus = containerInformationService.getEC2InstanceStatus(amazonEC2, containerInformationService.getContainerInstance(amazonECS, ecsTask));
 
     if (ecsTask != null && instanceStatus != null) {
-      ecsInstance = new EcsTask(id, ecsTask, instanceStatus);
+//      List<Map<String, String>> healthStatus = containerInformationService.getHealthStatus("poc", ecsTask.getTaskArn(), null, "continuous-delivery", "us-west-2");  // TODO - Use the caching system properly
+      String address = containerInformationService.getTaskPrivateAddress(amazonECS, amazonEC2, ecsTask);
+      ecsInstance = new EcsTask(id, ecsTask, instanceStatus, null, address);
     }
 
     return ecsInstance;

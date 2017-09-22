@@ -14,12 +14,24 @@
  * limitations under the License.
  */
 
-package com.netflix.spinnaker.clouddriver.ecs.deploy.description;
+package com.netflix.spinnaker.clouddriver.ecs.model;
 
+import com.amazonaws.services.ecs.model.KeyValuePair;
 import lombok.Data;
+import lombok.NoArgsConstructor;
+
+import java.util.Collection;
 
 @Data
-public class DestroyServiceDescription extends AbstractECSDescription {
-  String serverGroupName;
-  String cluster;
+@NoArgsConstructor
+public class TaskDefinition {
+  String taskName;
+  String containerImage;
+  String iamRole;
+  int containerPort;
+  int cpuUnits;
+  int memoryReservation;
+
+  Collection<KeyValuePair> environmentVariables;
+
 }

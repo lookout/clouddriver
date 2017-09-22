@@ -18,8 +18,9 @@ package com.netflix.spinnaker.clouddriver.ecs.deploy.description;
 
 import lombok.Data;
 
+import java.util.List;
+
 @Data
-public class DestroyServiceDescription extends AbstractECSDescription {
-  String serverGroupName;
-  String cluster;
+public class TerminateInstancesDescription extends AbstractECSDescription {
+  List<String> ecsTaskIds;
 }
