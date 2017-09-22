@@ -18,7 +18,6 @@
 
 package com.netflix.spinnaker.clouddriver.ecs.controllers;
 
-import com.netflix.spinnaker.clouddriver.ecs.deploy.ops.ResizeServiceAtomicOperation;
 import com.netflix.spinnaker.clouddriver.ecs.provider.view.EcsClusterProvider;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.web.bind.annotation.PathVariable;

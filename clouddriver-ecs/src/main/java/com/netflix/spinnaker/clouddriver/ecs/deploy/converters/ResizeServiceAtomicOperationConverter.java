@@ -26,7 +26,7 @@ import org.springframework.stereotype.Component;
 
 import java.util.Map;
 
-@Component("resizeServiceDescription")
+@Component("resizeServerGroup")
 @EcsOperation(AtomicOperations.RESIZE_SERVER_GROUP)
 public class ResizeServiceAtomicOperationConverter extends AbstractAtomicOperationsCredentialsSupport {
 
