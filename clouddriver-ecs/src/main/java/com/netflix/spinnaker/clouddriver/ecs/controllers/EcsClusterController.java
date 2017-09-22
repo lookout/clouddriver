@@ -31,8 +31,6 @@ import java.util.List;
 public class EcsClusterController {
 
   EcsClusterProvider ecsClusterProvider;
-  @Autowired
-  ResizeServiceAtomicOperation resizeServiceAtomicOperation;
 
   @Autowired
   public EcsClusterController(EcsClusterProvider ecsClusterProvider) {

@@ -16,10 +16,12 @@
 
 package com.netflix.spinnaker.clouddriver.ecs.deploy.description;
 
+import com.netflix.spinnaker.clouddriver.model.ServerGroup;
 import lombok.Data;
 
 @Data
 public class ResizeServiceDescription extends AbstractECSDescription {
-  String ecsServiceName;
-  Integer desiredCount;
+  String serverGroupName;
+
+  ServerGroup.Capacity capacity;
 }

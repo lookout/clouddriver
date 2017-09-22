@@ -34,8 +34,8 @@ import java.util.List;
 
 public class ResizeServiceAtomicOperation implements AtomicOperation<Void> {
   private static final String BASE_PHASE = "RESIZE_ECS_SERVER_GROUP";
-  private static final String ecsClusterName = "poc";
-  private static final String APP_VERSION = "v1337";
+  private static final String ecsClusterName = "poc";  // TODO - get the cluster name from the ContainerInformationService, instead of hard-coding
+
   private final ResizeServiceDescription description;
 
   @Autowired
@@ -55,9 +55,12 @@ public class ResizeServiceAtomicOperation implements AtomicOperation<Void> {
   public Void operate(List priorOutputs) {
     getTask().updateStatus(BASE_PHASE, "Initializing Resize ECS Server Group Operation...");
 
-    getTask().updateStatus(BASE_PHASE, "Resizing " + description.getEcsServiceName() + " to " + description.getDesiredCount() + ".");
-    resizeService(description.getEcsServiceName(), description.getRegion(), description.getDesiredCount());
-    getTask().updateStatus(BASE_PHASE, "Done resizing " + description.getEcsServiceName() + " to " + description.getDesiredCount() + ".");
+    String serverGroupName = description.getServerGroupName();
+    Integer newSize = description.getCapacity().getDesired();
+
+    getTask().updateStatus(BASE_PHASE, String.format("Resizing %s to %s instances.", serverGroupName, newSize));
+    resizeService(serverGroupName, description.getRegion(), newSize);
+    getTask().updateStatus(BASE_PHASE, String.format("Done resizing %s to %s", serverGroupName , newSize));
     return null;
   }
 
@@ -66,9 +69,12 @@ public class ResizeServiceAtomicOperation implements AtomicOperation<Void> {
     for (AccountCredentials credentials: accountCredentialsProvider.getAll()) {
       if (credentials instanceof AmazonCredentials) {
         AmazonECS amazonECS = amazonClientProvider.getAmazonEcs(credentials.getName(), ((AmazonCredentials) credentials).getCredentialsProvider(), region);
-        UpdateServiceRequest updateServiceRequest = new UpdateServiceRequest().withService(serviceName);
-        UpdateServiceResult updateServiceResult = amazonECS.updateService(updateServiceRequest.withService(serviceName).withCluster(ecsClusterName));
-        updateServiceRequest.setDesiredCount(desiredCount);
+
+        UpdateServiceRequest updateServiceRequest = new UpdateServiceRequest()
+          .withCluster(ecsClusterName)
+          .withService(serviceName)
+          .withDesiredCount(desiredCount);
+
         amazonECS.updateService(updateServiceRequest);
       }
     }
