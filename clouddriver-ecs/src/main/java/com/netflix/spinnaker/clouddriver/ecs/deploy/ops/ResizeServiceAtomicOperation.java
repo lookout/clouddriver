@@ -65,18 +65,15 @@ public class ResizeServiceAtomicOperation implements AtomicOperation<Void> {
   }
 
   private void resizeService(String serviceName, String region, Integer desiredCount) {
+    AmazonCredentials credentials
+      = (AmazonCredentials) accountCredentialsProvider.getCredentials(description.getCredentialAccount());
+    AmazonECS amazonECS = amazonClientProvider.getAmazonEcs(credentials.getName(), credentials.getCredentialsProvider(), region);
 
-    for (AccountCredentials credentials: accountCredentialsProvider.getAll()) {
-      if (credentials instanceof AmazonCredentials) {
-        AmazonECS amazonECS = amazonClientProvider.getAmazonEcs(credentials.getName(), ((AmazonCredentials) credentials).getCredentialsProvider(), region);
+    UpdateServiceRequest updateServiceRequest = new UpdateServiceRequest()
+      .withCluster(ecsClusterName)
+      .withService(serviceName)
+      .withDesiredCount(desiredCount);
 
-        UpdateServiceRequest updateServiceRequest = new UpdateServiceRequest()
-          .withCluster(ecsClusterName)
-          .withService(serviceName)
-          .withDesiredCount(desiredCount);
-
-        amazonECS.updateService(updateServiceRequest);
-      }
-    }
+    amazonECS.updateService(updateServiceRequest);
   }
 }
