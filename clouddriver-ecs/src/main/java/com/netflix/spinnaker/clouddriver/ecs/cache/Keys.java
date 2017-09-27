@@ -10,7 +10,8 @@ import static com.netflix.spinnaker.clouddriver.ecs.EcsCloudProvider.ID;
 
 public class Keys implements KeyParser {
   public enum Namespace {
-    SERVICES;
+    SERVICES,
+    CONTAINER_INSTANCES;
 
     final String ns;
 
@@ -65,5 +66,9 @@ public class Keys implements KeyParser {
 
   public static String getServiceKey(String account, String region, String serviceName) {
     return ID + ":" + Namespace.SERVICES + ":" + account + ":" + region + ":" + serviceName;
+  }
+
+  public static String getContainerInstanceKey(String account, String region, String containerInstanceArn) {
+    return ID + ":" + Namespace.CONTAINER_INSTANCES + ":" + account + ":" + region + ":" + containerInstanceArn;
   }
 }
