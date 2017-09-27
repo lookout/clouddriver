@@ -47,6 +47,11 @@ public class Keys implements KeyParser {
         result.put("region", parts[3]);
         result.put("serviceName", parts[4]);
         break;
+      case CONTAINER_INSTANCES:
+        result.put("account", parts[2]);
+        result.put("region", parts[3]);
+        result.put("containerInstanceArn", parts[4]);
+        break;
       default:
         break;
     }
