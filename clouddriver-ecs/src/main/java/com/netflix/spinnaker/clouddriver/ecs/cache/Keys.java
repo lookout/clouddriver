@@ -66,4 +66,8 @@ public class Keys implements KeyParser {
   public static String getServiceKey(String account, String region, String serviceName) {
     return ID + ":" + Namespace.SERVICES + ":" + account + ":" + region + ":" + serviceName;
   }
+
+  public static String getClusterKey(String account, String region, String clusterName) {
+    return ID + ":" + com.netflix.spinnaker.clouddriver.core.provider.agent.Namespace.CLUSTERS + ":" + account + ":" + region + ":" + clusterName;
+  }
 }
