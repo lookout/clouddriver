@@ -15,6 +15,7 @@ import com.netflix.spinnaker.cats.provider.ProviderCache;
 import com.netflix.spinnaker.clouddriver.aws.security.AmazonClientProvider;
 import com.netflix.spinnaker.clouddriver.ecs.cache.Keys;
 import com.netflix.spinnaker.clouddriver.ecs.provider.EcsProvider;
+import org.apache.commons.lang3.StringUtils;
 
 import java.util.Arrays;
 import java.util.Collection;
@@ -62,6 +63,8 @@ public class ServiceCachingAgent implements CachingAgent {
 
       for (Service service : services) {
         Map<String, Object> attributes = new HashMap<>();
+        String applicationName = service.getServiceName().contains("-") ? StringUtils.substringBefore(service.getServiceName(), "-") : service.getServiceName();
+        attributes.put("applicationName", applicationName);
         attributes.put("serviceName", service.getServiceName());
         attributes.put("serviceArn", service.getServiceArn());
         attributes.put("clusterArn", service.getClusterArn());
