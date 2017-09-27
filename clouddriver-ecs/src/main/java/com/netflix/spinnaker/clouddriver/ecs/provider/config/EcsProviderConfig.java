@@ -44,9 +44,11 @@ public class EcsProviderConfig {
     List<Agent> newAgents = new LinkedList<>();
 
     for (NetflixAmazonCredentials credentials : allAccounts) {
-      for (AWSRegion region : credentials.getRegions()) {
-        if (!scheduledAccounts.contains(credentials.getName())) {
-          newAgents.add(new ServiceCachingAgent(credentials.getName(), region.getName(), amazonClientProvider, awsCredentialsProvider));
+      if(credentials.getCloudProvider().equals("ecs")) {
+        for (AWSRegion region : credentials.getRegions()) {
+          if (!scheduledAccounts.contains(credentials.getName())) {
+            newAgents.add(new ServiceCachingAgent(credentials.getName(), region.getName(), amazonClientProvider, awsCredentialsProvider));
+          }
         }
       }
     }
