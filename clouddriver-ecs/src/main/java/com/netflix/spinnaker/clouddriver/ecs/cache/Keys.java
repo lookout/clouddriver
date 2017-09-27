@@ -10,7 +10,8 @@ import static com.netflix.spinnaker.clouddriver.ecs.EcsCloudProvider.ID;
 
 public class Keys implements KeyParser {
   public enum Namespace {
-    SERVICES;
+    SERVICES,
+    TASKS;
 
     final String ns;
 
@@ -46,6 +47,11 @@ public class Keys implements KeyParser {
         result.put("region", parts[3]);
         result.put("serviceName", parts[4]);
         break;
+      case TASKS:
+        result.put("account", parts[2]);
+        result.put("region", parts[3]);
+        result.put("taskName", parts[4]);
+        break;
       default:
         break;
     }
@@ -65,5 +71,9 @@ public class Keys implements KeyParser {
 
   public static String getServiceKey(String account, String region, String serviceName) {
     return ID + ":" + Namespace.SERVICES + ":" + account + ":" + region + ":" + serviceName;
+  }
+
+  public static String getTaskKey(String account, String region, String taskName) {
+    return ID + ":" + Namespace.SERVICES + ":" + account + ":" + region + ":" + taskName;
   }
 }
