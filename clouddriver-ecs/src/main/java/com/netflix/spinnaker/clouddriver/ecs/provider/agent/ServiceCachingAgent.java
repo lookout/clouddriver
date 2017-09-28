@@ -4,6 +4,7 @@ import com.amazonaws.auth.AWSCredentialsProvider;
 import com.amazonaws.services.ecs.AmazonECS;
 import com.amazonaws.services.ecs.model.DescribeServicesRequest;
 import com.amazonaws.services.ecs.model.ListServicesRequest;
+import com.amazonaws.services.ecs.model.ListServicesResult;
 import com.amazonaws.services.ecs.model.Service;
 import com.netflix.spinnaker.cats.agent.AgentDataType;
 import com.netflix.spinnaker.cats.agent.CacheResult;
@@ -60,7 +61,8 @@ public class ServiceCachingAgent implements CachingAgent {
         if (nextToken != null) {
           listServicesRequest.setNextToken(nextToken);
         }
-        List<String> serviceArns = ecs.listServices(listServicesRequest).getServiceArns();
+        ListServicesResult listServicesResult = ecs.listServices(listServicesRequest);
+        List<String> serviceArns = listServicesResult.getServiceArns();
         List<Service> services = ecs.describeServices(new DescribeServicesRequest().withCluster((String) cluster.getAttributes().get("name")).withServices(serviceArns)).getServices();
 
         for (Service service : services) {
@@ -81,6 +83,7 @@ public class ServiceCachingAgent implements CachingAgent {
           String key = Keys.getServiceKey(accountName, region, service.getServiceName());
           dataPoints.add(new DefaultCacheData(key, attributes, Collections.emptyMap()));
         }
+        nextToken = listServicesResult.getNextToken();
       } while (nextToken != null && nextToken.length() != 0);
     }
 
