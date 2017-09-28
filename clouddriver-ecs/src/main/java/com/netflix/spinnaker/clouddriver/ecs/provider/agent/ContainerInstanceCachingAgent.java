@@ -5,6 +5,7 @@ import com.amazonaws.services.ecs.AmazonECS;
 import com.amazonaws.services.ecs.model.ContainerInstance;
 import com.amazonaws.services.ecs.model.DescribeContainerInstancesRequest;
 import com.amazonaws.services.ecs.model.ListContainerInstancesRequest;
+import com.amazonaws.services.ecs.model.ListContainerInstancesResult;
 import com.netflix.spinnaker.cats.agent.AgentDataType;
 import com.netflix.spinnaker.cats.agent.CacheResult;
 import com.netflix.spinnaker.cats.agent.CachingAgent;
@@ -13,8 +14,8 @@ import com.netflix.spinnaker.cats.cache.CacheData;
 import com.netflix.spinnaker.cats.cache.DefaultCacheData;
 import com.netflix.spinnaker.cats.provider.ProviderCache;
 import com.netflix.spinnaker.clouddriver.aws.security.AmazonClientProvider;
-import com.netflix.spinnaker.clouddriver.ecs.provider.EcsProvider;
 import com.netflix.spinnaker.clouddriver.ecs.cache.Keys;
+import com.netflix.spinnaker.clouddriver.ecs.provider.EcsProvider;
 
 import java.util.Arrays;
 import java.util.Collection;
@@ -26,7 +27,7 @@ import java.util.Map;
 
 import static com.netflix.spinnaker.cats.agent.AgentDataType.Authority.AUTHORITATIVE;
 import static com.netflix.spinnaker.clouddriver.ecs.cache.Keys.Namespace.CONTAINER_INSTANCES;
-import static com.netflix.spinnaker.clouddriver.core.provider.agent.Namespace.CLUSTERS;
+import static com.netflix.spinnaker.clouddriver.ecs.cache.Keys.Namespace.ECS_CLUSTERS;
 
 public class ContainerInstanceCachingAgent implements CachingAgent {
   static final Collection<AgentDataType> types = Collections.unmodifiableCollection(Arrays.asList(
@@ -50,25 +51,30 @@ public class ContainerInstanceCachingAgent implements CachingAgent {
     AmazonECS ecs = amazonClientProvider.getAmazonEcs(accountName, awsCredentialsProvider, region);
 
     Collection<CacheData> dataPoints = new LinkedList<>();
-    Collection<CacheData> clusters = providerCache.getAll(CLUSTERS.toString());
+    Collection<CacheData> clusters = providerCache.getAll(ECS_CLUSTERS.toString());
 
     for (CacheData cluster : clusters) {
-      if (cluster.getAttributes().get("account") == null || !cluster.getAttributes().get("account").equals(accountName)) {
-        continue;
-      }
+      String nextToken = null;
+      do {
+        ListContainerInstancesRequest listContainerInstancesRequest = new ListContainerInstancesRequest().withCluster((String) cluster.getAttributes().get("name"));
+        if(nextToken != null){
+          listContainerInstancesRequest.setNextToken(nextToken);
+        }
+        ListContainerInstancesResult listContainerInstancesResult = ecs.listContainerInstances(listContainerInstancesRequest);
+        List<String> containerInstanceArns = listContainerInstancesResult.getContainerInstanceArns();
+        List<ContainerInstance> containerInstances = ecs.describeContainerInstances(new DescribeContainerInstancesRequest().withCluster((String) cluster.getAttributes().get("name")).withContainerInstances(containerInstanceArns)).getContainerInstances();
 
-      List<String> containerInstanceArns = ecs.listContainerInstances(new ListContainerInstancesRequest().withCluster((String) cluster.getAttributes().get("name"))).getContainerInstanceArns();
-      List<ContainerInstance> containerInstances = ecs.describeContainerInstances(new DescribeContainerInstancesRequest().withCluster((String) cluster.getAttributes().get("name")).withContainerInstances(containerInstanceArns)).getContainerInstances();
-
-      for (ContainerInstance containerInstance : containerInstances) {
-        Map<String, Object> attributes = new HashMap<>();
-        attributes.put("containerInstanceArn", containerInstance.getContainerInstanceArn());
-        attributes.put("ec2InstanceId", containerInstance.getEc2InstanceId());
+        for (ContainerInstance containerInstance : containerInstances) {
+          Map<String, Object> attributes = new HashMap<>();
+          attributes.put("containerInstanceArn", containerInstance.getContainerInstanceArn());
+          attributes.put("ec2InstanceId", containerInstance.getEc2InstanceId());
 
 
-        String key = Keys.getContainerInstanceKey(accountName, region, containerInstance.getContainerInstanceArn());
-        dataPoints.add(new DefaultCacheData(key, attributes, Collections.emptyMap()));
-      }
+          String key = Keys.getContainerInstanceKey(accountName, region, containerInstance.getContainerInstanceArn());
+          dataPoints.add(new DefaultCacheData(key, attributes, Collections.emptyMap()));
+        }
+        nextToken = listContainerInstancesResult.getNextToken();
+      } while (nextToken != null && nextToken.length() != 0);
     }
 
     Map<String, Collection<CacheData>> dataMap = new HashMap<>();
