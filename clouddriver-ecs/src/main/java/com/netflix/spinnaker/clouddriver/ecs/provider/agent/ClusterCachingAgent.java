@@ -23,11 +23,11 @@ import java.util.List;
 import java.util.Map;
 
 import static com.netflix.spinnaker.cats.agent.AgentDataType.Authority.AUTHORITATIVE;
-import static com.netflix.spinnaker.clouddriver.core.provider.agent.Namespace.CLUSTERS;
+import static com.netflix.spinnaker.clouddriver.ecs.cache.Keys.Namespace.ECS_CLUSTER;
 
 public class ClusterCachingAgent implements CachingAgent {
   static final Collection<AgentDataType> types = Collections.unmodifiableCollection(Arrays.asList(
-    AUTHORITATIVE.forType(CLUSTERS.toString())
+    AUTHORITATIVE.forType(ECS_CLUSTER.toString())
   ));
 
   private AmazonClientProvider amazonClientProvider;
@@ -64,7 +64,7 @@ public class ClusterCachingAgent implements CachingAgent {
     }
 
     Map<String, Collection<CacheData>> dataMap = new HashMap<>();
-    dataMap.put(CLUSTERS.toString(), dataPoints);
+    dataMap.put(ECS_CLUSTER.toString(), dataPoints);
 
     return new DefaultCacheResult(dataMap);
   }
