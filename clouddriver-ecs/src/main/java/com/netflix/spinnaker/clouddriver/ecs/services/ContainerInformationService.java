@@ -27,21 +27,17 @@ import com.amazonaws.services.ecs.AmazonECS;
 import com.amazonaws.services.ecs.model.Container;
 import com.amazonaws.services.ecs.model.ContainerInstance;
 import com.amazonaws.services.ecs.model.DescribeContainerInstancesRequest;
-import com.amazonaws.services.ecs.model.DescribeContainerInstancesResult;
 import com.amazonaws.services.ecs.model.DescribeServicesRequest;
 import com.amazonaws.services.ecs.model.DescribeServicesResult;
 import com.amazonaws.services.ecs.model.DescribeTasksRequest;
-import com.amazonaws.services.ecs.model.DescribeTasksResult;
 import com.amazonaws.services.ecs.model.InvalidParameterException;
 import com.amazonaws.services.ecs.model.ListClustersResult;
 import com.amazonaws.services.ecs.model.ListServicesRequest;
 import com.amazonaws.services.ecs.model.ListServicesResult;
-import com.amazonaws.services.ecs.model.LoadBalancer;
 import com.amazonaws.services.ecs.model.NetworkBinding;
 import com.amazonaws.services.ecs.model.Service;
 import com.amazonaws.services.ecs.model.Task;
 import com.amazonaws.services.elasticloadbalancingv2.AmazonElasticLoadBalancing;
-import com.amazonaws.services.elasticloadbalancingv2.model.DescribeLoadBalancersRequest;
 import com.amazonaws.services.elasticloadbalancingv2.model.DescribeTargetHealthRequest;
 import com.amazonaws.services.elasticloadbalancingv2.model.DescribeTargetHealthResult;
 import com.amazonaws.services.elasticloadbalancingv2.model.TargetDescription;
@@ -80,7 +76,6 @@ public class ContainerInformationService {
 
   public List<Map<String, String>> getHealthStatus(String clusterArn, String taskId, String serviceArn, String accountName, String region) {
     NetflixAmazonCredentials accountCredentials = (NetflixAmazonCredentials) accountCredentialsProvider.getCredentials(accountName);
-    AmazonECS amazonECS = amazonClientProvider.getAmazonEcs(accountName, accountCredentials.getCredentialsProvider(), region);
 
     String serviceCacheKey = Keys.getServiceKey(accountName, region, StringUtils.substringAfterLast(serviceArn, "/"));
 
@@ -89,43 +84,34 @@ public class ContainerInformationService {
       return null;
     }
 
-    List<LoadBalancer> loadBalancers = (List<LoadBalancer>) serviceCacheData.getAttributes().get("loadBalancers");
+    // TODO: Find a way to deserialize LoadBalancer properly from withen the service cache data.
+    List<Map<String, Object>> loadBalancers = (List<Map<String, Object>>) serviceCacheData.getAttributes().get("loadBalancers");
+    //There should only be 1 based on AWS documentation.
     if (loadBalancers.size() == 1) {
-      String loadBalancerName = loadBalancers.get(0).getLoadBalancerName();
-
       //TODO: getAmazonElasticLoadBalancingV2 should be cached.
       AmazonElasticLoadBalancing AmazonloadBalancing = amazonClientProvider.getAmazonElasticLoadBalancingV2(accountName, accountCredentials.getCredentialsProvider(), region);
-      AmazonloadBalancing.describeLoadBalancers(new DescribeLoadBalancersRequest().withNames(loadBalancerName));
 
       String taskCacheKey = Keys.getTaskKey(accountName, region, taskId);
       CacheData taskCacheData = cacheView.get(TASKS.toString(), taskCacheKey);
 
-      CacheData containerInstance = null;
-      Collection<CacheData> allContainerInstancesCache = cacheView.getAll(CONTAINER_INSTANCES.toString());
-      for(CacheData cInstanceCache:allContainerInstancesCache){
-        if(cInstanceCache.getAttributes().get("containerInstanceArn").equals(taskCacheData.getAttributes().get("containerInstanceArn"))){
-          containerInstance = cInstanceCache;
-          break;
-        }
-      }
+      String containerInstanceCacheKey = Keys.getContainerInstanceKey(accountName, region, (String) taskCacheData.getAttributes().get("containerInstanceArn"));
+      CacheData containerInstance = cacheView.get(CONTAINER_INSTANCES.toString(), containerInstanceCacheKey);
 
-      // TODO: Currently assuming there's 1 container with 1 port for the task given.
-      if(containerInstance == null){
+      if (containerInstance == null) {
         return null;
       }
 
-      int port = ((List<Container>)taskCacheData.getAttributes().get("containers")).get(0).getNetworkBindings().get(0).getHostPort();
+      // TODO: Currently assuming there's 1 container with 1 port for the task given.
+      // TODO: Find a way to deserialize containers properly from withen the task cache data.
+      int port = (Integer) ((List<Map<String, Object>>) ((List<Map<String, Object>>) taskCacheData.getAttributes().get("containers")).get(0).get("networkBindings")).get(0).get("hostPort");
 
       DescribeTargetHealthResult targetGroupHealthResult = null;
-      //There should only be 1 based on AWS documentation.
-      if (loadBalancers.size() > 1) {
-        throw new IllegalArgumentException("Cannot have more than 1 loadbalancer while checking ECS health.");
-      }
-      for (LoadBalancer loadBalancer : loadBalancers) {
+
+      for (Map<String, Object> loadBalancer : loadBalancers) {
         //TODO: describeTargetHealth should be cached.
         targetGroupHealthResult = AmazonloadBalancing.describeTargetHealth(
-          new DescribeTargetHealthRequest().withTargetGroupArn(loadBalancer.getTargetGroupArn()).withTargets(
-            new TargetDescription().withId((String) containerInstance.getAttributes().get("Ec2InstanceId")).withPort(port)));
+          new DescribeTargetHealthRequest().withTargetGroupArn((String) loadBalancer.get("targetGroupArn")).withTargets(
+            new TargetDescription().withId((String) containerInstance.getAttributes().get("ec2InstanceId")).withPort(port)));
       }
 
       List<Map<String, String>> healthMetrics = new ArrayList<>();
@@ -137,18 +123,12 @@ public class ContainerInformationService {
       loadBalancerHealth.put("state", targetHealth.equals("healthy") ? "Up" : "Unknown");  // TODO - Return better values, and think of a better strategy at defining health
       loadBalancerHealth.put("type", "loadBalancer");
 
-      Map<String, String> firstLoadBalancer = new HashMap<>();
-      firstLoadBalancer.put("healthState", "Up");
-      firstLoadBalancer.put("instanceId", "i-055cc597eec0597eb");
-      firstLoadBalancer.put("loadBalancerName", "ALB-Name");
-      firstLoadBalancer.put("loadBalancerType", "classic");
-      firstLoadBalancer.put("state", "InService");
-
       healthMetrics.add(loadBalancerHealth);
       return healthMetrics;
-    } else {
-      return null;
+    } else if (loadBalancers.size() > 1) {
+      throw new IllegalArgumentException("Cannot have more than 1 loadbalancer while checking ECS health.");
     }
+    return null;
 
   }
 
