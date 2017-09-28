@@ -10,7 +10,10 @@ import static com.netflix.spinnaker.clouddriver.ecs.EcsCloudProvider.ID;
 
 public class Keys implements KeyParser {
   public enum Namespace {
-    SERVICES;
+    SERVICES,
+    ECS_CLUSTERS,
+    TASKS,
+    CONTAINER_INSTANCES;
 
     final String ns;
 
@@ -23,6 +26,8 @@ public class Keys implements KeyParser {
     }
   }
 
+  private static final String SEPARATOR = ":";
+
   @Override
   public String getCloudProvider() {
     return ID;
@@ -30,7 +35,7 @@ public class Keys implements KeyParser {
 
   @Override
   public Map<String, String> parseKey(String key) {
-    String[] parts = key.split(":");
+    String[] parts = key.split(SEPARATOR);
 
     if (parts.length < 3 || !parts[0].equals(ID)) {
       return null;
@@ -45,6 +50,21 @@ public class Keys implements KeyParser {
         result.put("account", parts[2]);
         result.put("region", parts[3]);
         result.put("serviceName", parts[4]);
+        break;
+      case ECS_CLUSTERS:
+        result.put("account", parts[2]);
+        result.put("region", parts[3]);
+        result.put("clusterName", parts[4]);
+        break;
+      case TASKS:
+        result.put("account", parts[2]);
+        result.put("region", parts[3]);
+        result.put("taskName", parts[4]);
+        break;
+      case CONTAINER_INSTANCES:
+        result.put("account", parts[2]);
+        result.put("region", parts[3]);
+        result.put("containerInstanceArn", parts[4]);
         break;
       default:
         break;
@@ -64,6 +84,18 @@ public class Keys implements KeyParser {
   }
 
   public static String getServiceKey(String account, String region, String serviceName) {
-    return ID + ":" + Namespace.SERVICES + ":" + account + ":" + region + ":" + serviceName;
+    return ID + SEPARATOR + Namespace.SERVICES + SEPARATOR + account + SEPARATOR + region + SEPARATOR + serviceName;
+  }
+
+  public static String getClusterKey(String account, String region, String clusterName) {
+    return ID + SEPARATOR + Namespace.ECS_CLUSTERS + SEPARATOR + account + SEPARATOR + region + SEPARATOR + clusterName;
+  }
+
+  public static String getTaskKey(String account, String region, String taskName) {
+    return ID + SEPARATOR + Namespace.SERVICES + SEPARATOR + account + SEPARATOR + region + SEPARATOR + taskName;
+  }
+
+  public static String getContainerInstanceKey(String account, String region, String containerInstanceArn) {
+    return ID + SEPARATOR + Namespace.CONTAINER_INSTANCES + SEPARATOR + account + SEPARATOR + region + SEPARATOR + containerInstanceArn;
   }
 }
