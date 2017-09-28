@@ -45,17 +45,25 @@ import com.amazonaws.services.elasticloadbalancingv2.model.DescribeLoadBalancers
 import com.amazonaws.services.elasticloadbalancingv2.model.DescribeTargetHealthRequest;
 import com.amazonaws.services.elasticloadbalancingv2.model.DescribeTargetHealthResult;
 import com.amazonaws.services.elasticloadbalancingv2.model.TargetDescription;
+import com.netflix.spinnaker.cats.cache.Cache;
+import com.netflix.spinnaker.cats.cache.CacheData;
 import com.netflix.spinnaker.clouddriver.aws.security.AmazonClientProvider;
 import com.netflix.spinnaker.clouddriver.aws.security.NetflixAmazonCredentials;
+import com.netflix.spinnaker.clouddriver.ecs.cache.Keys;
 import com.netflix.spinnaker.clouddriver.security.AccountCredentialsProvider;
 import org.apache.commons.lang3.StringUtils;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.stereotype.Component;
 
 import java.util.ArrayList;
+import java.util.Collection;
 import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
+
+import static com.netflix.spinnaker.clouddriver.ecs.cache.Keys.Namespace.CONTAINER_INSTANCES;
+import static com.netflix.spinnaker.clouddriver.ecs.cache.Keys.Namespace.SERVICES;
+import static com.netflix.spinnaker.clouddriver.ecs.cache.Keys.Namespace.TASKS;
 
 @Component
 public class ContainerInformationService {
@@ -66,38 +74,58 @@ public class ContainerInformationService {
   @Autowired
   private AmazonClientProvider amazonClientProvider;
 
+  @Autowired
+  private Cache cacheView;
+
 
   public List<Map<String, String>> getHealthStatus(String clusterArn, String taskId, String serviceArn, String accountName, String region) {
-    // TODO - remove the cheese here
-
     NetflixAmazonCredentials accountCredentials = (NetflixAmazonCredentials) accountCredentialsProvider.getCredentials(accountName);
     AmazonECS amazonECS = amazonClientProvider.getAmazonEcs(accountName, accountCredentials.getCredentialsProvider(), region);
 
-    DescribeServicesResult describeServicesResult = amazonECS.describeServices(new DescribeServicesRequest().withServices(serviceArn).withCluster(clusterArn));
+    String serviceCacheKey = Keys.getServiceKey(accountName, region, StringUtils.substringAfterLast(serviceArn, "/"));
 
-    Service service = describeServicesResult.getServices().get(0);
-    if (service.getLoadBalancers().size() == 1) {
-      String loadBalancerName = service.getLoadBalancers().get(0).getLoadBalancerName();
+    CacheData serviceCacheData = cacheView.get(SERVICES.toString(), serviceCacheKey);
+    if (serviceCacheData == null) {
+      return null;
+    }
 
+    List<LoadBalancer> loadBalancers = (List<LoadBalancer>) serviceCacheData.getAttributes().get("loadBalancers");
+    if (loadBalancers.size() == 1) {
+      String loadBalancerName = loadBalancers.get(0).getLoadBalancerName();
+
+      //TODO: getAmazonElasticLoadBalancingV2 should be cached.
       AmazonElasticLoadBalancing AmazonloadBalancing = amazonClientProvider.getAmazonElasticLoadBalancingV2(accountName, accountCredentials.getCredentialsProvider(), region);
       AmazonloadBalancing.describeLoadBalancers(new DescribeLoadBalancersRequest().withNames(loadBalancerName));
 
-      DescribeTasksResult taskDescription = amazonECS.describeTasks(new DescribeTasksRequest().withCluster(service.getClusterArn()).withTasks(taskId));
-      DescribeContainerInstancesResult containerDescriptions = amazonECS.describeContainerInstances(
-        new DescribeContainerInstancesRequest().withCluster(clusterArn).withContainerInstances(taskDescription.getTasks().get(0).getContainerInstanceArn()));
+      String taskCacheKey = Keys.getTaskKey(accountName, region, taskId);
+      CacheData taskCacheData = cacheView.get(TASKS.toString(), taskCacheKey);
+
+      CacheData containerInstance = null;
+      Collection<CacheData> allContainerInstancesCache = cacheView.getAll(CONTAINER_INSTANCES.toString());
+      for(CacheData cInstanceCache:allContainerInstancesCache){
+        if(cInstanceCache.getAttributes().get("containerInstanceArn").equals(taskCacheData.getAttributes().get("containerInstanceArn"))){
+          containerInstance = cInstanceCache;
+          break;
+        }
+      }
+
       // TODO: Currently assuming there's 1 container with 1 port for the task given.
-      int port = taskDescription.getTasks().get(0).getContainers().get(0).getNetworkBindings().get(0).getHostPort();
+      if(containerInstance == null){
+        return null;
+      }
+
+      int port = ((List<Container>)taskCacheData.getAttributes().get("containers")).get(0).getNetworkBindings().get(0).getHostPort();
 
       DescribeTargetHealthResult targetGroupHealthResult = null;
-      List<LoadBalancer> loadBalancers = service.getLoadBalancers();
       //There should only be 1 based on AWS documentation.
-      if(loadBalancers.size()>1){
+      if (loadBalancers.size() > 1) {
         throw new IllegalArgumentException("Cannot have more than 1 loadbalancer while checking ECS health.");
       }
       for (LoadBalancer loadBalancer : loadBalancers) {
+        //TODO: describeTargetHealth should be cached.
         targetGroupHealthResult = AmazonloadBalancing.describeTargetHealth(
           new DescribeTargetHealthRequest().withTargetGroupArn(loadBalancer.getTargetGroupArn()).withTargets(
-            new TargetDescription().withId(containerDescriptions.getContainerInstances().get(0).getEc2InstanceId()).withPort(port)));
+            new TargetDescription().withId((String) containerInstance.getAttributes().get("Ec2InstanceId")).withPort(port)));
       }
 
       List<Map<String, String>> healthMetrics = new ArrayList<>();
@@ -138,12 +166,12 @@ public class ContainerInformationService {
 
   public String getTaskPrivateAddress(AmazonECS amazonECS, AmazonEC2 amazonEC2, Task task) {
     List<Container> containers = task.getContainers();
-    if (containers == null || containers.size() <1) {
+    if (containers == null || containers.size() < 1) {
       return "unknown";
     }
 
     List<NetworkBinding> networkBindings = containers.get(0).getNetworkBindings();
-    if (networkBindings == null || networkBindings.size() <1) {
+    if (networkBindings == null || networkBindings.size() < 1) {
       return "unknown";
     }
 
@@ -231,7 +259,9 @@ public class ContainerInformationService {
     ListServicesResult listServicesResult = amazonECS.listServices(new ListServicesRequest().withCluster(clusterName));
 
     for (String serviceARN : listServicesResult.getServiceArns()) {
-      if (!serviceARN.contains(serviceName)) { continue; }
+      if (!serviceARN.contains(serviceName)) {
+        continue;
+      }
 
       int currentVersion = 0;
       try {

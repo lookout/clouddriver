@@ -91,8 +91,8 @@ public class Keys implements KeyParser {
     return ID + SEPARATOR + Namespace.ECS_CLUSTERS + SEPARATOR + account + SEPARATOR + region + SEPARATOR + clusterName;
   }
 
-  public static String getTaskKey(String account, String region, String taskName) {
-    return ID + SEPARATOR + Namespace.SERVICES + SEPARATOR + account + SEPARATOR + region + SEPARATOR + taskName;
+  public static String getTaskKey(String account, String region, String taskArn) {
+    return ID + SEPARATOR + Namespace.SERVICES + SEPARATOR + account + SEPARATOR + region + SEPARATOR + taskArn;
   }
 
   public static String getContainerInstanceKey(String account, String region, String containerInstanceArn) {
