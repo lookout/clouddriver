@@ -429,4 +429,8 @@ public class AmazonClientProvider {
   public AmazonIdentityManagement getAmazonIdentityManagement(String accountName, AWSCredentialsProvider awsCredentialsProvider, String region) {
     return awsSdkClientSupplier.getClient(AmazonIdentityManagementClientBuilder.class, AmazonIdentityManagement.class, accountName, awsCredentialsProvider, region);
   }
+
+  public AWSApplicationAutoScaling getAmazonApplicationAutoScaling(String accountName, AWSCredentialsProvider awsCredentialsProvider, String region) {
+    return awsSdkClientSupplier.getClient(AWSApplicationAutoScalingClientBuilder.class, AWSApplicationAutoScaling.class, accountName, awsCredentialsProvider, region);
+  }
 }
