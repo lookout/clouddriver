@@ -26,6 +26,8 @@ public class Keys implements KeyParser {
     }
   }
 
+  private static final String SEPARATOR = ":";
+
   @Override
   public String getCloudProvider() {
     return ID;
@@ -33,7 +35,7 @@ public class Keys implements KeyParser {
 
   @Override
   public Map<String, String> parseKey(String key) {
-    String[] parts = key.split(":");
+    String[] parts = key.split(SEPARATOR);
 
     if (parts.length < 3 || !parts[0].equals(ID)) {
       return null;
@@ -82,18 +84,18 @@ public class Keys implements KeyParser {
   }
 
   public static String getServiceKey(String account, String region, String serviceName) {
-    return ID + ":" + Namespace.SERVICES + ":" + account + ":" + region + ":" + serviceName;
+    return ID + SEPARATOR + Namespace.SERVICES + SEPARATOR + account + SEPARATOR + region + SEPARATOR + serviceName;
   }
 
   public static String getClusterKey(String account, String region, String clusterName) {
-    return ID + ":" + Namespace.ECS_CLUSTERS + ":" + account + ":" + region + ":" + clusterName;
+    return ID + SEPARATOR + Namespace.ECS_CLUSTERS + SEPARATOR + account + SEPARATOR + region + SEPARATOR + clusterName;
   }
 
   public static String getTaskKey(String account, String region, String taskName) {
-    return ID + ":" + Namespace.SERVICES + ":" + account + ":" + region + ":" + taskName;
+    return ID + SEPARATOR + Namespace.SERVICES + SEPARATOR + account + SEPARATOR + region + SEPARATOR + taskName;
   }
 
   public static String getContainerInstanceKey(String account, String region, String containerInstanceArn) {
-    return ID + ":" + Namespace.CONTAINER_INSTANCES + ":" + account + ":" + region + ":" + containerInstanceArn;
+    return ID + SEPARATOR + Namespace.CONTAINER_INSTANCES + SEPARATOR + account + SEPARATOR + region + SEPARATOR + containerInstanceArn;
   }
 }

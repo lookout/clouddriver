@@ -57,22 +57,25 @@ public class ContainerInstanceCachingAgent implements CachingAgent {
       String nextToken = null;
       do {
         ListContainerInstancesRequest listContainerInstancesRequest = new ListContainerInstancesRequest().withCluster((String) cluster.getAttributes().get("name"));
-        if(nextToken != null){
+        if (nextToken != null) {
           listContainerInstancesRequest.setNextToken(nextToken);
         }
+
         ListContainerInstancesResult listContainerInstancesResult = ecs.listContainerInstances(listContainerInstancesRequest);
         List<String> containerInstanceArns = listContainerInstancesResult.getContainerInstanceArns();
-        List<ContainerInstance> containerInstances = ecs.describeContainerInstances(new DescribeContainerInstancesRequest().withCluster((String) cluster.getAttributes().get("name")).withContainerInstances(containerInstanceArns)).getContainerInstances();
+
+        List<ContainerInstance> containerInstances = ecs.describeContainerInstances(new DescribeContainerInstancesRequest()
+          .withCluster((String) cluster.getAttributes().get("name")).withContainerInstances(containerInstanceArns)).getContainerInstances();
 
         for (ContainerInstance containerInstance : containerInstances) {
           Map<String, Object> attributes = new HashMap<>();
           attributes.put("containerInstanceArn", containerInstance.getContainerInstanceArn());
           attributes.put("ec2InstanceId", containerInstance.getEc2InstanceId());
 
-
           String key = Keys.getContainerInstanceKey(accountName, region, containerInstance.getContainerInstanceArn());
           dataPoints.add(new DefaultCacheData(key, attributes, Collections.emptyMap()));
         }
+
         nextToken = listContainerInstancesResult.getNextToken();
       } while (nextToken != null && nextToken.length() != 0);
     }
