@@ -2,6 +2,8 @@ package com.netflix.spinnaker.clouddriver.ecs.provider.agent;
 
 import com.amazonaws.auth.AWSCredentialsProvider;
 import com.amazonaws.services.ecs.AmazonECS;
+import com.amazonaws.services.ecs.model.ListClustersRequest;
+import com.amazonaws.services.ecs.model.ListClustersResult;
 import com.netflix.spinnaker.cats.agent.AgentDataType;
 import com.netflix.spinnaker.cats.agent.CacheResult;
 import com.netflix.spinnaker.cats.agent.CachingAgent;
@@ -23,11 +25,11 @@ import java.util.List;
 import java.util.Map;
 
 import static com.netflix.spinnaker.cats.agent.AgentDataType.Authority.AUTHORITATIVE;
-import static com.netflix.spinnaker.clouddriver.ecs.cache.Keys.Namespace.ECS_CLUSTER;
+import static com.netflix.spinnaker.clouddriver.ecs.cache.Keys.Namespace.ECS_CLUSTERS;
 
 public class ClusterCachingAgent implements CachingAgent {
   static final Collection<AgentDataType> types = Collections.unmodifiableCollection(Arrays.asList(
-    AUTHORITATIVE.forType(ECS_CLUSTER.toString())
+    AUTHORITATIVE.forType(ECS_CLUSTERS.toString())
   ));
 
   private AmazonClientProvider amazonClientProvider;
@@ -49,22 +51,31 @@ public class ClusterCachingAgent implements CachingAgent {
 
     Collection<CacheData> dataPoints = new LinkedList<>();
 
-    List<String> clusterArns = ecs.listClusters().getClusterArns();
+    String nextToken = null;
+    do {
+      ListClustersRequest listClustersRequest = new ListClustersRequest();
+      if (nextToken != null) {
+        listClustersRequest.setNextToken(nextToken);
+      }
+      ListClustersResult listClustersResult = ecs.listClusters(listClustersRequest);
+      List<String> clusterArns = listClustersResult.getClusterArns();
 
-    for (String clusterArn : clusterArns) {
-      String clusterName = StringUtils.substringAfterLast(clusterArn, "/");
+      for (String clusterArn : clusterArns) {
+        String clusterName = StringUtils.substringAfterLast(clusterArn, "/");
 
-      Map<String, Object> attributes = new HashMap<>();
-      attributes.put("account", accountName);
-      attributes.put("clusterName", clusterName);
-      attributes.put("clusterArn", clusterArn);
+        Map<String, Object> attributes = new HashMap<>();
+        attributes.put("account", accountName);
+        attributes.put("clusterName", clusterName);
+        attributes.put("clusterArn", clusterArn);
 
 
-      dataPoints.add(new DefaultCacheData(Keys.getClusterKey(accountName, region, clusterName), attributes, Collections.emptyMap()));
-    }
+        dataPoints.add(new DefaultCacheData(Keys.getClusterKey(accountName, region, clusterName), attributes, Collections.emptyMap()));
+      }
+      nextToken = listClustersResult.getNextToken();
+    } while (nextToken != null && nextToken.length() != 0);
 
     Map<String, Collection<CacheData>> dataMap = new HashMap<>();
-    dataMap.put(ECS_CLUSTER.toString(), dataPoints);
+    dataMap.put(ECS_CLUSTERS.toString(), dataPoints);
 
     return new DefaultCacheResult(dataMap);
   }

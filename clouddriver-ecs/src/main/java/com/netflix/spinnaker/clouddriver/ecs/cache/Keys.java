@@ -11,7 +11,7 @@ import static com.netflix.spinnaker.clouddriver.ecs.EcsCloudProvider.ID;
 public class Keys implements KeyParser {
   public enum Namespace {
     SERVICES,
-    ECS_CLUSTER;
+    ECS_CLUSTERS;
 
     final String ns;
 
@@ -47,7 +47,7 @@ public class Keys implements KeyParser {
         result.put("region", parts[3]);
         result.put("serviceName", parts[4]);
         break;
-      case ECS_CLUSTER:
+      case ECS_CLUSTERS:
         result.put("account", parts[2]);
         result.put("region", parts[3]);
         result.put("clusterName", parts[4]);
@@ -74,6 +74,6 @@ public class Keys implements KeyParser {
   }
 
   public static String getClusterKey(String account, String region, String clusterName) {
-    return ID + ":" + Namespace.ECS_CLUSTER + ":" + account + ":" + region + ":" + clusterName;
+    return ID + ":" + Namespace.ECS_CLUSTERS + ":" + account + ":" + region + ":" + clusterName;
   }
 }
