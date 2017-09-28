@@ -57,7 +57,9 @@ public class ServiceCachingAgent implements CachingAgent {
       String nextToken = null;
       do {
         ListServicesRequest listServicesRequest = new ListServicesRequest().withCluster((String) cluster.getAttributes().get("name"));
-        listServicesRequest.setNextToken(nextToken);
+        if (nextToken != null) {
+          listServicesRequest.setNextToken(nextToken);
+        }
         List<String> serviceArns = ecs.listServices(listServicesRequest).getServiceArns();
         List<Service> services = ecs.describeServices(new DescribeServicesRequest().withCluster((String) cluster.getAttributes().get("name")).withServices(serviceArns)).getServices();
 
