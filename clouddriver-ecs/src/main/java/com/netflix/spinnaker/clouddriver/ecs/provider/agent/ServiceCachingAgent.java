@@ -26,7 +26,7 @@ import java.util.List;
 import java.util.Map;
 
 import static com.netflix.spinnaker.cats.agent.AgentDataType.Authority.AUTHORITATIVE;
-import static com.netflix.spinnaker.clouddriver.core.provider.agent.Namespace.CLUSTERS;
+import static com.netflix.spinnaker.clouddriver.ecs.cache.Keys.Namespace.ECS_CLUSTERS;
 import static com.netflix.spinnaker.clouddriver.ecs.cache.Keys.Namespace.SERVICES;
 
 public class ServiceCachingAgent implements CachingAgent {
@@ -51,34 +51,35 @@ public class ServiceCachingAgent implements CachingAgent {
     AmazonECS ecs = amazonClientProvider.getAmazonEcs(accountName, awsCredentialsProvider, region);
 
     Collection<CacheData> dataPoints = new LinkedList<>();
-    Collection<CacheData> clusters = providerCache.getAll(CLUSTERS.toString());
+    Collection<CacheData> clusters = providerCache.getAll(ECS_CLUSTERS.toString());
 
     for (CacheData cluster : clusters) {
-      if (cluster.getAttributes().get("account") == null || !cluster.getAttributes().get("account").equals(accountName)) {
-        continue;
-      }
+      String nextToken = null;
+      do {
+        ListServicesRequest listServicesRequest = new ListServicesRequest().withCluster((String) cluster.getAttributes().get("name"));
+        listServicesRequest.setNextToken(nextToken);
+        List<String> serviceArns = ecs.listServices(listServicesRequest).getServiceArns();
+        List<Service> services = ecs.describeServices(new DescribeServicesRequest().withCluster((String) cluster.getAttributes().get("name")).withServices(serviceArns)).getServices();
 
-      List<String> serviceArns = ecs.listServices(new ListServicesRequest().withCluster((String) cluster.getAttributes().get("name"))).getServiceArns();
-      List<Service> services = ecs.describeServices(new DescribeServicesRequest().withCluster((String) cluster.getAttributes().get("name")).withServices(serviceArns)).getServices();
-
-      for (Service service : services) {
-        Map<String, Object> attributes = new HashMap<>();
-        String applicationName = service.getServiceName().contains("-") ? StringUtils.substringBefore(service.getServiceName(), "-") : service.getServiceName();
-        attributes.put("applicationName", applicationName);
-        attributes.put("serviceName", service.getServiceName());
-        attributes.put("serviceArn", service.getServiceArn());
-        attributes.put("clusterArn", service.getClusterArn());
-        attributes.put("roleArn", service.getRoleArn());
-        attributes.put("taskDefinition", service.getTaskDefinition());
-        attributes.put("desiredCount", service.getDesiredCount());
-        attributes.put("maximumPercent", service.getDeploymentConfiguration().getMaximumPercent());
-        attributes.put("minimumHealthyPercent", service.getDeploymentConfiguration().getMinimumHealthyPercent());
-        attributes.put("loadBalancers", service.getLoadBalancers());
+        for (Service service : services) {
+          Map<String, Object> attributes = new HashMap<>();
+          String applicationName = service.getServiceName().contains("-") ? StringUtils.substringBefore(service.getServiceName(), "-") : service.getServiceName();
+          attributes.put("applicationName", applicationName);
+          attributes.put("serviceName", service.getServiceName());
+          attributes.put("serviceArn", service.getServiceArn());
+          attributes.put("clusterArn", service.getClusterArn());
+          attributes.put("roleArn", service.getRoleArn());
+          attributes.put("taskDefinition", service.getTaskDefinition());
+          attributes.put("desiredCount", service.getDesiredCount());
+          attributes.put("maximumPercent", service.getDeploymentConfiguration().getMaximumPercent());
+          attributes.put("minimumHealthyPercent", service.getDeploymentConfiguration().getMinimumHealthyPercent());
+          attributes.put("loadBalancers", service.getLoadBalancers());
 
 
-        String key = Keys.getServiceKey(accountName, region, service.getServiceName());
-        dataPoints.add(new DefaultCacheData(key, attributes, Collections.emptyMap()));
-      }
+          String key = Keys.getServiceKey(accountName, region, service.getServiceName());
+          dataPoints.add(new DefaultCacheData(key, attributes, Collections.emptyMap()));
+        }
+      } while (nextToken != null && nextToken.length() != 0);
     }
 
     Map<String, Collection<CacheData>> dataMap = new HashMap<>();
