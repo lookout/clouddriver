@@ -15,6 +15,8 @@ import com.netflix.spinnaker.clouddriver.aws.security.AmazonClientProvider;
 import com.netflix.spinnaker.clouddriver.ecs.cache.Keys;
 import com.netflix.spinnaker.clouddriver.ecs.provider.EcsProvider;
 import org.apache.commons.lang.StringUtils;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
 
 import java.util.Arrays;
 import java.util.Collection;
@@ -28,6 +30,8 @@ import static com.netflix.spinnaker.cats.agent.AgentDataType.Authority.AUTHORITA
 import static com.netflix.spinnaker.clouddriver.ecs.cache.Keys.Namespace.ECS_CLUSTERS;
 
 public class ClusterCachingAgent implements CachingAgent {
+  private final Logger log = LoggerFactory.getLogger(getClass());
+
   static final Collection<AgentDataType> types = Collections.unmodifiableCollection(Arrays.asList(
     AUTHORITATIVE.forType(ECS_CLUSTERS.toString())
   ));
@@ -74,6 +78,7 @@ public class ClusterCachingAgent implements CachingAgent {
       nextToken = listClustersResult.getNextToken();
     } while (nextToken != null && nextToken.length() != 0);
 
+    log.info("Caching " + dataPoints.size() + " instances in " + getAgentType());
     Map<String, Collection<CacheData>> dataMap = new HashMap<>();
     dataMap.put(ECS_CLUSTERS.toString(), dataPoints);
 

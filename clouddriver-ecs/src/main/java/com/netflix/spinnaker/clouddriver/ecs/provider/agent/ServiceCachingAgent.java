@@ -17,6 +17,8 @@ import com.netflix.spinnaker.clouddriver.aws.security.AmazonClientProvider;
 import com.netflix.spinnaker.clouddriver.ecs.cache.Keys;
 import com.netflix.spinnaker.clouddriver.ecs.provider.EcsProvider;
 import org.apache.commons.lang3.StringUtils;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
 
 import java.util.Arrays;
 import java.util.Collection;
@@ -31,10 +33,11 @@ import static com.netflix.spinnaker.clouddriver.ecs.cache.Keys.Namespace.ECS_CLU
 import static com.netflix.spinnaker.clouddriver.ecs.cache.Keys.Namespace.SERVICES;
 
 public class ServiceCachingAgent implements CachingAgent {
+  private final Logger log = LoggerFactory.getLogger(getClass());
+
   static final Collection<AgentDataType> types = Collections.unmodifiableCollection(Arrays.asList(
     AUTHORITATIVE.forType(SERVICES.toString())
   ));
-
   private AmazonClientProvider amazonClientProvider;
   private AWSCredentialsProvider awsCredentialsProvider;
   private String region;
@@ -90,6 +93,7 @@ public class ServiceCachingAgent implements CachingAgent {
       } while (nextToken != null && nextToken.length() != 0);
     }
 
+    log.info("Caching " + dataPoints.size() + " instances in " + getAgentType());
     Map<String, Collection<CacheData>> dataMap = new HashMap<>();
     dataMap.put(SERVICES.toString(), dataPoints);
 

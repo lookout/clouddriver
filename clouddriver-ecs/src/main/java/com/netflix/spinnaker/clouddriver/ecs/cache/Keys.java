@@ -92,7 +92,7 @@ public class Keys implements KeyParser {
   }
 
   public static String getTaskKey(String account, String region, String taskArn) {
-    return ID + SEPARATOR + Namespace.SERVICES + SEPARATOR + account + SEPARATOR + region + SEPARATOR + taskArn;
+    return ID + SEPARATOR + Namespace.TASKS + SEPARATOR + account + SEPARATOR + region + SEPARATOR + taskArn;
   }
 
   public static String getContainerInstanceKey(String account, String region, String containerInstanceArn) {

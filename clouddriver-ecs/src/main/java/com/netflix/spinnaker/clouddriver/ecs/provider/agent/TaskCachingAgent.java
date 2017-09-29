@@ -16,6 +16,9 @@ import com.netflix.spinnaker.cats.provider.ProviderCache;
 import com.netflix.spinnaker.clouddriver.aws.security.AmazonClientProvider;
 import com.netflix.spinnaker.clouddriver.ecs.cache.Keys;
 import com.netflix.spinnaker.clouddriver.ecs.provider.EcsProvider;
+import org.apache.commons.lang3.StringUtils;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
 
 import java.util.Arrays;
 import java.util.Collection;
@@ -30,6 +33,7 @@ import static com.netflix.spinnaker.clouddriver.ecs.cache.Keys.Namespace.ECS_CLU
 import static com.netflix.spinnaker.clouddriver.ecs.cache.Keys.Namespace.TASKS;
 
 public class TaskCachingAgent implements CachingAgent {
+  private final Logger log = LoggerFactory.getLogger(getClass());
 
   static final Collection<AgentDataType> types = Collections.unmodifiableCollection(Arrays.asList(
     AUTHORITATIVE.forType(TASKS.toString())
@@ -71,19 +75,22 @@ public class TaskCachingAgent implements CachingAgent {
         List<Task> tasks = ecs.describeTasks(new DescribeTasksRequest().withCluster((String) cluster.getAttributes().get("clusterName")).withTasks(taskArns)).getTasks();
 
         for (Task task : tasks) {
+          String taskId = StringUtils.substringAfterLast(task.getTaskArn(), "/");
           Map<String, Object> attributes = new HashMap<>();
+          attributes.put("taskId", taskId);
           attributes.put("taskArn", task.getTaskArn());
           attributes.put("clusterArn", task.getClusterArn());
           attributes.put("containerInstanceArn", task.getContainerInstanceArn());
           attributes.put("containers", task.getContainers());
 
-          String key = Keys.getTaskKey(accountName, region, task.getTaskArn());
+          String key = Keys.getTaskKey(accountName, region, taskId);
           dataPoints.add(new DefaultCacheData(key, attributes, Collections.emptyMap()));
         }
         nextToken = listTasksResult.getNextToken();
       } while (nextToken != null && nextToken.length() != 0);
     }
 
+    log.info("Caching " + dataPoints.size() + " instances in " + getAgentType());
     Map<String, Collection<CacheData>> dataMap = new HashMap<>();
     dataMap.put(TASKS.toString(), dataPoints);
 

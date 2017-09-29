@@ -64,14 +64,25 @@ public class ContainerInformationService {
   private Cache cacheView;
 
 
-  public List<Map<String, String>> getHealthStatus(String clusterArn, String taskId, String serviceArn, String accountName, String region) {
+  //TODO: have a direct way of refreshing the cache - this impacts the deploy stage...
+  public List<Map<String, String>> getHealthStatus(String clusterArn, String taskArn, String serviceArn, String accountName, String region) {
     NetflixAmazonCredentials accountCredentials = (NetflixAmazonCredentials) accountCredentialsProvider.getCredentials(accountName);
 
     String serviceCacheKey = Keys.getServiceKey(accountName, region, StringUtils.substringAfterLast(serviceArn, "/"));
 
     CacheData serviceCacheData = cacheView.get(SERVICES.toString(), serviceCacheKey);
+    // A bit more of a graceful return, when the results haven't been cached yet - see the TO DO above.
     if (serviceCacheData == null) {
-      return null;
+      List<Map<String, String>> healthMetrics = new ArrayList<>();
+      Map<String, String> loadBalancerHealth = new HashMap<>();
+      loadBalancerHealth.put("instanceId", taskArn);
+
+
+      loadBalancerHealth.put("state", "Unknown");
+      loadBalancerHealth.put("type", "loadBalancer");
+
+      healthMetrics.add(loadBalancerHealth);
+      return healthMetrics;
     }
 
     // TODO: Find a way to deserialize LoadBalancer properly from withen the service cache data.
@@ -81,12 +92,15 @@ public class ContainerInformationService {
       //TODO: getAmazonElasticLoadBalancingV2 should be cached.
       AmazonElasticLoadBalancing AmazonloadBalancing = amazonClientProvider.getAmazonElasticLoadBalancingV2(accountName, accountCredentials.getCredentialsProvider(), region);
 
+      String taskId = StringUtils.substringAfterLast(taskArn, "/");
       String taskCacheKey = Keys.getTaskKey(accountName, region, taskId);
       CacheData taskCacheData = cacheView.get(TASKS.toString(), taskCacheKey);
+      if (taskCacheData == null) {
+        return null; //gets hit here
+      }
 
       String containerInstanceCacheKey = Keys.getContainerInstanceKey(accountName, region, (String) taskCacheData.getAttributes().get("containerInstanceArn"));
       CacheData containerInstance = cacheView.get(CONTAINER_INSTANCES.toString(), containerInstanceCacheKey);
-
       if (containerInstance == null) {
         return null;
       }
@@ -106,7 +120,7 @@ public class ContainerInformationService {
 
       List<Map<String, String>> healthMetrics = new ArrayList<>();
       Map<String, String> loadBalancerHealth = new HashMap<>();
-      loadBalancerHealth.put("instanceId", taskId);
+      loadBalancerHealth.put("instanceId", taskArn);
 
       String targetHealth = targetGroupHealthResult.getTargetHealthDescriptions().get(0).getTargetHealth().getState();
 
@@ -143,10 +157,20 @@ public class ContainerInformationService {
     }
 
     int hostPort = networkBindings.get(0).getHostPort();
-    String taskCacheKey = Keys.getTaskKey(accountName, region, task.getTaskArn());
+    String taskId = StringUtils.substringAfterLast(task.getTaskArn(), "/");
+    String taskCacheKey = Keys.getTaskKey(accountName, region, taskId);
     CacheData taskCacheData = cacheView.get(TASKS.toString(), taskCacheKey);
 
-    String containerInstanceCacheKey = Keys.getContainerInstanceKey(accountName, region, (String) taskCacheData.getAttributes().get("containerInstanceArn"));
+    if (taskCacheData == null){
+      return null;
+    }
+
+    String containerInstanceCacheKey = "";
+    try {
+      containerInstanceCacheKey = Keys.getContainerInstanceKey(accountName, region, (String) taskCacheData.getAttributes().get("containerInstanceArn"));
+    } catch (NullPointerException e) {
+      e.printStackTrace();
+    }
     CacheData containerInstanceCacheData = cacheView.get(CONTAINER_INSTANCES.toString(), containerInstanceCacheKey);
     String hostEc2InstanceId = (String) containerInstanceCacheData.getAttributes().get("ec2InstanceId");
 
@@ -162,7 +186,8 @@ public class ContainerInformationService {
       return null;
     }
 
-    String taskCacheKey = Keys.getTaskKey(accountName, region, task.getTaskArn());
+    String taskId = StringUtils.substringAfterLast(task.getTaskArn(), "/");
+    String taskCacheKey = Keys.getTaskKey(accountName, region, taskId);
     CacheData taskCacheData = cacheView.get(TASKS.toString(), taskCacheKey);
 
     if (taskCacheData != null) {
@@ -214,7 +239,7 @@ public class ContainerInformationService {
     String serviceCachekey = Keys.getServiceKey(accountName, region, serviceName);
     CacheData serviceCacheData = cacheView.get(SERVICES.toString(), serviceCachekey);
     if (serviceCacheData != null) {
-      serviceCacheData.getAttributes().get("clusterName");
+      return (String) serviceCacheData.getAttributes().get("clusterName");
     }
     return null;
   }
