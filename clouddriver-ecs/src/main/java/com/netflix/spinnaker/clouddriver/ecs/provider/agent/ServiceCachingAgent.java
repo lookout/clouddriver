@@ -68,9 +68,12 @@ public class ServiceCachingAgent implements CachingAgent {
         for (Service service : services) {
           Map<String, Object> attributes = new HashMap<>();
           String applicationName = service.getServiceName().contains("-") ? StringUtils.substringBefore(service.getServiceName(), "-") : service.getServiceName();
+          String clusterName = StringUtils.substringAfterLast(service.getClusterArn(), "/");
+
           attributes.put("applicationName", applicationName);
           attributes.put("serviceName", service.getServiceName());
           attributes.put("serviceArn", service.getServiceArn());
+          attributes.put("clusterName", clusterName);
           attributes.put("clusterArn", service.getClusterArn());
           attributes.put("roleArn", service.getRoleArn());
           attributes.put("taskDefinition", service.getTaskDefinition());
