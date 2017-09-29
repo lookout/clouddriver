@@ -20,6 +20,8 @@ import com.amazonaws.auth.AWSCredentialsProvider;
 import com.amazonaws.handlers.RequestHandler2;
 import com.amazonaws.retry.PredefinedRetryPolicies;
 import com.amazonaws.retry.RetryPolicy;
+import com.amazonaws.services.applicationautoscaling.AWSApplicationAutoScaling;
+import com.amazonaws.services.applicationautoscaling.AWSApplicationAutoScalingClientBuilder;
 import com.amazonaws.services.autoscaling.AmazonAutoScaling;
 import com.amazonaws.services.autoscaling.AmazonAutoScalingClientBuilder;
 import com.amazonaws.services.cloudwatch.AmazonCloudWatch;
@@ -49,9 +51,9 @@ import com.amazonaws.services.sns.AmazonSNSClientBuilder;
 import com.amazonaws.services.sqs.AmazonSQS;
 import com.amazonaws.services.sqs.AmazonSQSClientBuilder;
 import com.fasterxml.jackson.databind.ObjectMapper;
+import com.netflix.awsobjectmapper.AmazonObjectMapperConfigurer;
 import com.netflix.spectator.api.NoopRegistry;
 import com.netflix.spectator.api.Registry;
-import com.netflix.awsobjectmapper.AmazonObjectMapperConfigurer;
 import com.netflix.spinnaker.clouddriver.aws.security.sdkclient.AmazonClientInvocationHandler;
 import com.netflix.spinnaker.clouddriver.aws.security.sdkclient.AwsSdkClientSupplier;
 import com.netflix.spinnaker.clouddriver.aws.security.sdkclient.ProxyHandlerBuilder;
@@ -321,6 +323,10 @@ public class AmazonClientProvider {
 
   public AmazonAutoScaling getAutoScaling(String accountName, AWSCredentialsProvider awsCredentialsProvider, String region) {
     return awsSdkClientSupplier.getClient(AmazonAutoScalingClientBuilder.class, AmazonAutoScaling.class, accountName, awsCredentialsProvider, region);
+  }
+
+  public AWSApplicationAutoScaling getAmazonApplicationAutoScaling(String accountName, AWSCredentialsProvider awsCredentialsProvider, String region) {
+    return awsSdkClientSupplier.getClient(AWSApplicationAutoScalingClientBuilder.class, AWSApplicationAutoScaling.class, accountName, awsCredentialsProvider, region);
   }
 
   public AmazonRoute53 getAmazonRoute53(NetflixAmazonCredentials amazonCredentials, String region) {

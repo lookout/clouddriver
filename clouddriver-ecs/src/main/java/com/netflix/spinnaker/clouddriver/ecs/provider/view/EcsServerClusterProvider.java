@@ -16,6 +16,13 @@
 
 package com.netflix.spinnaker.clouddriver.ecs.provider.view;
 
+import com.amazonaws.auth.AWSCredentialsProvider;
+import com.amazonaws.services.applicationautoscaling.AWSApplicationAutoScaling;
+import com.amazonaws.services.applicationautoscaling.model.DescribeScalableTargetsRequest;
+import com.amazonaws.services.applicationautoscaling.model.DescribeScalableTargetsResult;
+import com.amazonaws.services.applicationautoscaling.model.ScalableDimension;
+import com.amazonaws.services.applicationautoscaling.model.ScalableTarget;
+import com.amazonaws.services.applicationautoscaling.model.ServiceNamespace;
 import com.amazonaws.services.ec2.AmazonEC2;
 import com.amazonaws.services.ec2.model.DescribeInstancesRequest;
 import com.amazonaws.services.ec2.model.GroupIdentifier;
@@ -58,6 +65,7 @@ import org.apache.commons.lang3.StringUtils;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.stereotype.Component;
 
+import java.util.ArrayList;
 import java.util.HashMap;
 import java.util.HashSet;
 import java.util.Iterator;
@@ -159,12 +167,20 @@ public class EcsServerClusterProvider implements ClusterProvider<EcsServerCluste
 
         DescribeServicesResult describeServicesResult =
           amazonECS.describeServices(new DescribeServicesRequest().withCluster(clusterArn).withServices(serviceArn));
+        String clusterName = inferClusterNameFromClusterArn(describeServicesResult.getServices().get(0).getClusterArn());
+        ScalableTarget target = getScalableTarget(credentials, awsRegion, serviceArn, clusterName);
         ServerGroup.Capacity capacity = new ServerGroup.Capacity();
         capacity.setDesired(describeServicesResult.getServices().get(0).getDesiredCount());
-        capacity.setMin(describeServicesResult.getServices().get(0).getDesiredCount());  // TODO - perhaps we want to look at the % min and max for the service?
-        capacity.setMax(describeServicesResult.getServices().get(0).getDesiredCount());  // TODO - perhaps we want to look at the % min and max for the service?
+        if (target != null) {
+          capacity.setMin(target.getMinCapacity());
+          capacity.setMax(target.getMaxCapacity());
+        } else {
+          capacity.setMin(describeServicesResult.getServices().get(0).getDesiredCount());
+          capacity.setMax(describeServicesResult.getServices().get(0).getDesiredCount());
+        }
+
         long creationTime = describeServicesResult.getServices().get(0).getCreatedAt().getTime();
-        String clusterName = inferClusterNameFromClusterArn(describeServicesResult.getServices().get(0).getClusterArn());
+
 
         DescribeTaskDefinitionRequest taskDefinitionRequest = new DescribeTaskDefinitionRequest().withTaskDefinition(describeServicesResult.getServices().get(0).getTaskDefinition());
         DescribeTaskDefinitionResult taskDefinitionResult = amazonECS.describeTaskDefinition(taskDefinitionRequest);
@@ -186,10 +202,10 @@ public class EcsServerClusterProvider implements ClusterProvider<EcsServerCluste
         ;
 
         EcsServerGroup ecsServerGroup = generateServerGroup(awsRegion, metadata, instances, capacity, creationTime,
-          clusterName, taskDefinition, vpcId, securityGroups);
+          clusterName, taskDefinition, vpcId, securityGroups, target);
 
         if (!clusterMap.containsKey(metadata.applicationName)) {
-          EcsServerCluster spinnakerCluster = generateSpinnakerServerCluster(credentials, metadata, loadBalancers, ecsServerGroup);
+          EcsServerCluster spinnakerCluster = generateSpinnakerServerCluster(credentials, loadBalancers, ecsServerGroup);
           clusterMap.put(metadata.applicationName, Sets.newHashSet(spinnakerCluster));
         } else {
           String escClusterName = removeVersion(ecsServerGroup.getName());
@@ -204,7 +220,7 @@ public class EcsServerClusterProvider implements ClusterProvider<EcsServerCluste
           }
 
           if(!found){
-            EcsServerCluster spinnakerCluster = generateSpinnakerServerCluster(credentials, metadata, loadBalancers, ecsServerGroup);
+            EcsServerCluster spinnakerCluster = generateSpinnakerServerCluster(credentials, loadBalancers, ecsServerGroup);
             clusterMap.get(metadata.applicationName).add(spinnakerCluster);
           }
         }
@@ -212,6 +228,27 @@ public class EcsServerClusterProvider implements ClusterProvider<EcsServerCluste
     }
 
     return clusterMap;
+  }
+
+  private ScalableTarget getScalableTarget(AmazonCredentials credentials, AmazonCredentials.AWSRegion awsRegion, String serviceArn, String clusterName) {
+    AWSApplicationAutoScaling appASClient = getAmazonApplicationAutoScalingClient(credentials, awsRegion);
+    List<String> resourceIds = new ArrayList<>();
+    resourceIds.add(String.format("service/%s/%s", clusterName, getServiceName(serviceArn)));
+    DescribeScalableTargetsRequest request = new DescribeScalableTargetsRequest()
+      .withResourceIds(resourceIds)
+      .withScalableDimension(ScalableDimension.EcsServiceDesiredCount)
+      .withServiceNamespace(ServiceNamespace.Ecs);
+    DescribeScalableTargetsResult result1 = appASClient.describeScalableTargets(request);
+
+    if (result1.getScalableTargets().isEmpty()) {
+      return null;
+    }
+
+    if (result1.getScalableTargets().size() == 1) {
+      return result1.getScalableTargets().get(0);
+    }
+
+    throw new Error("Multiple Scalable Targets found");
   }
 
   private Set<com.netflix.spinnaker.clouddriver.model.LoadBalancer> extractLoadBalancersData(
@@ -226,7 +263,6 @@ public class EcsServerClusterProvider implements ClusterProvider<EcsServerCluste
   }
 
   private EcsServerCluster generateSpinnakerServerCluster(AmazonCredentials credentials,
-                                                          ServiceMetadata metadata,
                                                           Set<com.netflix.spinnaker.clouddriver.model.LoadBalancer> loadBalancers,
                                                           EcsServerGroup ecsServerGroup) {
     return new EcsServerCluster()
@@ -244,11 +280,12 @@ public class EcsServerClusterProvider implements ClusterProvider<EcsServerCluste
                                              String ecsCluster,
                                              TaskDefinition taskDefinition,
                                              String vpcId,
-                                             Set<String> securityGroups) {
+                                             Set<String> securityGroups,
+                                             ScalableTarget scalableTarget) {
     ServerGroup.InstanceCounts instanceCounts = generateInstanceCount(instances);
 
-    return new EcsServerGroup()
-      .setDisabled(capacity.getDesired() < 1)     // TODO: Whether the server group is disabled should be determined by another factor.
+    EcsServerGroup serverGroup = new EcsServerGroup()
+      .setDisabled(capacity.getDesired() == 0)
       .setName(constructServerGroupName(metadata))
       .setCloudProvider(EcsCloudProvider.ID)
       .setType(EcsCloudProvider.ID)
@@ -262,6 +299,29 @@ public class EcsServerClusterProvider implements ClusterProvider<EcsServerCluste
       .setVpcId(vpcId)
       .setSecurityGroups(securityGroups)
       ;
+
+    if (scalableTarget != null) {
+      EcsServerGroup.AutoScalingGroup asg = new EcsServerGroup.AutoScalingGroup()
+        .setDesiredCapacity(scalableTarget.getMaxCapacity())
+        .setMaxSize(scalableTarget.getMaxCapacity())
+        .setMinSize(scalableTarget.getMinCapacity());
+
+      serverGroup.setAsg(asg);
+    }
+
+    return serverGroup;
+  }
+
+  private AWSApplicationAutoScaling getAmazonApplicationAutoScalingClient(AmazonCredentials credentials,
+                                                                          AmazonCredentials.AWSRegion awsRegion) {
+    String account = credentials.getName();
+    AWSCredentialsProvider provider = credentials.getCredentialsProvider();
+    String region = awsRegion.getName();
+    return amazonClientProvider.getAmazonApplicationAutoScaling(account, provider, region);
+  }
+
+  private String getServiceName(String serviceArn) {
+    return serviceArn.split("/")[1];
   }
 
   private ServerGroup.InstanceCounts generateInstanceCount(Set<Instance> instances) {
