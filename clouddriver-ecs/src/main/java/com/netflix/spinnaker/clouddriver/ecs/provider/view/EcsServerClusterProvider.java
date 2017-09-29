@@ -261,6 +261,7 @@ public class EcsServerClusterProvider implements ClusterProvider<EcsServerCluste
       .setTaskDefinition(taskDefinition)
       .setVpcId(vpcId)
       .setSecurityGroups(securityGroups)
+      .setAsg(new ApplicationAutoScalingGroup().setDesiredCapacity(1).setMaxSize(2).setMinSize(3))
       ;
   }
 
