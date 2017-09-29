@@ -56,7 +56,7 @@ public class EcsServerGroup implements ServerGroup {
 
   @Data
   @NoArgsConstructor
-  public class AutoScalingGroup {
+  public static class AutoScalingGroup {
     Integer minSize;
     Integer maxSize;
     Integer desiredCapacity;
