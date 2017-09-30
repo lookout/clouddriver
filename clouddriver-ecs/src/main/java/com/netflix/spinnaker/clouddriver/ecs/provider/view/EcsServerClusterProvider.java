@@ -238,14 +238,14 @@ public class EcsServerClusterProvider implements ClusterProvider<EcsServerCluste
       .withResourceIds(resourceIds)
       .withScalableDimension(ScalableDimension.EcsServiceDesiredCount)
       .withServiceNamespace(ServiceNamespace.Ecs);
-    DescribeScalableTargetsResult result1 = appASClient.describeScalableTargets(request);
+    DescribeScalableTargetsResult result = appASClient.describeScalableTargets(request);
 
-    if (result1.getScalableTargets().isEmpty()) {
+    if (result.getScalableTargets().isEmpty()) {
       return null;
     }
 
-    if (result1.getScalableTargets().size() == 1) {
-      return result1.getScalableTargets().get(0);
+    if (result.getScalableTargets().size() == 1) {
+      return result.getScalableTargets().get(0);
     }
 
     throw new Error("Multiple Scalable Targets found");
