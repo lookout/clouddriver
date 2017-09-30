@@ -325,10 +325,6 @@ public class AmazonClientProvider {
     return awsSdkClientSupplier.getClient(AmazonAutoScalingClientBuilder.class, AmazonAutoScaling.class, accountName, awsCredentialsProvider, region);
   }
 
-  public AWSApplicationAutoScaling getAmazonApplicationAutoScaling(String accountName, AWSCredentialsProvider awsCredentialsProvider, String region) {
-    return awsSdkClientSupplier.getClient(AWSApplicationAutoScalingClientBuilder.class, AWSApplicationAutoScaling.class, accountName, awsCredentialsProvider, region);
-  }
-
   public AmazonRoute53 getAmazonRoute53(NetflixAmazonCredentials amazonCredentials, String region) {
     return getAmazonRoute53(amazonCredentials, region, false);
   }
