@@ -14,6 +14,7 @@ import com.amazonaws.services.ecs.model.LoadBalancer;
 import com.amazonaws.services.ecs.model.PortMapping;
 import com.amazonaws.services.ecs.model.RegisterTaskDefinitionRequest;
 import com.amazonaws.services.ecs.model.RegisterTaskDefinitionResult;
+import com.amazonaws.services.ecs.model.Service;
 import com.amazonaws.services.ecs.model.TaskDefinition;
 import com.amazonaws.services.elasticloadbalancingv2.AmazonElasticLoadBalancing;
 import com.amazonaws.services.elasticloadbalancingv2.model.DescribeTargetGroupsRequest;
@@ -61,8 +62,8 @@ public class CreateServerGroupAtomicOperation implements AtomicOperation<Deploym
     updateTaskStatus("Initializing Create Amazon ECS Server Group Operation...");
 
     TaskDefinition taskDefinition = registerTaskDefinition();
-    createService(taskDefinition);
-    createAutoScalingGroup();
+    Service service = createService(taskDefinition);
+    createAutoScalingGroup(service);
 
     return getDeploymentResult();
   }
@@ -106,7 +107,7 @@ public class CreateServerGroupAtomicOperation implements AtomicOperation<Deploym
     return registerTaskDefinitionResult.getTaskDefinition();
   }
 
-  private void createService(TaskDefinition taskDefinition) {
+  private Service createService(TaskDefinition taskDefinition) {
     AmazonECS ecs = getAmazonEcsClient();
     String serviceName = getServiceName();
     Collection<LoadBalancer> loadBalancers = new LinkedList<>();
@@ -131,18 +132,21 @@ public class CreateServerGroupAtomicOperation implements AtomicOperation<Deploym
     updateTaskStatus(String.format("Creating %s of %s with %s for %s.",
       desiredCapacity, serviceName, taskDefinitionArn, description.getCredentialAccount()));
 
-    ecs.createService(request);
+    Service service = ecs.createService(request).getService();
 
     updateTaskStatus(String.format("Done creating %s of %s with %s for %s.",
       desiredCapacity, serviceName, taskDefinitionArn, description.getCredentialAccount()));
+
+    return service;
   }
 
-  private void createAutoScalingGroup() {
+  private void createAutoScalingGroup(Service service) {
     AWSApplicationAutoScaling autoScalingClient = getAmazonApplicationAutoScalingClient();
     RegisterScalableTargetRequest request = new RegisterScalableTargetRequest()
       .withServiceNamespace(ServiceNamespace.Ecs)
       .withScalableDimension(ScalableDimension.EcsServiceDesiredCount)
-      .withResourceId(String.format("service/%s/%s", description.getEcsClusterName(), getServiceName()))
+      .withResourceId(String.format("service/%s/%s", description.getEcsClusterName(), service.getServiceName()))
+      .withRoleARN(service.getRoleArn())
       .withMinCapacity(0)
       .withMaxCapacity(getDesiredCapacity());
 
