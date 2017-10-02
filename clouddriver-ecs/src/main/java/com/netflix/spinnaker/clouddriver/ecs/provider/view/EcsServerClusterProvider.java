@@ -68,7 +68,6 @@ import org.springframework.stereotype.Component;
 import java.util.ArrayList;
 import java.util.HashMap;
 import java.util.HashSet;
-import java.util.Iterator;
 import java.util.List;
 import java.util.Map;
 import java.util.Set;
@@ -92,18 +91,21 @@ public class EcsServerClusterProvider implements ClusterProvider<EcsServerCluste
   public Map<String, Set<EcsServerCluster>> getClusters() {
     Map<String, Set<EcsServerCluster>> clusterMap = new HashMap<>();
 
-    for (AccountCredentials credentials : accountCredentialsProvider.getAll()) {
-      if (credentials instanceof AmazonCredentials && credentials.getCloudProvider().equals(EcsCloudProvider.ID)) {  // TODO - the first if condition can be problematic for AWS logic.  We'll probably need to look into this after POC, and figure out how to deal with account credentials for AWS and ECS in a smart way, without AWS trying to use ECS credentials
-        clusterMap = findClusters(clusterMap, (AmazonCredentials) credentials);
-      }
+    for (AmazonCredentials credentials : getEcsCredentials()) {
+      clusterMap = findClusters(clusterMap, credentials);
     }
     return clusterMap;
   }
 
   private Map<String, Set<EcsServerCluster>> findClusters(Map<String, Set<EcsServerCluster>> clusterMap,
                                                           AmazonCredentials credentials) {
+    return findClusters(clusterMap, credentials, null);
+  }
+  private Map<String, Set<EcsServerCluster>> findClusters(Map<String, Set<EcsServerCluster>> clusterMap,
+                                                          AmazonCredentials credentials,
+                                                          String application) {
     for (AmazonCredentials.AWSRegion awsRegion : credentials.getRegions()) {
-      clusterMap = findClustersForRegion(clusterMap, credentials, awsRegion);
+      clusterMap = findClustersForRegion(clusterMap, credentials, awsRegion, application);
     }
 
     return clusterMap;
@@ -111,7 +113,8 @@ public class EcsServerClusterProvider implements ClusterProvider<EcsServerCluste
 
   private Map<String, Set<EcsServerCluster>> findClustersForRegion(Map<String, Set<EcsServerCluster>> clusterMap,
                                                                    AmazonCredentials credentials,
-                                                                   AmazonCredentials.AWSRegion awsRegion) {
+                                                                   AmazonCredentials.AWSRegion awsRegion,
+                                                                   String application) {
 
     AmazonECS amazonECS = amazonClientProvider.getAmazonEcs(credentials.getName(),
       credentials.getCredentialsProvider(),
@@ -130,8 +133,12 @@ public class EcsServerClusterProvider implements ClusterProvider<EcsServerCluste
 
       ListServicesResult result = amazonECS.listServices(new ListServicesRequest().withCluster(clusterArn));
       for (String serviceArn : result.getServiceArns()) {
-
         ServiceMetadata metadata = extractMetadataFromServiceArn(serviceArn);
+
+        if ((null != application) && (!application.equals(metadata.getApplicationName()) )) {
+          continue;
+        }
+
         Set<Instance> instances = new HashSet<>();
 
         DescribeLoadBalancersResult loadBalancersResult = amazonELB.describeLoadBalancers(
@@ -443,18 +450,23 @@ public class EcsServerClusterProvider implements ClusterProvider<EcsServerCluste
    */
   @Override
   public Map<String, Set<EcsServerCluster>> getClusterDetails(String application) {
-    Map<String, Set<EcsServerCluster>> result = getClusters();
+    Map<String, Set<EcsServerCluster>> clusterMap = new HashMap<>();
 
-    Iterator<Map.Entry<String, Set<EcsServerCluster>>> iterator = result.entrySet().iterator();
-
-    while (iterator.hasNext()) {
-      Map.Entry<String, Set<EcsServerCluster>> entry = iterator.next();
-      if (!entry.getKey().equals(application)) {
-        iterator.remove();
-      }
+    for (AmazonCredentials credentials : getEcsCredentials()) {
+      clusterMap = findClusters(clusterMap, credentials, application);
     }
 
-    return result;
+    return clusterMap;
+  }
+
+  private List<AmazonCredentials> getEcsCredentials() {
+    List<AmazonCredentials> ecsCredentialsList = new ArrayList<>();
+    for (AccountCredentials credentials: accountCredentialsProvider.getAll()) {
+      if (credentials instanceof AmazonCredentials && credentials.getCloudProvider().equals(EcsCloudProvider.ID)) {
+        ecsCredentialsList.add((AmazonCredentials) credentials);
+      }
+    }
+    return ecsCredentialsList;
   }
 
   /**
