@@ -56,7 +56,7 @@ public class EcsInstanceProvider implements InstanceProvider<EcsTask> {
     AmazonEC2 amazonEC2 = amazonClientProvider.getAmazonEC2(account, awsCredentialsProvider, region);
 
     Task ecsTask = getTask(amazonECS, id);
-    InstanceStatus instanceStatus = containerInformationService.getEC2InstanceStatus(amazonEC2, account, region, containerInformationService.getContainerInstanceArn(account, region, ecsTask));
+    InstanceStatus instanceStatus = containerInformationService.getEC2InstanceStatus(amazonEC2, account, region, ecsTask.getContainerInstanceArn());
 
     if (ecsTask != null && instanceStatus != null) {
 //      List<Map<String, String>> healthStatus = containerInformationService.getHealthStatus("poc", ecsTask.getTaskArn(), null, "continuous-delivery", "us-west-2");  // TODO - Use the caching system properly

@@ -78,7 +78,7 @@ public class ClusterCachingAgent implements CachingAgent {
       nextToken = listClustersResult.getNextToken();
     } while (nextToken != null && nextToken.length() != 0);
 
-    log.info("Caching " + dataPoints.size() + " instances in " + getAgentType());
+    log.info("Caching " + dataPoints.size() + " clusters in " + getAgentType());
     Map<String, Collection<CacheData>> dataMap = new HashMap<>();
     dataMap.put(ECS_CLUSTERS.toString(), dataPoints);
 

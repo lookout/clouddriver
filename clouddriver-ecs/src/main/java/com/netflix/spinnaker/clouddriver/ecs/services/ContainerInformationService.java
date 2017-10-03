@@ -27,10 +27,6 @@ import com.amazonaws.services.ecs.model.Container;
 import com.amazonaws.services.ecs.model.InvalidParameterException;
 import com.amazonaws.services.ecs.model.NetworkBinding;
 import com.amazonaws.services.ecs.model.Task;
-import com.amazonaws.services.elasticloadbalancingv2.AmazonElasticLoadBalancing;
-import com.amazonaws.services.elasticloadbalancingv2.model.DescribeTargetHealthRequest;
-import com.amazonaws.services.elasticloadbalancingv2.model.DescribeTargetHealthResult;
-import com.amazonaws.services.elasticloadbalancingv2.model.TargetDescription;
 import com.netflix.spinnaker.cats.cache.Cache;
 import com.netflix.spinnaker.cats.cache.CacheData;
 import com.netflix.spinnaker.clouddriver.aws.security.AmazonClientProvider;
@@ -69,10 +65,14 @@ public class ContainerInformationService {
     NetflixAmazonCredentials accountCredentials = (NetflixAmazonCredentials) accountCredentialsProvider.getCredentials(accountName);
 
     String serviceCacheKey = Keys.getServiceKey(accountName, region, StringUtils.substringAfterLast(serviceArn, "/"));
-
     CacheData serviceCacheData = cacheView.get(SERVICES.toString(), serviceCacheKey);
+
+    String taskId = StringUtils.substringAfterLast(taskArn, "/");
+    String healthCacheKey = Keys.getTaskHealthKey(accountName, region, taskId);
+    CacheData healthCache = cacheView.get(com.netflix.spinnaker.clouddriver.core.provider.agent.Namespace.HEALTH.toString(), healthCacheKey);
+
     // A bit more of a graceful return, when the results haven't been cached yet - see the TO DO above.
-    if (serviceCacheData == null) {
+    if (serviceCacheData == null || healthCache == null) {
       List<Map<String, String>> healthMetrics = new ArrayList<>();
       Map<String, String> loadBalancerHealth = new HashMap<>();
       loadBalancerHealth.put("instanceId", taskArn);
@@ -89,48 +89,17 @@ public class ContainerInformationService {
     List<Map<String, Object>> loadBalancers = (List<Map<String, Object>>) serviceCacheData.getAttributes().get("loadBalancers");
     //There should only be 1 based on AWS documentation.
     if (loadBalancers.size() == 1) {
-      //TODO: getAmazonElasticLoadBalancingV2 should be cached.
-      AmazonElasticLoadBalancing AmazonloadBalancing = amazonClientProvider.getAmazonElasticLoadBalancingV2(accountName, accountCredentials.getCredentialsProvider(), region);
-
-      String taskId = StringUtils.substringAfterLast(taskArn, "/");
-      String taskCacheKey = Keys.getTaskKey(accountName, region, taskId);
-      CacheData taskCacheData = cacheView.get(TASKS.toString(), taskCacheKey);
-      if (taskCacheData == null) {
-        return null; //gets hit here
-      }
-
-      String containerInstanceCacheKey = Keys.getContainerInstanceKey(accountName, region, (String) taskCacheData.getAttributes().get("containerInstanceArn"));
-      CacheData containerInstance = cacheView.get(CONTAINER_INSTANCES.toString(), containerInstanceCacheKey);
-      if (containerInstance == null) {
-        return null;
-      }
-
-      // TODO: Currently assuming there's 1 container with 1 port for the task given.
-      // TODO: Find a way to deserialize containers properly from withen the task cache data.
-      int port = (Integer) ((List<Map<String, Object>>) ((List<Map<String, Object>>) taskCacheData.getAttributes().get("containers")).get(0).get("networkBindings")).get(0).get("hostPort");
-
-      DescribeTargetHealthResult targetGroupHealthResult = null;
-
-      for (Map<String, Object> loadBalancer : loadBalancers) {
-        //TODO: describeTargetHealth should be cached.
-        targetGroupHealthResult = AmazonloadBalancing.describeTargetHealth(
-          new DescribeTargetHealthRequest().withTargetGroupArn((String) loadBalancer.get("targetGroupArn")).withTargets(
-            new TargetDescription().withId((String) containerInstance.getAttributes().get("ec2InstanceId")).withPort(port)));
-      }
 
       List<Map<String, String>> healthMetrics = new ArrayList<>();
       Map<String, String> loadBalancerHealth = new HashMap<>();
       loadBalancerHealth.put("instanceId", taskArn);
-
-      String targetHealth = targetGroupHealthResult.getTargetHealthDescriptions().get(0).getTargetHealth().getState();
-
-      loadBalancerHealth.put("state", targetHealth.equals("healthy") ? "Up" : "Unknown");  // TODO - Return better values, and think of a better strategy at defining health
-      loadBalancerHealth.put("type", "loadBalancer");
+      loadBalancerHealth.put("state", (String) healthCache.getAttributes().get("state"));
+      loadBalancerHealth.put("type", (String) healthCache.getAttributes().get("type"));
 
       healthMetrics.add(loadBalancerHealth);
       return healthMetrics;
     } else if (loadBalancers.size() > 1) {
-      throw new IllegalArgumentException("Cannot have more than 1 loadbalancer while checking ECS health.");
+      throw new IllegalArgumentException("Cannot have more than 1 load balancer while checking ECS health.");
     }
     return null;
 
@@ -157,21 +126,19 @@ public class ContainerInformationService {
     }
 
     int hostPort = networkBindings.get(0).getHostPort();
-    String taskId = StringUtils.substringAfterLast(task.getTaskArn(), "/");
+    /*String taskId = StringUtils.substringAfterLast(task.getTaskArn(), "/");
     String taskCacheKey = Keys.getTaskKey(accountName, region, taskId);
     CacheData taskCacheData = cacheView.get(TASKS.toString(), taskCacheKey);
 
-    if (taskCacheData == null){
+    if (taskCacheData == null) {
       return null;
-    }
+    }*/
 
-    String containerInstanceCacheKey = "";
-    try {
-      containerInstanceCacheKey = Keys.getContainerInstanceKey(accountName, region, (String) taskCacheData.getAttributes().get("containerInstanceArn"));
-    } catch (NullPointerException e) {
-      e.printStackTrace();
-    }
+    String containerInstanceCacheKey = Keys.getContainerInstanceKey(accountName, region, task.getContainerInstanceArn());
     CacheData containerInstanceCacheData = cacheView.get(CONTAINER_INSTANCES.toString(), containerInstanceCacheKey);
+    if (containerInstanceCacheData == null) {
+      return "unknown";
+    }
     String hostEc2InstanceId = (String) containerInstanceCacheData.getAttributes().get("ec2InstanceId");
 
     //TODO: describeInstances should probably be cached.
@@ -181,21 +148,12 @@ public class ContainerInformationService {
     return String.format("%s:%s", hostPrivateIpAddress, hostPort);
   }
 
-  public String getContainerInstanceArn(String accountName, String region, Task task) {
+  /*public String getContainerInstanceArn(String accountName, String region, Task task) {
     if (task == null) {
       return null;
     }
-
-    String taskId = StringUtils.substringAfterLast(task.getTaskArn(), "/");
-    String taskCacheKey = Keys.getTaskKey(accountName, region, taskId);
-    CacheData taskCacheData = cacheView.get(TASKS.toString(), taskCacheKey);
-
-    if (taskCacheData != null) {
-      return (String) taskCacheData.getAttributes().get("containerInstanceArn");
-    }
-
-    return null;
-  }
+    return task.getContainerInstanceArn();
+  }*/
 
   //TODO: Delete this method once EcsServerClusterProvider has been reworked to use the cache.
   @Deprecated
@@ -225,10 +183,11 @@ public class ContainerInformationService {
     List<InstanceStatus> instanceStatusList = amazonEC2.describeInstanceStatus(request).getInstanceStatuses();
 
     if (!instanceStatusList.isEmpty()) {
-      if (instanceStatusList.size() != 1) {
+      //TODO: return the status of the container instance (ecs call) as opposed to ec2 instance(s).
+      /*if (instanceStatusList.size() != 1) {
         String message = "Container instances should only have only one Instance Status. Multiple found";
         throw new InvalidParameterException(message);
-      }
+      }*/
       instanceStatus = instanceStatusList.get(0);
     }
 
@@ -249,6 +208,9 @@ public class ContainerInformationService {
 
     Collection<CacheData> allServiceCache = cacheView.getAll(SERVICES.toString());
     for (CacheData serviceCacheData : allServiceCache) {
+      if(serviceCacheData == null || serviceCacheData.getAttributes().get("clusterName") == null){
+        continue;
+      }
       if (serviceCacheData.getAttributes().get("clusterName").equals(clusterName) &&
         ((String) serviceCacheData.getAttributes().get("serviceName")).contains(serviceName)) {
         int currentVersion;
