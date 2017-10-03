@@ -65,12 +65,12 @@ public class CreateServerGroupAtomicOperation implements AtomicOperation<Deploym
     Service service = createService(taskDefinition);
     createAutoScalingGroup(service);
 
-    return getDeploymentResult();
+    return getDeploymentResult(service);
   }
 
   private TaskDefinition registerTaskDefinition() {
     AmazonECS ecs = getAmazonEcsClient();
-    String serverGroupVersion = inferServerGroupVersion();
+    String serverGroupVersion = inferNextServerGroupVersion();
 
     Collection<KeyValuePair> containerEnvironment = new LinkedList<>();
     containerEnvironment.add(new KeyValuePair().withName("SERVER_GROUP").withValue(serverGroupVersion));
@@ -109,7 +109,7 @@ public class CreateServerGroupAtomicOperation implements AtomicOperation<Deploym
 
   private Service createService(TaskDefinition taskDefinition) {
     AmazonECS ecs = getAmazonEcsClient();
-    String serviceName = getServiceName();
+    String serviceName = getNextServiceName();
     Collection<LoadBalancer> loadBalancers = new LinkedList<>();
     loadBalancers.add(getLoadBalancer());
 
@@ -155,12 +155,12 @@ public class CreateServerGroupAtomicOperation implements AtomicOperation<Deploym
     updateTaskStatus("Done creating Amazon Application Auto Scaling Scalable Target Definition...");
   }
 
-  private DeploymentResult getDeploymentResult() {
+  private DeploymentResult getDeploymentResult(Service service) {
     Map<String, String> namesByRegion = new HashMap<>();
-    namesByRegion.put(getRegion(), getServiceName());
+    namesByRegion.put(getRegion(), service.getServiceName());
 
     DeploymentResult result = new DeploymentResult();
-    result.setServerGroupNames(Arrays.asList(getServerGroupName()));
+    result.setServerGroupNames(Arrays.asList(getServerGroupName(service)));
     result.setServerGroupNameByRegion(namesByRegion);
     return result;
   }
@@ -168,7 +168,7 @@ public class CreateServerGroupAtomicOperation implements AtomicOperation<Deploym
   private LoadBalancer getLoadBalancer() {
     AmazonCredentials credentials = getCredentials();
     String region = getRegion();
-    String versionString = inferServerGroupVersion();
+    String versionString = inferNextServerGroupVersion();
 
     LoadBalancer loadBalancer = new LoadBalancer();
     loadBalancer.setContainerName(versionString);
@@ -203,9 +203,9 @@ public class CreateServerGroupAtomicOperation implements AtomicOperation<Deploym
     return amazonClientProvider.getAmazonEcs(credentialAccount, credentialsProvider, region);
   }
 
-  private String getServerGroupName() {
+  private String getServerGroupName(Service service) {
     // See in Orca MonitorKatoTask#getServerGroupNames for a reason for this
-    return getRegion() + ":" + getServiceName();
+    return getRegion() + ":" + service.getServiceName();
   }
 
   private void updateTaskStatus(String status) {
@@ -220,9 +220,9 @@ public class CreateServerGroupAtomicOperation implements AtomicOperation<Deploym
     return description.getCapacity().getDesired();
   }
 
-  private String getServiceName() {
+  private String getNextServiceName() {
     String familyName = getFamilyName();
-    String versionString = inferServerGroupVersion();
+    String versionString = inferNextServerGroupVersion();
     return familyName + "-" + versionString;
   }
 
@@ -238,7 +238,7 @@ public class CreateServerGroupAtomicOperation implements AtomicOperation<Deploym
     }
   }
 
-  private String inferServerGroupVersion() {
+  private String inferNextServerGroupVersion() {
     int version = containerInformationService.getLatestServiceVersion(description.getEcsClusterName(), getFamilyName(), description.getCredentialAccount(), description.getRegion());
     return String.format("v%04d", (version+ 1));
   }
