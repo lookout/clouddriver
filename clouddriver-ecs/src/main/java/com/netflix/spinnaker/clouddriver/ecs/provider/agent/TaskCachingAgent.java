@@ -9,17 +9,12 @@ import com.amazonaws.services.ecs.model.Task;
 import com.netflix.spectator.api.Registry;
 import com.netflix.spinnaker.cats.agent.AgentDataType;
 import com.netflix.spinnaker.cats.agent.CacheResult;
-import com.netflix.spinnaker.cats.agent.CachingAgent;
 import com.netflix.spinnaker.cats.agent.DefaultCacheResult;
 import com.netflix.spinnaker.cats.cache.CacheData;
 import com.netflix.spinnaker.cats.cache.DefaultCacheData;
 import com.netflix.spinnaker.cats.provider.ProviderCache;
 import com.netflix.spinnaker.clouddriver.aws.security.AmazonClientProvider;
-import com.netflix.spinnaker.clouddriver.cache.OnDemandAgent;
-import com.netflix.spinnaker.clouddriver.cache.OnDemandMetricsSupport;
-import com.netflix.spinnaker.clouddriver.ecs.EcsCloudProvider;
 import com.netflix.spinnaker.clouddriver.ecs.cache.Keys;
-import com.netflix.spinnaker.clouddriver.ecs.provider.EcsProvider;
 import groovy.lang.Closure;
 import org.apache.commons.lang3.StringUtils;
 import org.slf4j.Logger;
@@ -40,88 +35,28 @@ import static com.netflix.spinnaker.clouddriver.ecs.cache.Keys.Namespace.ECS_CLU
 import static com.netflix.spinnaker.clouddriver.ecs.cache.Keys.Namespace.SERVICES;
 import static com.netflix.spinnaker.clouddriver.ecs.cache.Keys.Namespace.TASKS;
 
-public class TaskCachingAgent implements CachingAgent, OnDemandAgent {
+public class TaskCachingAgent extends AbstractEcsCachingAgent<Task> {
   static final Collection<AgentDataType> types = Collections.unmodifiableCollection(Arrays.asList(
     AUTHORITATIVE.forType(TASKS.toString())
   ));
   private final Logger log = LoggerFactory.getLogger(getClass());
-  private AmazonClientProvider amazonClientProvider;
-  private AWSCredentialsProvider awsCredentialsProvider;
-  private String region;
-  private String accountName;
-  private OnDemandMetricsSupport metricsSupport;
 
   public TaskCachingAgent(String accountName, String region, AmazonClientProvider amazonClientProvider, AWSCredentialsProvider awsCredentialsProvider, Registry registry) {
-    this.accountName = accountName;
-    this.region = region;
-    this.amazonClientProvider = amazonClientProvider;
-    this.awsCredentialsProvider = awsCredentialsProvider;
-    this.metricsSupport = new OnDemandMetricsSupport(registry, this, EcsCloudProvider.ID + ":" + EcsCloudProvider.ID + ":${OnDemandAgent.OnDemandType.ServerGroup}");
+    super(accountName, region, amazonClientProvider, awsCredentialsProvider, registry);
   }
 
   @Override
   public Collection<AgentDataType> getProvidedDataTypes() {
-    return Collections.emptyList();
+    return types;
   }
 
   @Override
-  public CacheResult loadData(ProviderCache providerCache) {
-    AmazonECS ecs = amazonClientProvider.getAmazonEcs(accountName, awsCredentialsProvider, region);
-    List<Task> tasks = getTasks(ecs, providerCache);
-    CacheResult cacheResult = buildCacheResult(tasks);
-
-    /*for(CacheData data: cacheResult.getCacheResults().get(ON_DEMAND.toString())){
-      data.getAttributes().put("processedTime", System.currentTimeMillis());
-      data.getAttributes().put("processedCount", (data.getAttributes().get("processedCount") == null ? (Integer)data.getAttributes().get("processedCount") : 0) + 1);
-    }*/
-
-    return cacheResult;
+  public String getAgentType() {
+    return TaskCachingAgent.class.getSimpleName();
   }
 
   @Override
-  public OnDemandResult handle(ProviderCache providerCache, Map<String, ?> data) {
-    if (!data.get("account").equals(accountName) || !data.get("region").equals(region)) {
-      return null;
-    }
-
-    AmazonECS ecs = amazonClientProvider.getAmazonEcs(accountName, awsCredentialsProvider, region);
-
-    List<Task> tasks = metricsSupport.readData(new Closure<List<Task>>(this, this) {
-      public List<Task> doCall() {
-        return getTasks(ecs, providerCache);
-      }
-    });
-
-    metricsSupport.onDemandStore(new Closure<List<Task>>(this, this) {
-      public void doCall() {
-        String keyString = Keys.getServiceKey(accountName, region, (String) data.get("serverGroupName"));
-        Map<String, Object> att = new HashMap<>();
-        att.put("cacheTime", new Date());
-        CacheData cacheData = new DefaultCacheData(keyString, att, Collections.emptyMap());
-        providerCache.putCacheData(ON_DEMAND.toString(), cacheData);
-      }
-    });
-
-    CacheResult cacheResult = metricsSupport.transformData(new Closure<CacheResult>(this, this) {
-      public CacheResult doCall() {
-        return buildCacheResult(tasks);
-      }
-    });
-
-    Collection<String> typeStrings = new LinkedList<>();
-    for (AgentDataType agentDataType : this.types) {
-      typeStrings.add(agentDataType.toString());
-    }
-
-    OnDemandResult result = new OnDemandResult();
-    result.setAuthoritativeTypes(typeStrings);
-    result.setCacheResult(cacheResult);
-    result.setSourceAgentType(getAgentType());
-
-    return result;
-  }
-
-  private List<Task> getTasks(AmazonECS ecs, ProviderCache providerCache) {
+  protected List<Task> getItems(AmazonECS ecs, ProviderCache providerCache) {
     List<Task> taskList = new LinkedList<>();
     Collection<CacheData> clusters = providerCache.getAll(ECS_CLUSTERS.toString());
 
@@ -145,7 +80,8 @@ public class TaskCachingAgent implements CachingAgent, OnDemandAgent {
     return taskList;
   }
 
-  private CacheResult buildCacheResult(List<Task> tasks) {
+  @Override
+  protected CacheResult buildCacheResult(List<Task> tasks) {
     Collection<CacheData> dataPoints = new LinkedList<>();
     for (Task task : tasks) {
       String taskId = StringUtils.substringAfterLast(task.getTaskArn(), "/");
@@ -171,32 +107,12 @@ public class TaskCachingAgent implements CachingAgent, OnDemandAgent {
   }
 
   @Override
-  public String getAgentType() {
-    return TaskCachingAgent.class.getSimpleName();
-  }
-
-  @Override
-  public String getProviderName() {
-    return EcsProvider.NAME;
-  }
-
-  @Override
-  public String getOnDemandAgentType() {
-    return getAgentType();
-  }
-
-  @Override
-  public OnDemandMetricsSupport getMetricsSupport() {
-    return metricsSupport;
-  }
-
-  @Override
   public Collection<Map> pendingOnDemandRequests(ProviderCache providerCache) {
     Collection<CacheData> allOnDemand = providerCache.getAll(ON_DEMAND.toString());
     List<Map> returnResults = new LinkedList<>();
-    for(CacheData onDemand:allOnDemand){
+    for (CacheData onDemand : allOnDemand) {
       Map<String, String> parsedKey = Keys.parse(onDemand.getId());
-      if(parsedKey.get("type")!=null && (parsedKey.get("type").equals(SERVICES.toString()) || parsedKey.get("type").equals(TASKS.toString()))){
+      if (parsedKey.get("type") != null && (parsedKey.get("type").equals(SERVICES.toString()) || parsedKey.get("type").equals(TASKS.toString()))) {
         parsedKey.put("type", "serverGroup");
         parsedKey.put("serverGroup", parsedKey.get("serviceName"));
 
@@ -207,7 +123,7 @@ public class TaskCachingAgent implements CachingAgent, OnDemandAgent {
         result.put("cacheTime", onDemand.getAttributes().get("cacheTime"));
         result.put("cacheExpiry", onDemand.getAttributes().get("cacheExpiry"));
         result.put("processedCount", (onDemand.getAttributes().get("processedCount") != null ? onDemand.getAttributes().get("processedCount") : 1));
-        result.put("processedTime", onDemand.getAttributes().get("processedTime") !=null ? onDemand.getAttributes().get("processedTime") : new Date());
+        result.put("processedTime", onDemand.getAttributes().get("processedTime") != null ? onDemand.getAttributes().get("processedTime") : new Date());
 
         returnResults.add(result);
       }
@@ -216,7 +132,15 @@ public class TaskCachingAgent implements CachingAgent, OnDemandAgent {
   }
 
   @Override
-  public boolean handles(OnDemandType type, String cloudProvider) {
-    return type.equals(OnDemandType.ServerGroup) && cloudProvider.equals(EcsCloudProvider.ID);
+  protected void storeOnDemand(ProviderCache providerCache, Map<String, ?> data) {
+    metricsSupport.onDemandStore(new Closure<List<Task>>(this, this) {
+      public void doCall() {
+        String keyString = Keys.getServiceKey(accountName, region, (String) data.get("serverGroupName"));
+        Map<String, Object> att = new HashMap<>();
+        att.put("cacheTime", new Date());
+        CacheData cacheData = new DefaultCacheData(keyString, att, Collections.emptyMap());
+        providerCache.putCacheData(ON_DEMAND.toString(), cacheData);
+      }
+    });
   }
 }

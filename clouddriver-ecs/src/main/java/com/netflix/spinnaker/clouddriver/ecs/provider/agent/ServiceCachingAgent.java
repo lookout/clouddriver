@@ -9,18 +9,12 @@ import com.amazonaws.services.ecs.model.Service;
 import com.netflix.spectator.api.Registry;
 import com.netflix.spinnaker.cats.agent.AgentDataType;
 import com.netflix.spinnaker.cats.agent.CacheResult;
-import com.netflix.spinnaker.cats.agent.CachingAgent;
 import com.netflix.spinnaker.cats.agent.DefaultCacheResult;
 import com.netflix.spinnaker.cats.cache.CacheData;
 import com.netflix.spinnaker.cats.cache.DefaultCacheData;
 import com.netflix.spinnaker.cats.provider.ProviderCache;
 import com.netflix.spinnaker.clouddriver.aws.security.AmazonClientProvider;
-import com.netflix.spinnaker.clouddriver.cache.OnDemandAgent;
-import com.netflix.spinnaker.clouddriver.cache.OnDemandMetricsSupport;
-import com.netflix.spinnaker.clouddriver.ecs.EcsCloudProvider;
 import com.netflix.spinnaker.clouddriver.ecs.cache.Keys;
-import com.netflix.spinnaker.clouddriver.ecs.provider.EcsProvider;
-import groovy.lang.Closure;
 import org.apache.commons.lang3.StringUtils;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
@@ -37,67 +31,28 @@ import static com.netflix.spinnaker.cats.agent.AgentDataType.Authority.AUTHORITA
 import static com.netflix.spinnaker.clouddriver.ecs.cache.Keys.Namespace.ECS_CLUSTERS;
 import static com.netflix.spinnaker.clouddriver.ecs.cache.Keys.Namespace.SERVICES;
 
-public class ServiceCachingAgent implements CachingAgent, OnDemandAgent {
+public class ServiceCachingAgent extends AbstractEcsCachingAgent<Service>{
   static final Collection<AgentDataType> types = Collections.unmodifiableCollection(Arrays.asList(
     AUTHORITATIVE.forType(SERVICES.toString())
   ));
   private final Logger log = LoggerFactory.getLogger(getClass());
-  private AmazonClientProvider amazonClientProvider;
-  private AWSCredentialsProvider awsCredentialsProvider;
-  private String region;
-  private String accountName;
-  private OnDemandMetricsSupport metricsSupport;
 
   public ServiceCachingAgent(String accountName, String region, AmazonClientProvider amazonClientProvider, AWSCredentialsProvider awsCredentialsProvider, Registry registry) {
-    this.accountName = accountName;
-    this.region = region;
-    this.amazonClientProvider = amazonClientProvider;
-    this.awsCredentialsProvider = awsCredentialsProvider;
-    this.metricsSupport = new OnDemandMetricsSupport(registry, this, EcsCloudProvider.ID + ":" + EcsCloudProvider.ID + ":${OnDemandAgent.OnDemandType.ServerGroup}");
+    super(accountName, region, amazonClientProvider, awsCredentialsProvider, registry);
   }
 
   @Override
-  public CacheResult loadData(ProviderCache providerCache) {
-    AmazonECS ecs = amazonClientProvider.getAmazonEcs(accountName, awsCredentialsProvider, region);
-    List<Service> services = getServices(ecs, providerCache);
-    return buildCacheResult(services);
+  public String getAgentType() {
+    return ServiceCachingAgent.class.getSimpleName();
   }
 
   @Override
-  public OnDemandResult handle(ProviderCache providerCache, Map<String, ?> data) {
-    if (!data.get("account").equals(accountName) || !data.get("region").equals(region)) {
-      return null;
-    }
-
-    AmazonECS ecs = amazonClientProvider.getAmazonEcs(accountName, awsCredentialsProvider, region);
-
-    List<Service> services = metricsSupport.readData(new Closure<List<Service>>(this, this) {
-      public List<Service> doCall() {
-        return getServices(ecs, providerCache);
-      }
-    });
-
-    CacheResult cacheResult = metricsSupport.transformData(new Closure<CacheResult>(this, this) {
-      public CacheResult doCall() {
-        return buildCacheResult(services);
-      }
-    });
-
-
-    Collection<String> typeStrings = new LinkedList<>();
-    for (AgentDataType agentDataType : this.types) {
-      typeStrings.add(agentDataType.toString());
-    }
-
-    OnDemandResult result = new OnDemandResult();
-    result.setAuthoritativeTypes(typeStrings);
-    result.setCacheResult(cacheResult);
-    result.setSourceAgentType(getAgentType());
-
-    return result;
+  public Collection<AgentDataType> getProvidedDataTypes() {
+    return types;
   }
 
-  private List<Service> getServices(AmazonECS ecs, ProviderCache providerCache) {
+  @Override
+  protected List<Service> getItems(AmazonECS ecs, ProviderCache providerCache) {
     List<Service> serviceList = new LinkedList<>();
     Collection<CacheData> clusters = providerCache.getAll(ECS_CLUSTERS.toString());
 
@@ -123,7 +78,8 @@ public class ServiceCachingAgent implements CachingAgent, OnDemandAgent {
     return serviceList;
   }
 
-  private CacheResult buildCacheResult(List<Service> services) {
+  @Override
+  protected CacheResult buildCacheResult(List<Service> services) {
     Collection<CacheData> dataPoints = new LinkedList<>();
     for (Service service : services) {
       Map<String, Object> attributes = new HashMap<>();
@@ -153,38 +109,4 @@ public class ServiceCachingAgent implements CachingAgent, OnDemandAgent {
     return new DefaultCacheResult(dataMap);
   }
 
-  @Override
-  public String getAgentType() {
-    return ServiceCachingAgent.class.getSimpleName();
-  }
-
-  @Override
-  public String getProviderName() {
-    return EcsProvider.NAME;
-  }
-
-  @Override
-  public String getOnDemandAgentType() {
-    return getAgentType();
-  }
-
-  @Override
-  public OnDemandMetricsSupport getMetricsSupport() {
-    return metricsSupport;
-  }
-
-  @Override
-  public Collection<Map> pendingOnDemandRequests(ProviderCache providerCache) {
-    return Collections.emptyList();
-  }
-
-  @Override
-  public boolean handles(OnDemandType type, String cloudProvider) {
-    return type.equals(OnDemandType.ServerGroup) && cloudProvider.equals(EcsCloudProvider.ID);
-  }
-
-  @Override
-  public Collection<AgentDataType> getProvidedDataTypes() {
-    return types;
-  }
 }
