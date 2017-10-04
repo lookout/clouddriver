@@ -175,7 +175,7 @@ public class EcsServerClusterProvider implements ClusterProvider<EcsServerCluste
         DescribeServicesResult describeServicesResult =
           amazonECS.describeServices(new DescribeServicesRequest().withCluster(clusterArn).withServices(serviceArn));
         String clusterName = inferClusterNameFromClusterArn(describeServicesResult.getServices().get(0).getClusterArn());
-        ScalableTarget target = getScalableTarget(credentials, awsRegion, serviceArn, clusterName);
+        ScalableTarget target = retrieveScalableTarget(credentials, awsRegion, serviceArn, clusterName);
         ServerGroup.Capacity capacity = new ServerGroup.Capacity();
         capacity.setDesired(describeServicesResult.getServices().get(0).getDesiredCount());
         if (target != null) {
@@ -237,7 +237,7 @@ public class EcsServerClusterProvider implements ClusterProvider<EcsServerCluste
     return clusterMap;
   }
 
-  private ScalableTarget getScalableTarget(AmazonCredentials credentials, AmazonCredentials.AWSRegion awsRegion, String serviceArn, String clusterName) {
+  private ScalableTarget retrieveScalableTarget(AmazonCredentials credentials, AmazonCredentials.AWSRegion awsRegion, String serviceArn, String clusterName) {
     AWSApplicationAutoScaling appASClient = getAmazonApplicationAutoScalingClient(credentials, awsRegion);
     List<String> resourceIds = new ArrayList<>();
     resourceIds.add(String.format("service/%s/%s", clusterName, getServiceName(serviceArn)));
@@ -511,10 +511,20 @@ public class EcsServerClusterProvider implements ClusterProvider<EcsServerCluste
    */
   @Override
   public ServerGroup getServerGroup(String account, String region, String serverGroupName) {
+    if (serverGroupName == null) {
+      throw new Error("Invalid Server Group");
+    }
     // TODO - use a caching system, and also check for account which is currently not the case here
-    Map<String, Set<EcsServerCluster>> clusters = getClusters();
 
-    for (Map.Entry<String, Set<EcsServerCluster>> entry : clusters.entrySet()) {
+    // TODO - remove the application filter.
+    String application = serverGroupName.split("-")[0];
+    Map<String, Set<EcsServerCluster>> clusterMap = new HashMap<>();
+
+    for (AmazonCredentials credentials : getEcsCredentials()) {
+      clusterMap = findClusters(clusterMap, credentials, application);
+    }
+
+    for (Map.Entry<String, Set<EcsServerCluster>> entry : clusterMap.entrySet()) {
       if (entry.getKey().equals(serverGroupName.split("-")[0])) {
         for (EcsServerCluster ecsServerCluster : entry.getValue()) {
           for (ServerGroup serverGroup : ecsServerCluster.getServerGroups()) {

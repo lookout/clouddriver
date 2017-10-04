@@ -61,11 +61,15 @@ public class CreateServerGroupAtomicOperation implements AtomicOperation<Deploym
   public DeploymentResult operate(List priorOutputs) {
     updateTaskStatus("Initializing Create Amazon ECS Server Group Operation...");
 
+    updateTaskStatus("Creating Amazon ECS Task Definition...");
     TaskDefinition taskDefinition = registerTaskDefinition();
+    updateTaskStatus("Done creating Amazon ECS Task Definition...");
+
+
     Service service = createService(taskDefinition);
     createAutoScalingGroup(service);
 
-    return getDeploymentResult(service);
+    return makeDeploymentResult(service);
   }
 
   private TaskDefinition registerTaskDefinition() {
@@ -100,9 +104,7 @@ public class CreateServerGroupAtomicOperation implements AtomicOperation<Deploym
       .withContainerDefinitions(containerDefinitions)
       .withFamily(getFamilyName());
 
-    updateTaskStatus("Creating Amazon ECS Task Definition...");
     RegisterTaskDefinitionResult registerTaskDefinitionResult = ecs.registerTaskDefinition(request);
-    updateTaskStatus("Done creating Amazon ECS Task Definition...");
 
     return registerTaskDefinitionResult.getTaskDefinition();
   }
@@ -111,7 +113,7 @@ public class CreateServerGroupAtomicOperation implements AtomicOperation<Deploym
     AmazonECS ecs = getAmazonEcsClient();
     String serviceName = getNextServiceName();
     Collection<LoadBalancer> loadBalancers = new LinkedList<>();
-    loadBalancers.add(getLoadBalancer());
+    loadBalancers.add(retrieveLoadBalancer());
 
     Integer desiredCapacity = getDesiredCapacity();
     String taskDefinitionArn = taskDefinition.getTaskDefinitionArn();
@@ -155,7 +157,7 @@ public class CreateServerGroupAtomicOperation implements AtomicOperation<Deploym
     updateTaskStatus("Done creating Amazon Application Auto Scaling Scalable Target Definition...");
   }
 
-  private DeploymentResult getDeploymentResult(Service service) {
+  private DeploymentResult makeDeploymentResult(Service service) {
     Map<String, String> namesByRegion = new HashMap<>();
     namesByRegion.put(getRegion(), service.getServiceName());
 
@@ -165,7 +167,7 @@ public class CreateServerGroupAtomicOperation implements AtomicOperation<Deploym
     return result;
   }
 
-  private LoadBalancer getLoadBalancer() {
+  private LoadBalancer retrieveLoadBalancer() {
     AmazonCredentials credentials = getCredentials();
     String region = getRegion();
     String versionString = inferNextServerGroupVersion();

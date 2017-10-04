@@ -70,7 +70,7 @@ public class EnableServiceAtomicOperation implements AtomicOperation<Void> {
 
     String service = description.getServerGroupName();
     String account = description.getCredentialAccount();
-    String cluster = containerInformationService.getClusterName(service, account, description.getRegion());
+    String cluster = getCluster(service, account);
 
     UpdateServiceRequest request = new UpdateServiceRequest()
       .withCluster(cluster)
@@ -80,6 +80,10 @@ public class EnableServiceAtomicOperation implements AtomicOperation<Void> {
     updateTaskStatus(String.format("Enabling %s service for %s.", service, account));
     ecsClient.updateService(request);
     updateTaskStatus(String.format("Service %s enabled for %s.", service, account));
+  }
+
+  private String getCluster(String service, String account) {
+    return containerInformationService.getClusterName(service, account, description.getRegion());
   }
 
   private Integer getMaxCapacity() {
@@ -95,7 +99,7 @@ public class EnableServiceAtomicOperation implements AtomicOperation<Void> {
 
     String service = description.getServerGroupName();
     String account = description.getCredentialAccount();
-    String cluster = containerInformationService.getClusterName(service, account, description.getRegion());
+    String cluster = getCluster(service, account);
 
     List<String> resourceIds = new ArrayList<>();
     resourceIds.add(String.format("service/%s/%s", cluster, service));

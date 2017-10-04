@@ -64,8 +64,7 @@ public class DisableServiceAtomicOperation implements AtomicOperation<Void> {
 
     String service = description.getServerGroupName();
     String account = description.getCredentialAccount();
-    String region = description.getRegion();
-    String cluster = containerInformationService.getClusterName(service, account, region);
+    String cluster = getCluster(service, account);
 
     updateTaskStatus(String.format("Disabling %s service for %s.", service, account));
     UpdateServiceRequest request = new UpdateServiceRequest()
@@ -74,6 +73,11 @@ public class DisableServiceAtomicOperation implements AtomicOperation<Void> {
       .withDesiredCount(0);
     ecs.updateService(request);
     updateTaskStatus(String.format("Service %s disabled for %s.", service, account));
+  }
+
+  private String getCluster(String service, String account) {
+    String region = description.getRegion();
+    return containerInformationService.getClusterName(service, account, region);
   }
 
   private AmazonECS getAmazonEcsClient() {
