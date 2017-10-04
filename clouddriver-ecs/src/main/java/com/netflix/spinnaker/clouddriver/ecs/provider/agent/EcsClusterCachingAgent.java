@@ -29,7 +29,7 @@ import java.util.Map;
 import static com.netflix.spinnaker.cats.agent.AgentDataType.Authority.AUTHORITATIVE;
 import static com.netflix.spinnaker.clouddriver.ecs.cache.Keys.Namespace.ECS_CLUSTERS;
 
-public class ClusterCachingAgent implements CachingAgent {
+public class EcsClusterCachingAgent implements CachingAgent {
   private final Logger log = LoggerFactory.getLogger(getClass());
 
   static final Collection<AgentDataType> types = Collections.unmodifiableCollection(Arrays.asList(
@@ -41,7 +41,7 @@ public class ClusterCachingAgent implements CachingAgent {
   private String region;
   private String accountName;
 
-  public ClusterCachingAgent(String accountName, String region, AmazonClientProvider amazonClientProvider, AWSCredentialsProvider awsCredentialsProvider) {
+  public EcsClusterCachingAgent(String accountName, String region, AmazonClientProvider amazonClientProvider, AWSCredentialsProvider awsCredentialsProvider) {
     this.accountName = accountName;
     this.region = region;
     this.amazonClientProvider = amazonClientProvider;
@@ -78,7 +78,7 @@ public class ClusterCachingAgent implements CachingAgent {
       nextToken = listClustersResult.getNextToken();
     } while (nextToken != null && nextToken.length() != 0);
 
-    log.info("Caching " + dataPoints.size() + " clusters in " + getAgentType());
+    log.info("Caching " + dataPoints.size() + " ECS clusters in " + getAgentType());
     Map<String, Collection<CacheData>> dataMap = new HashMap<>();
     dataMap.put(ECS_CLUSTERS.toString(), dataPoints);
 
@@ -87,7 +87,7 @@ public class ClusterCachingAgent implements CachingAgent {
 
   @Override
   public String getAgentType() {
-    return ClusterCachingAgent.class.getSimpleName();
+    return EcsClusterCachingAgent.class.getSimpleName();
   }
 
   @Override

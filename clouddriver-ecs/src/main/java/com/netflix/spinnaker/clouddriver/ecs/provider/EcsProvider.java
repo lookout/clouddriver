@@ -76,7 +76,7 @@ public class EcsProvider extends AgentSchedulerAware implements SearchableProvid
 
 
   public void synchronizeHealthAgents() {
-    this.healthAgents = Collections.unmodifiableCollection(agents.stream()
+    healthAgents = Collections.unmodifiableCollection(agents.stream()
       .filter(a -> a instanceof HealthProvidingCachingAgent)
       .map(a -> (HealthProvidingCachingAgent) a).collect(Collectors.toList()));
   }

@@ -6,7 +6,7 @@ import com.netflix.spinnaker.cats.agent.Agent;
 import com.netflix.spinnaker.clouddriver.aws.security.AmazonClientProvider;
 import com.netflix.spinnaker.clouddriver.aws.security.NetflixAmazonCredentials;
 import com.netflix.spinnaker.clouddriver.ecs.provider.EcsProvider;
-import com.netflix.spinnaker.clouddriver.ecs.provider.agent.ClusterCachingAgent;
+import com.netflix.spinnaker.clouddriver.ecs.provider.agent.EcsClusterCachingAgent;
 import com.netflix.spinnaker.clouddriver.ecs.provider.agent.ContainerInstanceCachingAgent;
 import com.netflix.spinnaker.clouddriver.ecs.provider.agent.ServiceCachingAgent;
 import com.netflix.spinnaker.clouddriver.ecs.provider.agent.TaskCachingAgent;
@@ -52,7 +52,7 @@ public class EcsProviderConfig {
       if (credentials.getCloudProvider().equals("ecs")) {
         for (AWSRegion region : credentials.getRegions()) {
           if (!scheduledAccounts.contains(credentials.getName())) {
-            newAgents.add(new ClusterCachingAgent(credentials.getName(), region.getName(), amazonClientProvider, awsCredentialsProvider));
+            newAgents.add(new EcsClusterCachingAgent(credentials.getName(), region.getName(), amazonClientProvider, awsCredentialsProvider));
             newAgents.add(new ServiceCachingAgent(credentials.getName(), region.getName(), amazonClientProvider, awsCredentialsProvider, registry));
             newAgents.add(new TaskCachingAgent(credentials.getName(), region.getName(), amazonClientProvider, awsCredentialsProvider, registry));
             newAgents.add(new ContainerInstanceCachingAgent(credentials.getName(), region.getName(), amazonClientProvider, awsCredentialsProvider, registry));
