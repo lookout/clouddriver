@@ -7,10 +7,9 @@ import java.util.HashMap;
 import java.util.Map;
 
 import static com.netflix.spinnaker.clouddriver.ecs.EcsCloudProvider.ID;
-import static com.netflix.spinnaker.clouddriver.ecs.cache.Keys.Namespace.SERVICES;
 
 public class Keys implements KeyParser {
-  public static enum Namespace {
+  public enum Namespace {
     SERVICES,
     ECS_CLUSTERS,
     TASKS,
@@ -18,7 +17,7 @@ public class Keys implements KeyParser {
 
     final String ns;
 
-    private Namespace() {
+    Namespace() {
       ns = CaseFormat.UPPER_UNDERSCORE.to(CaseFormat.LOWER_CAMEL, this.name());
     }
 
@@ -89,7 +88,7 @@ public class Keys implements KeyParser {
   }
 
   public static String getServiceKey(String account, String region, String serviceName) {
-    return ID + SEPARATOR + SERVICES + SEPARATOR + account + SEPARATOR + region + SEPARATOR + serviceName;
+    return ID + SEPARATOR + Namespace.SERVICES + SEPARATOR + account + SEPARATOR + region + SEPARATOR + serviceName;
   }
 
   public static String getClusterKey(String account, String region, String clusterName) {

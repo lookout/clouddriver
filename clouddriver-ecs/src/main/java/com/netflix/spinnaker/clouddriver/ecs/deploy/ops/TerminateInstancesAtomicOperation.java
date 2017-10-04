@@ -64,7 +64,6 @@ public class TerminateInstancesAtomicOperation implements AtomicOperation<Void> 
 
     for (String taskId: description.getEcsTaskIds()) {
       getTask().updateStatus(BASE_PHASE, "Terminating instance: " + taskId);
-      //TODO: Check if that the cache doesn't negatively impacts this atomic operation.
       String clusterArn = containerInformationService.getClusterArn(description.getCredentialAccount(), description.getRegion(), taskId);
       StopTaskRequest request = new StopTaskRequest().withTask(taskId).withCluster(clusterArn);
       ecs.stopTask(request);
