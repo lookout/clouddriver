@@ -78,17 +78,19 @@ public class EcsFindImagesByTagController {
   public Object findImage(@RequestParam("q") String dockerImageUrl, HttpServletRequest request) {
     String accountId = dockerImageUrl.split("\\.")[0];
     String tag = dockerImageUrl.split("\\:")[1];
+    String repository = dockerImageUrl.split("\\/")[1].split(":")[0]; //TODO - these regexes make my eyes bleed.  Use a better approach.
+
     NetflixAmazonCredentials credentials = getCredentials(accountId);
 
     AmazonECR amazonECR = amazonClientProvider.getAmazonEcr(credentials.getName(), credentials.getCredentialsProvider(), "us-west-2");
 
-    ListImagesResult result = amazonECR.listImages(new ListImagesRequest().withRegistryId(accountId).withRepositoryName("continuous-delivery"));
-    DescribeImagesResult imagesResult = amazonECR.describeImages(new DescribeImagesRequest().withRegistryId(accountId).withRepositoryName("continuous-delivery").withImageIds(result.getImageIds()));
+    ListImagesResult result = amazonECR.listImages(new ListImagesRequest().withRegistryId(accountId).withRepositoryName(repository));
+    DescribeImagesResult imagesResult = amazonECR.describeImages(new DescribeImagesRequest().withRegistryId(accountId).withRepositoryName(repository ).withImageIds(result.getImageIds()));
 
     List<ImageDetail> imagesWithThisTag = new ArrayList<>();
 
     for (ImageDetail imageDetail: imagesResult.getImageDetails()) {
-      if (imageDetail.getImageTags().contains(tag)) {  // TODO - what is the user interface we want to have here?  We should discuss with Lars and Ethan from the community as this whole thing will undergo a big refactoring
+      if (imageDetail.getImageTags() != null && imageDetail.getImageTags().contains(tag)) {  // TODO - what is the user interface we want to have here?  We should discuss with Lars and Ethan from the community as this whole thing will undergo a big refactoring
         imagesWithThisTag.add(imageDetail);
       }
     }

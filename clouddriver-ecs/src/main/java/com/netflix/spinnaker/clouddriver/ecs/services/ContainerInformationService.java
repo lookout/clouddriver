@@ -69,10 +69,9 @@ public class ContainerInformationService {
     // A bit more of a graceful return, when the results haven't been cached yet - see the TO DO above.
     if (serviceCacheData == null || healthCache == null) {
       List<Map<String, String>> healthMetrics = new ArrayList<>();
+
       Map<String, String> loadBalancerHealth = new HashMap<>();
       loadBalancerHealth.put("instanceId", taskArn);
-
-
       loadBalancerHealth.put("state", "Unknown");
       loadBalancerHealth.put("type", "loadBalancer");
 
