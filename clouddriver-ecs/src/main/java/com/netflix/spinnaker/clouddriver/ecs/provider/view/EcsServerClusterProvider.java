@@ -143,7 +143,7 @@ public class EcsServerClusterProvider implements ClusterProvider<EcsServerCluste
 
             String address = containerInformationService.getTaskPrivateAddress(credentials.getName(), awsRegion.getName(), amazonEC2, task);
 
-            List<Map<String, String>> healthStatus = containerInformationService.getHealthStatus(clusterArn, task.getTaskArn(), serviceArn, credentials.getName(), "us-west-2");
+            List<Map<String, String>> healthStatus = containerInformationService.getHealthStatus(task.getTaskArn(), serviceArn, credentials.getName(), "us-west-2");
             try {
               instances.add(new EcsTask(extractTaskIdFromTaskArn(task.getTaskArn()), task, ec2InstanceStatus, healthStatus, address));
             }catch(NullPointerException e){

@@ -24,13 +24,11 @@ import com.amazonaws.services.ec2.model.DescribeInstancesRequest;
 import com.amazonaws.services.ec2.model.DescribeInstancesResult;
 import com.amazonaws.services.ec2.model.InstanceStatus;
 import com.amazonaws.services.ecs.model.Container;
-import com.amazonaws.services.ecs.model.InvalidParameterException;
 import com.amazonaws.services.ecs.model.NetworkBinding;
 import com.amazonaws.services.ecs.model.Task;
 import com.netflix.spinnaker.cats.cache.Cache;
 import com.netflix.spinnaker.cats.cache.CacheData;
 import com.netflix.spinnaker.clouddriver.aws.security.AmazonClientProvider;
-import com.netflix.spinnaker.clouddriver.aws.security.NetflixAmazonCredentials;
 import com.netflix.spinnaker.clouddriver.ecs.cache.Keys;
 import com.netflix.spinnaker.clouddriver.security.AccountCredentialsProvider;
 import org.apache.commons.lang3.StringUtils;
@@ -60,10 +58,7 @@ public class ContainerInformationService {
   private Cache cacheView;
 
 
-  //TODO: have a direct way of refreshing the cache - this impacts the deploy stage...
-  public List<Map<String, String>> getHealthStatus(String clusterArn, String taskArn, String serviceArn, String accountName, String region) {
-    NetflixAmazonCredentials accountCredentials = (NetflixAmazonCredentials) accountCredentialsProvider.getCredentials(accountName);
-
+  public List<Map<String, String>> getHealthStatus(String taskArn, String serviceArn, String accountName, String region) {
     String serviceCacheKey = Keys.getServiceKey(accountName, region, StringUtils.substringAfterLast(serviceArn, "/"));
     CacheData serviceCacheData = cacheView.get(SERVICES.toString(), serviceCacheKey);
 
@@ -98,7 +93,7 @@ public class ContainerInformationService {
 
       healthMetrics.add(loadBalancerHealth);
       return healthMetrics;
-    } else if (loadBalancers.size() > 1) {
+    } else if (loadBalancers.size() >= 2) {
       throw new IllegalArgumentException("Cannot have more than 1 load balancer while checking ECS health.");
     }
     return null;
@@ -126,13 +121,6 @@ public class ContainerInformationService {
     }
 
     int hostPort = networkBindings.get(0).getHostPort();
-    /*String taskId = StringUtils.substringAfterLast(task.getTaskArn(), "/");
-    String taskCacheKey = Keys.getTaskKey(accountName, region, taskId);
-    CacheData taskCacheData = cacheView.get(TASKS.toString(), taskCacheKey);
-
-    if (taskCacheData == null) {
-      return null;
-    }*/
 
     String containerInstanceCacheKey = Keys.getContainerInstanceKey(accountName, region, task.getContainerInstanceArn());
     CacheData containerInstanceCacheData = cacheView.get(CONTAINER_INSTANCES.toString(), containerInstanceCacheKey);
@@ -147,13 +135,6 @@ public class ContainerInformationService {
 
     return String.format("%s:%s", hostPrivateIpAddress, hostPort);
   }
-
-  /*public String getContainerInstanceArn(String accountName, String region, Task task) {
-    if (task == null) {
-      return null;
-    }
-    return task.getContainerInstanceArn();
-  }*/
 
   //TODO: Delete this method once EcsServerClusterProvider has been reworked to use the cache.
   @Deprecated
@@ -208,7 +189,7 @@ public class ContainerInformationService {
 
     Collection<CacheData> allServiceCache = cacheView.getAll(SERVICES.toString());
     for (CacheData serviceCacheData : allServiceCache) {
-      if(serviceCacheData == null || serviceCacheData.getAttributes().get("clusterName") == null){
+      if (serviceCacheData == null || serviceCacheData.getAttributes().get("clusterName") == null) {
         continue;
       }
       if (serviceCacheData.getAttributes().get("clusterName").equals(clusterName) &&
