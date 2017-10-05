@@ -26,20 +26,18 @@ import static com.netflix.spinnaker.clouddriver.ecs.cache.Keys.Namespace.TASKS;
 @Component
 public class EcsInstanceProvider implements InstanceProvider<EcsTask> {
 
+  private AccountCredentialsProvider accountCredentialsProvider;
+  private AmazonClientProvider amazonClientProvider;
+  private ContainerInformationService containerInformationService;
   private final Cache cacheView;
 
   @Autowired
-  private AccountCredentialsProvider accountCredentialsProvider;
-
-  @Autowired
-  private AmazonClientProvider amazonClientProvider;
-
-  @Autowired
-  private ContainerInformationService containerInformationService;
-
-  @Autowired
-  public EcsInstanceProvider(Cache cacheView) {
+  public EcsInstanceProvider(Cache cacheView, AccountCredentialsProvider accountCredentialsProvider,
+                             AmazonClientProvider amazonClientProvider, ContainerInformationService containerInformationService) {
     this.cacheView = cacheView;
+    this.accountCredentialsProvider = accountCredentialsProvider;
+    this.amazonClientProvider = amazonClientProvider;
+    this.containerInformationService = containerInformationService;
   }
 
   @Override
