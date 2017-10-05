@@ -22,6 +22,7 @@ import com.amazonaws.services.applicationautoscaling.model.RegisterScalableTarge
 import com.amazonaws.services.applicationautoscaling.model.ScalableDimension;
 import com.amazonaws.services.applicationautoscaling.model.ServiceNamespace;
 import com.amazonaws.services.ecs.AmazonECS;
+import com.amazonaws.services.ecs.model.Service;
 import com.amazonaws.services.ecs.model.UpdateServiceRequest;
 import com.netflix.spinnaker.clouddriver.aws.security.AmazonClientProvider;
 import com.netflix.spinnaker.clouddriver.aws.security.AmazonCredentials;
@@ -57,13 +58,13 @@ public class ResizeServiceAtomicOperation implements AtomicOperation<Void> {
   public Void operate(List priorOutputs) {
     updateTaskStatus("Initializing Resize ECS Server Group Operation...");
 
-    resizeService();
-    resizeAutoScalingGroup();
+    Service service = resizeService();
+    resizeAutoScalingGroup(service);
 
     return null;
   }
 
-  private void resizeService() {
+  private Service resizeService() {
     AmazonECS amazonECS = getAmazonEcsClient();
 
     String serviceName = description.getServerGroupName();
@@ -74,26 +75,27 @@ public class ResizeServiceAtomicOperation implements AtomicOperation<Void> {
       .withService(serviceName)
       .withDesiredCount(desiredCount);
     updateTaskStatus(String.format("Resizing %s to %s instances.", serviceName, desiredCount));
-    amazonECS.updateService(updateServiceRequest);
+    Service service = amazonECS.updateService(updateServiceRequest).getService();
     updateTaskStatus(String.format("Done resizing %s to %s", serviceName , desiredCount));
+    return service;
   }
 
-  private void resizeAutoScalingGroup() {
+  private void resizeAutoScalingGroup(Service service) {
     AWSApplicationAutoScaling autoScalingClient = getAmazonApplicationAutoScalingClient();
 
-    String  serviceName = description.getServerGroupName();
     Integer desiredCount = description.getCapacity().getDesired();
 
     RegisterScalableTargetRequest request = new RegisterScalableTargetRequest()
       .withServiceNamespace(ServiceNamespace.Ecs)
       .withScalableDimension(ScalableDimension.EcsServiceDesiredCount)
-      .withResourceId(String.format("service/%s/%s", ecsClusterName, serviceName))
+      .withResourceId(String.format("service/%s/%s", ecsClusterName, service.getServiceName()))
+      .withRoleARN(service.getRoleArn())
       .withMinCapacity(0)
       .withMaxCapacity(desiredCount);
 
-    updateTaskStatus(String.format("Resizing Scalable Target of %s to %s instances", serviceName, desiredCount));
+    updateTaskStatus(String.format("Resizing Scalable Target of %s to %s instances", service.getServiceName(), desiredCount));
     autoScalingClient.registerScalableTarget(request);
-    updateTaskStatus(String.format("Done resizing Scalable Target of %s to %s instances", serviceName, desiredCount));
+    updateTaskStatus(String.format("Done resizing Scalable Target of %s to %s instances", service.getServiceName(), desiredCount));
   }
 
   private AWSApplicationAutoScaling getAmazonApplicationAutoScalingClient() {
