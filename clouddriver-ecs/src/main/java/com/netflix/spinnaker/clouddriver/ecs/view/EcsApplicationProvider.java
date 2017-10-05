@@ -85,18 +85,14 @@ public class EcsApplicationProvider implements ApplicationProvider {
   }
 
   private HashMap<String, Application> populateApplicationMap(String account, String region) {
-    Collection<CacheData> allClusters = cacheView.getAll(ECS_CLUSTERS.toString());
-    Set<String> validClusterArns = allClusters
-      .stream()
-      .filter(cache -> (cache.getAttributes().get("account").equals(account) && cache.getAttributes().get("region").equals(region)))
-      .map(cache -> (String) cache.getAttributes().get("clusterArn"))
-      .collect(Collectors.toSet());
-
     HashMap<String, Application> applicationHashMap = new HashMap<>();
     Collection<CacheData> allServices = cacheView.getAll(SERVICES.toString());
     Collection<CacheData> validServices = allServices
       .stream()
-      .filter(cache -> validClusterArns.contains(cache.getAttributes().get("clusterArn")))
+      .filter(cache ->{
+        Map<String, String> keyAttributes = Keys.parse(cache.getId());
+        return keyAttributes.get("account").equals(account) && keyAttributes.get("region").equals(region);
+      })
       .collect(Collectors.toSet());
 
     for (CacheData serviceCache : validServices) {
