@@ -69,6 +69,7 @@ public class EcsClusterCachingAgent implements CachingAgent {
 
         Map<String, Object> attributes = new HashMap<>();
         attributes.put("account", accountName);
+        attributes.put("region", region);
         attributes.put("clusterName", clusterName);
         attributes.put("clusterArn", clusterArn);
 
