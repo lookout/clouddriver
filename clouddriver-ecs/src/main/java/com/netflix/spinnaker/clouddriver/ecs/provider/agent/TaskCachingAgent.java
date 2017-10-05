@@ -91,9 +91,11 @@ public class TaskCachingAgent extends AbstractEcsCachingAgent<Task> {
       attributes.put("clusterArn", task.getClusterArn());
       attributes.put("containerInstanceArn", task.getContainerInstanceArn());
       attributes.put("group", task.getGroup());
+      //TODO: consider making containers a flat structure, if it cannot be deserialized.
       attributes.put("containers", task.getContainers());
       attributes.put("lastStatus", task.getLastStatus());
       attributes.put("desiredStatus", task.getDesiredStatus());
+      attributes.put("startedAt", task.getStartedAt());
 
       String key = Keys.getTaskKey(accountName, region, taskId);
       dataPoints.add(new DefaultCacheData(key, attributes, Collections.emptyMap()));

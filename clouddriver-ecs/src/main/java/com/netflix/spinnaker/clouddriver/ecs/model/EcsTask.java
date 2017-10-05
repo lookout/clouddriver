@@ -38,13 +38,13 @@ public class EcsTask implements Instance, Serializable {
   private String cloudProvider;
   private String privateAddress;
 
-  public EcsTask(String name, Task task, InstanceStatus ec2Instance, List<Map<String, String>> health, String privateAddress) {
+  public EcsTask(String name, Long launchTime, String lastStatus, String desiredStatus, String availabilityZone, List<Map<String, String>> health, String privateAddress) {
     this.name = name;
     providerType = cloudProvider = EcsCloudProvider.ID;
-    launchTime = task.getStartedAt() != null ? task.getStartedAt().getTime() : null;
+    this.launchTime = launchTime;//task.getStartedAt() != null ? task.getStartedAt().getTime() : null;
     this.health =  health;
-    healthState = calculateHealthState(task.getLastStatus(), task.getDesiredStatus());
-    zone = ec2Instance.getAvailabilityZone();
+    healthState = calculateHealthState(lastStatus, desiredStatus);
+    zone = availabilityZone;
     this.privateAddress = privateAddress;
   }
 
