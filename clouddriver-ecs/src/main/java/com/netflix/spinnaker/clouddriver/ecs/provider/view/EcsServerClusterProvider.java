@@ -28,6 +28,7 @@ import com.amazonaws.services.ec2.model.DescribeInstancesRequest;
 import com.amazonaws.services.ec2.model.GroupIdentifier;
 import com.amazonaws.services.ec2.model.InstanceStatus;
 import com.amazonaws.services.ecs.AmazonECS;
+import com.amazonaws.services.ecs.model.Container;
 import com.amazonaws.services.ecs.model.ContainerDefinition;
 import com.amazonaws.services.ecs.model.DescribeServicesRequest;
 import com.amazonaws.services.ecs.model.DescribeServicesResult;
@@ -39,6 +40,7 @@ import com.amazonaws.services.ecs.model.ListServicesRequest;
 import com.amazonaws.services.ecs.model.ListServicesResult;
 import com.amazonaws.services.ecs.model.ListTasksRequest;
 import com.amazonaws.services.ecs.model.ListTasksResult;
+import com.amazonaws.services.ecs.model.NetworkBinding;
 import com.amazonaws.services.ecs.model.Task;
 import com.amazonaws.services.elasticloadbalancingv2.AmazonElasticLoadBalancing;
 import com.amazonaws.services.elasticloadbalancingv2.model.DescribeLoadBalancersRequest;
@@ -156,11 +158,24 @@ public class EcsServerClusterProvider implements ClusterProvider<EcsServerCluste
             InstanceStatus ec2InstanceStatus = containerInformationService.getEC2InstanceStatus(
               amazonEC2, credentials.getName(), awsRegion.getName(), task.getContainerInstanceArn());
 
-            String address = containerInformationService.getTaskPrivateAddress(credentials.getName(), awsRegion.getName(), amazonEC2, task);
+            //TODO: This may be cleaned up when this classes uses cache.
+            int hostPort = -1;
+            List<Container> containers = task.getContainers();
+            if (containers != null && containers.size() < 1) {
+              List<NetworkBinding> networkBindings = containers.get(0).getNetworkBindings();
+              if (networkBindings != null && networkBindings.size() > 0) {
+                hostPort = networkBindings.get(0).getHostPort();
+              }
+            }
 
-            List<Map<String, String>> healthStatus = containerInformationService.getHealthStatus(task.getTaskArn(), serviceArn, credentials.getName(), "us-west-2");
+            String address = containerInformationService.getTaskPrivateAddress(credentials.getName(), awsRegion.getName(), amazonEC2, hostPort, task.getContainerInstanceArn());
+
+            String serviceName = StringUtils.substringAfterLast(serviceArn, "/");
+            String taskId = StringUtils.substringAfterLast(task.getTaskArn(), "/");
+            List<Map<String, String>> healthStatus = containerInformationService.getHealthStatus(taskId, serviceName, credentials.getName(), "us-west-2");
             try {
-              instances.add(new EcsTask(extractTaskIdFromTaskArn(task.getTaskArn()), task, ec2InstanceStatus, healthStatus, address));
+              Long launchTime = task.getStartedAt() != null ? task.getStartedAt().getTime() : null;
+              instances.add(new EcsTask(extractTaskIdFromTaskArn(task.getTaskArn()), launchTime, task.getLastStatus(), task.getDesiredStatus(), ec2InstanceStatus.getAvailabilityZone(), healthStatus, address));
             }catch(NullPointerException e){
               e.printStackTrace();
             }

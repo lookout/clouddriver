@@ -23,9 +23,6 @@ import com.amazonaws.services.ec2.model.DescribeInstanceStatusRequest;
 import com.amazonaws.services.ec2.model.DescribeInstancesRequest;
 import com.amazonaws.services.ec2.model.DescribeInstancesResult;
 import com.amazonaws.services.ec2.model.InstanceStatus;
-import com.amazonaws.services.ecs.model.Container;
-import com.amazonaws.services.ecs.model.NetworkBinding;
-import com.amazonaws.services.ecs.model.Task;
 import com.netflix.spinnaker.cats.cache.Cache;
 import com.netflix.spinnaker.cats.cache.CacheData;
 import com.netflix.spinnaker.clouddriver.aws.security.AmazonClientProvider;
@@ -58,11 +55,10 @@ public class ContainerInformationService {
   private Cache cacheView;
 
 
-  public List<Map<String, String>> getHealthStatus(String taskArn, String serviceArn, String accountName, String region) {
-    String serviceCacheKey = Keys.getServiceKey(accountName, region, StringUtils.substringAfterLast(serviceArn, "/"));
+  public List<Map<String, String>> getHealthStatus(String taskId, String serviceName, String accountName, String region) {
+    String serviceCacheKey = Keys.getServiceKey(accountName, region, serviceName);
     CacheData serviceCacheData = cacheView.get(SERVICES.toString(), serviceCacheKey);
 
-    String taskId = StringUtils.substringAfterLast(taskArn, "/");
     String healthCacheKey = Keys.getTaskHealthKey(accountName, region, taskId);
     CacheData healthCache = cacheView.get(com.netflix.spinnaker.clouddriver.core.provider.agent.Namespace.HEALTH.toString(), healthCacheKey);
 
@@ -71,7 +67,7 @@ public class ContainerInformationService {
       List<Map<String, String>> healthMetrics = new ArrayList<>();
 
       Map<String, String> loadBalancerHealth = new HashMap<>();
-      loadBalancerHealth.put("instanceId", taskArn);
+      loadBalancerHealth.put("instanceId", taskId);
       loadBalancerHealth.put("state", "Unknown");
       loadBalancerHealth.put("type", "loadBalancer");
 
@@ -86,7 +82,7 @@ public class ContainerInformationService {
 
       List<Map<String, String>> healthMetrics = new ArrayList<>();
       Map<String, String> loadBalancerHealth = new HashMap<>();
-      loadBalancerHealth.put("instanceId", taskArn);
+      loadBalancerHealth.put("instanceId", taskId);
       loadBalancerHealth.put("state", (String) healthCache.getAttributes().get("state"));
       loadBalancerHealth.put("type", (String) healthCache.getAttributes().get("type"));
 
@@ -108,8 +104,9 @@ public class ContainerInformationService {
     return null;
   }
 
-  public String getTaskPrivateAddress(String accountName, String region, AmazonEC2 amazonEC2, Task task) {
-    List<Container> containers = task.getContainers();
+  //TODO: clean up after EcsServerClusterProvider has been changed. hostPort and containerArn may be replaced with a CacheData instead.
+  public String getTaskPrivateAddress(String accountName, String region, AmazonEC2 amazonEC2, int hostPort, String containerArn) {
+    /*List<Container> containers = task.getContainers();
     if (containers == null || containers.size() < 1) {
       return "unknown";
     }
@@ -119,9 +116,12 @@ public class ContainerInformationService {
       return "unknown";
     }
 
-    int hostPort = networkBindings.get(0).getHostPort();
+    int hostPort = networkBindings.get(0).getHostPort();*/
+    if (hostPort < 0 || hostPort > 65535) {
+      return "unknown";
+    }
 
-    String containerInstanceCacheKey = Keys.getContainerInstanceKey(accountName, region, task.getContainerInstanceArn());
+    String containerInstanceCacheKey = Keys.getContainerInstanceKey(accountName, region, containerArn);
     CacheData containerInstanceCacheData = cacheView.get(CONTAINER_INSTANCES.toString(), containerInstanceCacheKey);
     if (containerInstanceCacheData == null) {
       return "unknown";
