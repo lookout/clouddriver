@@ -78,7 +78,7 @@ public class TaskHealthCachingAgent implements CachingAgent, HealthProvidingCach
         String serviceName = StringUtils.substringAfter((String) taskCache.getAttributes().get("group"), "service:");
         String serviceCacheKey = Keys.getServiceKey(accountName, region, serviceName);
         CacheData serviceCache = providerCache.get(SERVICES.toString(), serviceCacheKey);
-        if (serviceCache == null || containerInstance == null) {
+        if (serviceCache == null) {
           taskEvicitions.add(taskCache.getId());
           continue;
         }
@@ -119,6 +119,8 @@ public class TaskHealthCachingAgent implements CachingAgent, HealthProvidingCach
 
           attributes.put("state", targetHealth.equals("healthy") ? "Up" : "Unknown");  // TODO - Return better values, and think of a better strategy at defining health
           attributes.put("type", "loadBalancer");
+          attributes.put("service", serviceName);
+          attributes.put("taskArn", taskCache.getAttributes().get("taskArn"));
 
           String key = Keys.getTaskHealthKey(accountName, region, (String) taskCache.getAttributes().get("taskId"));
           dataPoints.add(new DefaultCacheData(key, attributes, Collections.emptyMap()));
