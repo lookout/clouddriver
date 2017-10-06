@@ -1,5 +1,6 @@
 package com.netflix.spinnaker.clouddriver.ecs.deploy.ops;
 
+import com.amazonaws.auth.AWSCredentials;
 import com.amazonaws.auth.AWSCredentialsProvider;
 import com.amazonaws.services.applicationautoscaling.AWSApplicationAutoScaling;
 import com.amazonaws.services.applicationautoscaling.model.RegisterScalableTargetRequest;
@@ -21,6 +22,8 @@ import com.amazonaws.services.elasticloadbalancingv2.model.DescribeTargetGroupsR
 import com.amazonaws.services.elasticloadbalancingv2.model.DescribeTargetGroupsResult;
 import com.netflix.spinnaker.clouddriver.aws.security.AmazonClientProvider;
 import com.netflix.spinnaker.clouddriver.aws.security.AmazonCredentials;
+import com.netflix.spinnaker.clouddriver.aws.security.AssumeRoleAmazonCredentials;
+import com.netflix.spinnaker.clouddriver.aws.security.NetflixAssumeRoleAmazonCredentials;
 import com.netflix.spinnaker.clouddriver.data.task.Task;
 import com.netflix.spinnaker.clouddriver.data.task.TaskRepository;
 import com.netflix.spinnaker.clouddriver.deploy.DeploymentResult;
@@ -61,19 +64,27 @@ public class CreateServerGroupAtomicOperation implements AtomicOperation<Deploym
   public DeploymentResult operate(List priorOutputs) {
     updateTaskStatus("Initializing Create Amazon ECS Server Group Operation...");
 
+    String region = getRegion();
+    String credentialAccount = description.getCredentialAccount();
+    AmazonCredentials credentials = getCredentials();
+    AWSApplicationAutoScaling autoScalingClient = getAmazonApplicationAutoScalingClient();
+
+
+    AmazonECS ecs = getAmazonEcsClient(region, credentialAccount);
+
     updateTaskStatus("Creating Amazon ECS Task Definition...");
-    TaskDefinition taskDefinition = registerTaskDefinition();
+    TaskDefinition taskDefinition = registerTaskDefinition(ecs);
     updateTaskStatus("Done creating Amazon ECS Task Definition...");
 
 
-    Service service = createService(taskDefinition);
-    createAutoScalingGroup(service);
+    Service service = createService(ecs, taskDefinition);
+
+    createAutoScalingGroup(autoScalingClient, credentials, service);
 
     return makeDeploymentResult(service);
   }
 
-  private TaskDefinition registerTaskDefinition() {
-    AmazonECS ecs = getAmazonEcsClient();
+  private TaskDefinition registerTaskDefinition(AmazonECS ecs) {
     String serverGroupVersion = inferNextServerGroupVersion();
 
     Collection<KeyValuePair> containerEnvironment = new LinkedList<>();
@@ -109,8 +120,7 @@ public class CreateServerGroupAtomicOperation implements AtomicOperation<Deploym
     return registerTaskDefinitionResult.getTaskDefinition();
   }
 
-  private Service createService(TaskDefinition taskDefinition) {
-    AmazonECS ecs = getAmazonEcsClient();
+  private Service createService(AmazonECS ecs, TaskDefinition taskDefinition) {
     String serviceName = getNextServiceName();
     Collection<LoadBalancer> loadBalancers = new LinkedList<>();
     loadBalancers.add(retrieveLoadBalancer());
@@ -142,19 +152,39 @@ public class CreateServerGroupAtomicOperation implements AtomicOperation<Deploym
     return service;
   }
 
-  private void createAutoScalingGroup(Service service) {
-    AWSApplicationAutoScaling autoScalingClient = getAmazonApplicationAutoScalingClient();
+  private void createAutoScalingGroup(AWSApplicationAutoScaling autoScalingClient,
+                                      AmazonCredentials credentials,
+                                      Service service) {
+    String assumedRoleArn = inferAssumedRoleArn(credentials);
+
     RegisterScalableTargetRequest request = new RegisterScalableTargetRequest()
       .withServiceNamespace(ServiceNamespace.Ecs)
       .withScalableDimension(ScalableDimension.EcsServiceDesiredCount)
       .withResourceId(String.format("service/%s/%s", description.getEcsClusterName(), service.getServiceName()))
-      .withRoleARN(service.getRoleArn())
+      .withRoleARN(assumedRoleArn)
       .withMinCapacity(0)
       .withMaxCapacity(getDesiredCapacity());
 
     updateTaskStatus("Creating Amazon Application Auto Scaling Scalable Target Definition...");
     autoScalingClient.registerScalableTarget(request);
-    updateTaskStatus("Done creating Amazon Application Auto Scaling Scalable Target Definition...");
+    updateTaskStatus("Done creating Amazon Application Auto Scaling Scalable Target Definition.");
+  }
+
+  private String inferAssumedRoleArn(AmazonCredentials credentials) {
+    String role;
+    if (credentials instanceof AssumeRoleAmazonCredentials) {
+      role = ((AssumeRoleAmazonCredentials) credentials).getAssumeRole();
+    } else if (credentials instanceof NetflixAssumeRoleAmazonCredentials) {
+      role = ((NetflixAssumeRoleAmazonCredentials) credentials).getAssumeRole();
+    } else {
+      throw new UnsupportedOperationException("Support for this kind of credentials is not supported, " +
+        "please report this issue to the Spinnaker project on Github");
+    }
+
+    String roleArn = String.format("arn:aws:iam::%s:%s", credentials.getAccountId(), role);
+
+
+    return roleArn;
   }
 
   private DeploymentResult makeDeploymentResult(Service service) {
@@ -197,12 +227,10 @@ public class CreateServerGroupAtomicOperation implements AtomicOperation<Deploym
     return amazonClientProvider.getAmazonApplicationAutoScaling(credentialAccount, credentialsProvider, region);
   }
 
-  private AmazonECS getAmazonEcsClient() {
+  private AmazonECS getAmazonEcsClient(String region, String account) {
     AWSCredentialsProvider credentialsProvider = getCredentials().getCredentialsProvider();
-    String region = getRegion();
-    String credentialAccount = description.getCredentialAccount();
 
-    return amazonClientProvider.getAmazonEcs(credentialAccount, credentialsProvider, region);
+    return amazonClientProvider.getAmazonEcs(account, credentialsProvider, region);
   }
 
   private String getServerGroupName(Service service) {
