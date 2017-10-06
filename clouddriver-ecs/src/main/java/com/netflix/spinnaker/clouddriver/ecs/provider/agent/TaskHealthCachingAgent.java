@@ -34,6 +34,7 @@ import static com.netflix.spinnaker.clouddriver.core.provider.agent.Namespace.HE
 import static com.netflix.spinnaker.clouddriver.ecs.cache.Keys.Namespace.CONTAINER_INSTANCES;
 import static com.netflix.spinnaker.clouddriver.ecs.cache.Keys.Namespace.SERVICES;
 import static com.netflix.spinnaker.clouddriver.ecs.cache.Keys.Namespace.TASKS;
+import static com.netflix.spinnaker.clouddriver.ecs.cache.Keys.Namespace.TASK_DEFINITIONS;
 
 public class TaskHealthCachingAgent implements CachingAgent, HealthProvidingCachingAgent {
   static final Collection<AgentDataType> types = Collections.unmodifiableCollection(Arrays.asList(
@@ -65,9 +66,11 @@ public class TaskHealthCachingAgent implements CachingAgent, HealthProvidingCach
 
     Collection<CacheData> dataPoints = new LinkedList<>();
     Collection<String> taskEvicitions = new LinkedList<>();
+    Collection<String> serviceEvicitions = new LinkedList<>();
+    Collection<String> taskDefEvicitions = new LinkedList<>();
 
     Collection<CacheData> tasksCache = providerCache.getAll(TASKS.toString());
-    if(tasksCache != null ) {
+    if (tasksCache != null) {
       for (CacheData taskCache : tasksCache) {
         String containerInstanceCacheKey = Keys.getContainerInstanceKey(accountName, region, (String) taskCache.getAttributes().get("containerInstanceArn"));
         CacheData containerInstance = providerCache.get(CONTAINER_INSTANCES.toString(), containerInstanceCacheKey);
@@ -98,6 +101,17 @@ public class TaskHealthCachingAgent implements CachingAgent, HealthProvidingCach
             new DescribeTargetHealthRequest().withTargetGroupArn((String) loadBalancer.get("targetGroupArn")).withTargets(
               new TargetDescription().withId((String) containerInstance.getAttributes().get("ec2InstanceId")).withPort(port)));
 
+          if (describeTargetHealthResult.getTargetHealthDescriptions().size() == 0) {
+            serviceEvicitions.add(serviceCache.getId());
+            taskEvicitions.add(taskCache.getId());
+
+            String taskDefArn = (String)serviceCache.getAttributes().get("taskDefinition");
+            String taskDefKey = Keys.getTaskDefinitionKey(accountName, region, taskDefArn);
+            taskDefEvicitions.add(taskDefKey);
+
+            continue;
+          }
+
           Map<String, Object> attributes = new HashMap<>();
           attributes.put("instanceId", (String) taskCache.getAttributes().get("taskArn"));
 
@@ -116,9 +130,15 @@ public class TaskHealthCachingAgent implements CachingAgent, HealthProvidingCach
     Map<String, Collection<CacheData>> dataMap = new HashMap<>();
     dataMap.put(HEALTH.toString(), dataPoints);
 
-    log.info("Evicting " + taskEvicitions.size() + " task health checks in " + getAgentType());
+    log.info("Evicting " + taskEvicitions.size() + " tasks in " + getAgentType());
     Map<String, Collection<String>> evictionMap = new HashMap<>();
     evictionMap.put(TASKS.toString(), taskEvicitions);
+
+    log.info("Evicting " + serviceEvicitions.size() + " services in " + getAgentType());
+    evictionMap.put(SERVICES.toString(), serviceEvicitions);
+
+    log.info("Evicting " + taskDefEvicitions.size() + " task definitions in " + getAgentType());
+    evictionMap.put(TASK_DEFINITIONS.toString(), taskDefEvicitions);
 
     return new DefaultCacheResult(dataMap, evictionMap);
   }

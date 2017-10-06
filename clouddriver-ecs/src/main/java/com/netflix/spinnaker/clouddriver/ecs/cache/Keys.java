@@ -13,7 +13,8 @@ public class Keys implements KeyParser {
     SERVICES,
     ECS_CLUSTERS,
     TASKS,
-    CONTAINER_INSTANCES;
+    CONTAINER_INSTANCES,
+    TASK_DEFINITIONS;
 
     final String ns;
 
@@ -48,27 +49,25 @@ public class Keys implements KeyParser {
     Map<String, String> result = new HashMap<>();
     result.put("provider", parts[0]);
     result.put("type", parts[1]);
+    result.put("account", parts[2]);
+    result.put("region", parts[3]);
+
 
     switch (Namespace.valueOf(CaseFormat.LOWER_CAMEL.to(CaseFormat.UPPER_UNDERSCORE, parts[1]))) {
       case SERVICES:
-        result.put("account", parts[2]);
-        result.put("region", parts[3]);
         result.put("serviceName", parts[4]);
         break;
       case ECS_CLUSTERS:
-        result.put("account", parts[2]);
-        result.put("region", parts[3]);
         result.put("clusterName", parts[4]);
         break;
       case TASKS:
-        result.put("account", parts[2]);
-        result.put("region", parts[3]);
         result.put("taskName", parts[4]);
         break;
       case CONTAINER_INSTANCES:
-        result.put("account", parts[2]);
-        result.put("region", parts[3]);
         result.put("containerInstanceArn", parts[4]);
+        break;
+      case TASK_DEFINITIONS:
+        result.put("taskDefinitionArn", parts[4]);
         break;
       default:
         break;
@@ -105,5 +104,9 @@ public class Keys implements KeyParser {
 
   public static String getContainerInstanceKey(String account, String region, String containerInstanceArn) {
     return ID + SEPARATOR + Namespace.CONTAINER_INSTANCES + SEPARATOR + account + SEPARATOR + region + SEPARATOR + containerInstanceArn;
+  }
+
+  public static String getTaskDefinitionKey(String account, String region, String taskDefinitionArn) {
+    return ID + SEPARATOR + Namespace.TASK_DEFINITIONS + SEPARATOR + account + SEPARATOR + region + SEPARATOR + taskDefinitionArn;
   }
 }

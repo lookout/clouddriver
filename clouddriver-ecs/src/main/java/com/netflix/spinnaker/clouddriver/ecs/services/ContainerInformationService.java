@@ -105,23 +105,19 @@ public class ContainerInformationService {
   }
 
   //TODO: clean up after EcsServerClusterProvider has been changed. hostPort and containerArn may be replaced with a CacheData instead.
-  public String getTaskPrivateAddress(String accountName, String region, AmazonEC2 amazonEC2, int hostPort, String containerArn) {
-    /*List<Container> containers = task.getContainers();
-    if (containers == null || containers.size() < 1) {
-      return "unknown";
+  public String getTaskPrivateAddress(String accountName, String region, AmazonEC2 amazonEC2, CacheData taskCache) {
+    int hostPort;
+    try {
+      hostPort = (Integer) ((List<Map<String, Object>>) ((List<Map<String, Object>>) taskCache.getAttributes().get("containers")).get(0).get("networkBindings")).get(0).get("hostPort");
+    } catch (Exception e) {
+      hostPort = -1;
     }
 
-    List<NetworkBinding> networkBindings = containers.get(0).getNetworkBindings();
-    if (networkBindings == null || networkBindings.size() < 1) {
-      return "unknown";
-    }
-
-    int hostPort = networkBindings.get(0).getHostPort();*/
     if (hostPort < 0 || hostPort > 65535) {
       return "unknown";
     }
 
-    String containerInstanceCacheKey = Keys.getContainerInstanceKey(accountName, region, containerArn);
+    String containerInstanceCacheKey = Keys.getContainerInstanceKey(accountName, region, (String) taskCache.getAttributes().get("containerInstanceArn"));
     CacheData containerInstanceCacheData = cacheView.get(CONTAINER_INSTANCES.toString(), containerInstanceCacheKey);
     if (containerInstanceCacheData == null) {
       return "unknown";
@@ -136,7 +132,6 @@ public class ContainerInformationService {
   }
 
   //TODO: Delete this method once EcsServerClusterProvider has been reworked to use the cache.
-  @Deprecated
   public String getEC2InstanceHostID(String accountName, String region, String containerArn) {
     String containerInstanceCacheKey = Keys.getContainerInstanceKey(accountName, region, containerArn);
     CacheData containerInstanceCacheData = cacheView.get(CONTAINER_INSTANCES.toString(), containerInstanceCacheKey);

@@ -18,6 +18,8 @@ package com.netflix.spinnaker.clouddriver.ecs.deploy.ops;
 
 import com.amazonaws.services.ecs.AmazonECS;
 import com.amazonaws.services.ecs.model.DeleteServiceRequest;
+import com.amazonaws.services.ecs.model.DeleteServiceResult;
+import com.amazonaws.services.ecs.model.DeregisterTaskDefinitionRequest;
 import com.amazonaws.services.ecs.model.UpdateServiceRequest;
 import com.netflix.spinnaker.clouddriver.aws.security.AmazonClientProvider;
 import com.netflix.spinnaker.clouddriver.aws.security.AmazonCredentials;
@@ -70,7 +72,10 @@ public class DestroyServiceAtomicOperation implements AtomicOperation<Void> {
     deleteServiceRequest.setCluster(CLUSTER_NAME);
 
     getTask().updateStatus(BASE_PHASE, "Deleting " + description.getServerGroupName() + " service.");
-    ecs.deleteService(deleteServiceRequest);
+    DeleteServiceResult deleteServiceResult = ecs.deleteService(deleteServiceRequest);
+
+    getTask().updateStatus(BASE_PHASE, "Deleting " + deleteServiceResult.getService().getTaskDefinition() + " task definition belonging to the service.");
+    ecs.deregisterTaskDefinition(new DeregisterTaskDefinitionRequest().withTaskDefinition(deleteServiceResult.getService().getTaskDefinition()));
 
     return null;
   }

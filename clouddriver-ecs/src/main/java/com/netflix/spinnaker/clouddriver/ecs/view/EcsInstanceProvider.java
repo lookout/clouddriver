@@ -68,18 +68,11 @@ public class EcsInstanceProvider implements InstanceProvider<EcsTask> {
 
     if (instanceStatus != null) {
       String serviceName = StringUtils.substringAfter((String) taskCache.getAttributes().get("group"), "service:");
-      List<Map<String, String>> healthStatus = containerInformationService.getHealthStatus(id, serviceName, account, region);
-
-      //TODO: This hostPort can be cleaned up after EcsServerClusterProvider starts using the cache.
-      int hostPort;
-      try {
-        hostPort = (Integer) ((List<Map<String, Object>>) ((List<Map<String, Object>>) taskCache.getAttributes().get("containers")).get(0).get("networkBindings")).get(0).get("hostPort");
-      } catch (NullPointerException e) {
-        hostPort = -1;
-      }
-
-      String address = containerInformationService.getTaskPrivateAddress(account, region, amazonEC2, hostPort, (String) taskCache.getAttributes().get("containerInstanceArn"));
       Long launchTime = (Long) taskCache.getAttributes().get("startedAt");
+
+      List<Map<String, String>> healthStatus = containerInformationService.getHealthStatus(id, serviceName, account, region);
+      String address = containerInformationService.getTaskPrivateAddress(account, region, amazonEC2, taskCache);
+
       ecsInstance = new EcsTask(id, launchTime, (String) taskCache.getAttributes().get("lastStatus"), (String) taskCache.getAttributes().get("desiredStatus"), instanceStatus.getAvailabilityZone(), healthStatus, address);
     }
 

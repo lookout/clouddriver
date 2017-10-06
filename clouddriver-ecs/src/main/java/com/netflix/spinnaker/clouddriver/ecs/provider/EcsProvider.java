@@ -22,14 +22,15 @@ import static com.netflix.spinnaker.clouddriver.ecs.cache.Keys.Namespace.CONTAIN
 import static com.netflix.spinnaker.clouddriver.ecs.cache.Keys.Namespace.ECS_CLUSTERS;
 import static com.netflix.spinnaker.clouddriver.ecs.cache.Keys.Namespace.SERVICES;
 import static com.netflix.spinnaker.clouddriver.ecs.cache.Keys.Namespace.TASKS;
+import static com.netflix.spinnaker.clouddriver.ecs.cache.Keys.Namespace.TASK_DEFINITIONS;
 
 
 public class EcsProvider extends AgentSchedulerAware implements SearchableProvider {
   public static final String NAME = EcsProvider.class.getName();
 
   private static final Set<String> defaultCaches = new HashSet<>(Arrays.asList(
-    SERVICES.toString(), ECS_CLUSTERS.toString(),
-    TASKS.toString(), CONTAINER_INSTANCES.toString()));
+    SERVICES.toString(), ECS_CLUSTERS.toString(), TASKS.toString(),
+    CONTAINER_INSTANCES.toString(), TASK_DEFINITIONS.toString()));
 
   private static final Map<String, String> urlMappingTemplates = new HashMap<>();
 
