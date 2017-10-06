@@ -97,6 +97,7 @@ public class ServiceCachingAgent extends AbstractEcsCachingAgent<Service>{
       attributes.put("maximumPercent", service.getDeploymentConfiguration().getMaximumPercent());
       attributes.put("minimumHealthyPercent", service.getDeploymentConfiguration().getMinimumHealthyPercent());
       attributes.put("loadBalancers", service.getLoadBalancers());
+      attributes.put("createdAt", service.getCreatedAt().getTime());
 
 
       String key = Keys.getServiceKey(accountName, region, service.getServiceName());
