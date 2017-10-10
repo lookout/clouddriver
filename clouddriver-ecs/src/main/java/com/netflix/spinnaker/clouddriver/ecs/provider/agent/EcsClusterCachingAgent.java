@@ -95,7 +95,7 @@ public class EcsClusterCachingAgent implements CachingAgent {
     }
     log.info("Evicting " + evictions.size() + " ECS clusters in " + getAgentType());
 
-    return new DefaultCacheResult(dataMap);
+    return new DefaultCacheResult(dataMap, evictions);
   }
 
   @Override

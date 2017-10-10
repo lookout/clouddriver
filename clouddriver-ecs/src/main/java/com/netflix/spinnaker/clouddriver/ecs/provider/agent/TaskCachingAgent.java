@@ -117,7 +117,7 @@ public class TaskCachingAgent extends AbstractEcsCachingAgent<Task> {
     }
     log.info("Evicting " + evictions.size() + " tasks in " + getAgentType());
 
-    return new DefaultCacheResult(dataMap);
+    return new DefaultCacheResult(dataMap, evictions);
   }
 
   @Override

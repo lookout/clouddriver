@@ -109,6 +109,6 @@ public class ContainerInstanceCachingAgent extends AbstractEcsCachingAgent<Conta
     }
     log.info("Evicting " + evictions.size() + " container instances in " + getAgentType());
 
-    return new DefaultCacheResult(dataMap);
+    return new DefaultCacheResult(dataMap, evictions);
   }
 }
