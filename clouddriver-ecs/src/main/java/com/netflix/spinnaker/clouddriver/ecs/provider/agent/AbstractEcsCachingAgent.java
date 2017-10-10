@@ -36,7 +36,7 @@ public abstract class AbstractEcsCachingAgent<T> implements CachingAgent, OnDema
 
   protected abstract List<T> getItems(AmazonECS ecs, ProviderCache providerCache);
 
-  protected abstract CacheResult buildCacheResult(List<T> items);
+  protected abstract CacheResult buildCacheResult(List<T> items, ProviderCache providerCache);
 
   @Override
   public String getProviderName() {
@@ -67,7 +67,7 @@ public abstract class AbstractEcsCachingAgent<T> implements CachingAgent, OnDema
   public CacheResult loadData(ProviderCache providerCache) {
     AmazonECS ecs = amazonClientProvider.getAmazonEcs(accountName, awsCredentialsProvider, region);
     List<T> items = getItems(ecs, providerCache);
-    return buildCacheResult(items);
+    return buildCacheResult(items, providerCache);
   }
 
   @Override
@@ -88,7 +88,7 @@ public abstract class AbstractEcsCachingAgent<T> implements CachingAgent, OnDema
 
     CacheResult cacheResult = metricsSupport.transformData(new Closure<CacheResult>(this, this) {
       public CacheResult doCall() {
-        return buildCacheResult(items);
+        return buildCacheResult(items, providerCache);
       }
     });
 
