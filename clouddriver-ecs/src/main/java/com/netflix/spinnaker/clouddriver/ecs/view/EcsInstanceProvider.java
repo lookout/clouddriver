@@ -3,43 +3,46 @@ package com.netflix.spinnaker.clouddriver.ecs.view;
 import com.amazonaws.auth.AWSCredentialsProvider;
 import com.amazonaws.services.ec2.AmazonEC2;
 import com.amazonaws.services.ec2.model.InstanceStatus;
-import com.amazonaws.services.ecs.AmazonECS;
-import com.amazonaws.services.ecs.model.DescribeTasksRequest;
-import com.amazonaws.services.ecs.model.InvalidParameterException;
-import com.amazonaws.services.ecs.model.ListClustersRequest;
-import com.amazonaws.services.ecs.model.ListClustersResult;
-import com.amazonaws.services.ecs.model.Task;
+import com.netflix.spinnaker.cats.cache.Cache;
+import com.netflix.spinnaker.cats.cache.CacheData;
 import com.netflix.spinnaker.clouddriver.aws.security.AmazonClientProvider;
 import com.netflix.spinnaker.clouddriver.aws.security.NetflixAmazonCredentials;
 import com.netflix.spinnaker.clouddriver.ecs.EcsCloudProvider;
-import com.netflix.spinnaker.clouddriver.ecs.services.ContainerInformationService;
+import com.netflix.spinnaker.clouddriver.ecs.cache.Keys;
 import com.netflix.spinnaker.clouddriver.ecs.model.EcsTask;
+import com.netflix.spinnaker.clouddriver.ecs.services.ContainerInformationService;
 import com.netflix.spinnaker.clouddriver.model.InstanceProvider;
 import com.netflix.spinnaker.clouddriver.security.AccountCredentialsProvider;
+import org.apache.commons.lang.StringUtils;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.stereotype.Component;
 
-import java.util.ArrayList;
 import java.util.List;
+import java.util.Map;
+
+import static com.netflix.spinnaker.clouddriver.ecs.cache.Keys.Namespace.TASKS;
 
 
 @Component
 public class EcsInstanceProvider implements InstanceProvider<EcsTask> {
 
-  private final String cloudProvider = EcsCloudProvider.ID;
-
-  @Autowired
   private AccountCredentialsProvider accountCredentialsProvider;
-
-  @Autowired
   private AmazonClientProvider amazonClientProvider;
+  private ContainerInformationService containerInformationService;
+  private final Cache cacheView;
 
   @Autowired
-  private ContainerInformationService containerInformationService;
+  public EcsInstanceProvider(Cache cacheView, AccountCredentialsProvider accountCredentialsProvider,
+                             AmazonClientProvider amazonClientProvider, ContainerInformationService containerInformationService) {
+    this.cacheView = cacheView;
+    this.accountCredentialsProvider = accountCredentialsProvider;
+    this.amazonClientProvider = amazonClientProvider;
+    this.containerInformationService = containerInformationService;
+  }
 
   @Override
   public String getCloudProvider() {
-    return cloudProvider;
+    return EcsCloudProvider.ID;
   }
 
   @Override
@@ -52,16 +55,25 @@ public class EcsInstanceProvider implements InstanceProvider<EcsTask> {
     NetflixAmazonCredentials netflixAmazonCredentials =
       (NetflixAmazonCredentials) accountCredentialsProvider.getCredentials(account);
     AWSCredentialsProvider awsCredentialsProvider = netflixAmazonCredentials.getCredentialsProvider();
-    AmazonECS amazonECS = amazonClientProvider.getAmazonEcs(account, awsCredentialsProvider, region);
     AmazonEC2 amazonEC2 = amazonClientProvider.getAmazonEC2(account, awsCredentialsProvider, region);
 
-    Task ecsTask = getTask(amazonECS, id);
-    InstanceStatus instanceStatus = containerInformationService.getEC2InstanceStatus(amazonEC2, containerInformationService.getContainerInstance(amazonECS, ecsTask));
+    String key = Keys.getTaskKey(account, region, id);
+    CacheData taskCache = cacheView.get(TASKS.toString(), key);
+    if (taskCache == null) {
+      return null;
+    }
 
-    if (ecsTask != null && instanceStatus != null) {
-//      List<Map<String, String>> healthStatus = containerInformationService.getHealthStatus("poc", ecsTask.getTaskArn(), null, "continuous-delivery", "us-west-2");  // TODO - Use the caching system properly
-      String address = containerInformationService.getTaskPrivateAddress(amazonECS, amazonEC2, ecsTask);
-      ecsInstance = new EcsTask(id, ecsTask, instanceStatus, null, address);
+    //TODO: getEC2InstanceStatus is only being made to determine the availability zone of the instance.
+    InstanceStatus instanceStatus = containerInformationService.getEC2InstanceStatus(amazonEC2, account, region, (String) taskCache.getAttributes().get("containerInstanceArn"));
+
+    if (instanceStatus != null) {
+      String serviceName = StringUtils.substringAfter((String) taskCache.getAttributes().get("group"), "service:");
+      Long launchTime = (Long) taskCache.getAttributes().get("startedAt");
+
+      List<Map<String, String>> healthStatus = containerInformationService.getHealthStatus(id, serviceName, account, region);
+      String address = containerInformationService.getTaskPrivateAddress(account, region, amazonEC2, taskCache);
+
+      ecsInstance = new EcsTask(id, launchTime, (String) taskCache.getAttributes().get("lastStatus"), (String) taskCache.getAttributes().get("desiredStatus"), instanceStatus.getAvailabilityZone(), healthStatus, address);
     }
 
     return ecsInstance;
@@ -72,46 +84,11 @@ public class EcsInstanceProvider implements InstanceProvider<EcsTask> {
     return null;
   }
 
-  private List<String> getAllClusters(AmazonECS amazonECS) {
-    ListClustersResult listClustersResult = amazonECS.listClusters();
-    List<String> clusterList = listClustersResult.getClusterArns();
-    while (listClustersResult.getNextToken() != null) {
-      listClustersResult = amazonECS.listClusters(
-        new ListClustersRequest().withNextToken(listClustersResult.getNextToken())
-      );
-      clusterList.addAll(listClustersResult.getClusterArns());
-    }
-    return clusterList;
-  }
-
   private boolean isValidId(String id, String region) {
     String id_regex = "[\\da-f]{8}-[\\da-f]{4}-[\\da-f]{4}-[\\da-f]{4}-[\\da-f]{12}";
     String id_only = String.format("^%s$", id_regex);
     String arn = String.format("arn:aws:ecs:%s:\\d*:task/%s", region, id_regex);
     return id.matches(id_only) || id.matches(arn);
-  }
-
-  private Task getTask(AmazonECS amazonECS, String taskId) {
-    Task task = null;
-
-    List<String> queryList = new ArrayList<>();
-    queryList.add(taskId);
-
-    for (String cluster: getAllClusters(amazonECS)) {
-      DescribeTasksRequest request = new DescribeTasksRequest()
-        .withCluster(cluster)
-        .withTasks(queryList);
-      List<Task> taskList = amazonECS.describeTasks(request).getTasks();
-      if (!taskList.isEmpty()) {
-        if (taskList.size() != 1) {
-          String message = String.format("Task ID: %s should only match one record. Multiple found.", taskId);
-          throw new InvalidParameterException(message);
-        }
-        task = taskList.get(0);
-        break;
-      }
-    }
-    return task;
   }
 
 }

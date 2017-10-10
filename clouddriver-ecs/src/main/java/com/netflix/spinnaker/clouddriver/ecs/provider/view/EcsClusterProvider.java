@@ -18,56 +18,42 @@
 
 package com.netflix.spinnaker.clouddriver.ecs.provider.view;
 
-import com.amazonaws.services.ecs.AmazonECS;
-import com.amazonaws.services.ecs.model.ListClustersRequest;
-import com.amazonaws.services.ecs.model.ListClustersResult;
-import com.netflix.spinnaker.clouddriver.aws.security.AmazonClientProvider;
-import com.netflix.spinnaker.clouddriver.aws.security.AmazonCredentials;
-import com.netflix.spinnaker.clouddriver.ecs.services.ContainerInformationService;
-import com.netflix.spinnaker.clouddriver.security.AccountCredentials;
-import com.netflix.spinnaker.clouddriver.security.AccountCredentialsProvider;
+import com.netflix.spinnaker.cats.cache.Cache;
+import com.netflix.spinnaker.cats.cache.CacheData;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.stereotype.Component;
 
-import java.util.ArrayList;
+import java.util.Collection;
+import java.util.Collections;
 import java.util.List;
+import java.util.stream.Collectors;
+
+import static com.netflix.spinnaker.clouddriver.ecs.cache.Keys.Namespace.ECS_CLUSTERS;
 
 @Component
 public class EcsClusterProvider {
 
-  private AccountCredentialsProvider accountCredentialsProvider;
-  private AmazonClientProvider amazonClientProvider;
+  private Cache cacheView;
 
   @Autowired
-  public EcsClusterProvider(AccountCredentialsProvider accountCredentialsProvider,
-                            AmazonClientProvider amazonClientProvider) {
-    this.accountCredentialsProvider = accountCredentialsProvider;
-    this.amazonClientProvider = amazonClientProvider;
+  public EcsClusterProvider(Cache cacheView) {
+    this.cacheView = cacheView;
   }
 
   public List<String> getEcsClusters(String account, String region) {
+    Collection<CacheData> ecsClustersCache = cacheView.getAll(ECS_CLUSTERS.toString());
 
-    List<String> listCluster = new ArrayList<>();
-
-    for (AccountCredentials credentials: accountCredentialsProvider.getAll()) {
-      if (credentials instanceof AmazonCredentials) {
-        AmazonECS amazonECS = amazonClientProvider.getAmazonEcs(account,
-          ((AmazonCredentials) credentials).getCredentialsProvider(),
-          region);
-        ListClustersRequest listClustersRequest = new ListClustersRequest();
-        ListClustersResult listClustersResult = amazonECS.listClusters(listClustersRequest);
-
-        for (String clusterArn : listClustersResult.getClusterArns()) {
-          String ecsClusterName = inferClusterNameFromClusterArn(clusterArn);
-          listCluster.add(ecsClusterName);
-        }
-      }
+    if (ecsClustersCache == null) {
+      return Collections.emptyList();
     }
-    return listCluster;
-  }
 
-  private String inferClusterNameFromClusterArn(String clusterArn) {
-    return clusterArn.split("/")[1];
+    List<String> listCluster = ecsClustersCache
+      .stream()
+      .filter(cache -> cache.getAttributes().get("account").equals(account))
+      .map(cache -> (String) cache.getAttributes().get("clusterName"))
+      .collect(Collectors.toList());
+
+    return listCluster;
   }
 
 }
