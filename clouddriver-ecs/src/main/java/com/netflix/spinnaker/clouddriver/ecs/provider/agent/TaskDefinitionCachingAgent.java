@@ -102,7 +102,7 @@ public class TaskDefinitionCachingAgent extends AbstractEcsCachingAgent<TaskDefi
     }
     log.info("Evicting " + evictions.size() + " task definitions in " + getAgentType());
 
-    return new DefaultCacheResult(dataMap);
+    return new DefaultCacheResult(dataMap, evictions);
   }
 
 }
