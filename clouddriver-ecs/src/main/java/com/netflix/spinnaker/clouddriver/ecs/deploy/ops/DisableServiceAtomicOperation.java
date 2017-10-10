@@ -66,6 +66,11 @@ public class DisableServiceAtomicOperation implements AtomicOperation<Void> {
     String account = description.getCredentialAccount();
     String cluster = getCluster(service, account);
 
+    //TODO: Remove the if statement once the proper account is being passed in.
+    if(account.equals("continuous-delivery")){
+      account += "-ecs";
+    }
+
     updateTaskStatus(String.format("Disabling %s service for %s.", service, account));
     UpdateServiceRequest request = new UpdateServiceRequest()
       .withCluster(cluster)
