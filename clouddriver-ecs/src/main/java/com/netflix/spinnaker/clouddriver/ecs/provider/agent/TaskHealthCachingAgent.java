@@ -86,7 +86,7 @@ public class TaskHealthCachingAgent implements CachingAgent, HealthProvidingCach
         int port = 0;
         try {
           port = (Integer) ((List<Map<String, Object>>) ((List<Map<String, Object>>) taskCache.getAttributes().get("containers")).get(0).get("networkBindings")).get(0).get("hostPort");
-        } catch (NullPointerException e) {
+        } catch (Exception e) {
           e.printStackTrace();
         }
 
