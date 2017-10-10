@@ -26,6 +26,8 @@ import java.util.HashMap;
 import java.util.LinkedList;
 import java.util.List;
 import java.util.Map;
+import java.util.Set;
+import java.util.stream.Collectors;
 
 import static com.netflix.spinnaker.cats.agent.AgentDataType.Authority.AUTHORITATIVE;
 import static com.netflix.spinnaker.clouddriver.ecs.cache.Keys.Namespace.ECS_CLUSTERS;
@@ -79,8 +81,11 @@ public class ServiceCachingAgent extends AbstractEcsCachingAgent<Service>{
   }
 
   @Override
-  protected CacheResult buildCacheResult(List<Service> services) {
+  protected CacheResult buildCacheResult(List<Service> services, ProviderCache providerCache) {
     Collection<CacheData> dataPoints = new LinkedList<>();
+    Set<String> evictingServiceKeys = providerCache.getAll(SERVICES.toString()).stream()
+      .map(cache -> cache.getId()).collect(Collectors.toSet());
+
     for (Service service : services) {
       Map<String, Object> attributes = new HashMap<>();
       String applicationName = service.getServiceName().contains("-") ? StringUtils.substringBefore(service.getServiceName(), "-") : service.getServiceName();
@@ -102,12 +107,20 @@ public class ServiceCachingAgent extends AbstractEcsCachingAgent<Service>{
 
       String key = Keys.getServiceKey(accountName, region, service.getServiceName());
       dataPoints.add(new DefaultCacheData(key, attributes, Collections.emptyMap()));
+      evictingServiceKeys.remove(key);
     }
 
     log.info("Caching " + dataPoints.size() + " services in " + getAgentType());
     Map<String, Collection<CacheData>> dataMap = new HashMap<>();
     dataMap.put(SERVICES.toString(), dataPoints);
-    return new DefaultCacheResult(dataMap);
+
+    Map<String, Collection<String>> evictions = new HashMap<>();
+    if(!evictingServiceKeys.isEmpty() && !services.isEmpty()){
+      evictions.put(SERVICES.toString(), evictingServiceKeys);
+    }
+    log.info("Evicting " + evictions.size() + " services in " + getAgentType());
+
+    return new DefaultCacheResult(dataMap, evictions);
   }
 
 }

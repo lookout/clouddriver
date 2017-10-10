@@ -15,7 +15,6 @@ import com.netflix.spinnaker.cats.cache.DefaultCacheData;
 import com.netflix.spinnaker.cats.provider.ProviderCache;
 import com.netflix.spinnaker.clouddriver.aws.security.AmazonClientProvider;
 import com.netflix.spinnaker.clouddriver.ecs.cache.Keys;
-import org.apache.commons.lang3.StringUtils;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
@@ -26,9 +25,10 @@ import java.util.HashMap;
 import java.util.LinkedList;
 import java.util.List;
 import java.util.Map;
+import java.util.Set;
+import java.util.stream.Collectors;
 
 import static com.netflix.spinnaker.cats.agent.AgentDataType.Authority.AUTHORITATIVE;
-import static com.netflix.spinnaker.clouddriver.ecs.cache.Keys.Namespace.TASKS;
 import static com.netflix.spinnaker.clouddriver.ecs.cache.Keys.Namespace.TASK_DEFINITIONS;
 
 public class TaskDefinitionCachingAgent extends AbstractEcsCachingAgent<TaskDefinition> {
@@ -76,8 +76,11 @@ public class TaskDefinitionCachingAgent extends AbstractEcsCachingAgent<TaskDefi
   }
 
   @Override
-  protected CacheResult buildCacheResult(List<TaskDefinition> taskDefinitions) {
+  protected CacheResult buildCacheResult(List<TaskDefinition> taskDefinitions, ProviderCache providerCache) {
     Collection<CacheData> dataPoints = new LinkedList<>();
+    Set<String> evictingTaskDefKeys = providerCache.getAll(TASK_DEFINITIONS.toString()).stream()
+      .map(cache -> cache.getId()).collect(Collectors.toSet());
+
     for (TaskDefinition taskDefinition : taskDefinitions) {
       Map<String, Object> attributes = new HashMap<>();
       attributes.put("taskDefinitionArn", taskDefinition.getTaskDefinitionArn());
@@ -86,13 +89,20 @@ public class TaskDefinitionCachingAgent extends AbstractEcsCachingAgent<TaskDefi
 
       String key = Keys.getTaskDefinitionKey(accountName, region, taskDefinition.getTaskDefinitionArn());
       dataPoints.add(new DefaultCacheData(key, attributes, Collections.emptyMap()));
+      evictingTaskDefKeys.remove(key);
     }
 
     log.info("Caching " + dataPoints.size() + " task definitions in " + getAgentType());
     Map<String, Collection<CacheData>> dataMap = new HashMap<>();
     dataMap.put(TASK_DEFINITIONS.toString(), dataPoints);
 
-    return new DefaultCacheResult(dataMap);
+    Map<String, Collection<String>> evictions = new HashMap<>();
+    if (!evictingTaskDefKeys.isEmpty() && !taskDefinitions.isEmpty()) {
+      evictions.put(TASK_DEFINITIONS.toString(), evictingTaskDefKeys);
+    }
+    log.info("Evicting " + evictions.size() + " task definitions in " + getAgentType());
+
+    return new DefaultCacheResult(dataMap, evictions);
   }
 
 }

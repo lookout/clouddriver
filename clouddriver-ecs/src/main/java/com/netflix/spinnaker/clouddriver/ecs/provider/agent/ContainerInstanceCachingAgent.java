@@ -27,6 +27,8 @@ import java.util.HashMap;
 import java.util.LinkedList;
 import java.util.List;
 import java.util.Map;
+import java.util.Set;
+import java.util.stream.Collectors;
 
 import static com.netflix.spinnaker.cats.agent.AgentDataType.Authority.AUTHORITATIVE;
 import static com.netflix.spinnaker.clouddriver.ecs.cache.Keys.Namespace.CONTAINER_INSTANCES;
@@ -82,8 +84,11 @@ public class ContainerInstanceCachingAgent extends AbstractEcsCachingAgent<Conta
   }
 
   @Override
-  protected CacheResult buildCacheResult(List<ContainerInstance> containerInstances) {
+  protected CacheResult buildCacheResult(List<ContainerInstance> containerInstances, ProviderCache providerCache) {
     Collection<CacheData> dataPoints = new LinkedList<>();
+    Set<String> evictingContainerInstanceKeys = providerCache.getAll(CONTAINER_INSTANCES.toString()).stream()
+      .map(cache -> cache.getId()).collect(Collectors.toSet());
+
     for (ContainerInstance containerInstance : containerInstances) {
       Map<String, Object> attributes = new HashMap<>();
       attributes.put("containerInstanceArn", containerInstance.getContainerInstanceArn());
@@ -91,11 +96,19 @@ public class ContainerInstanceCachingAgent extends AbstractEcsCachingAgent<Conta
 
       String key = Keys.getContainerInstanceKey(accountName, region, containerInstance.getContainerInstanceArn());
       dataPoints.add(new DefaultCacheData(key, attributes, Collections.emptyMap()));
+      evictingContainerInstanceKeys.remove(key);
     }
 
     log.info("Caching " + dataPoints.size() + " container instances in " + getAgentType());
     Map<String, Collection<CacheData>> dataMap = new HashMap<>();
     dataMap.put(CONTAINER_INSTANCES.toString(), dataPoints);
-    return new DefaultCacheResult(dataMap);
+
+    Map<String, Collection<String>> evictions = new HashMap<>();
+    if (!evictingContainerInstanceKeys.isEmpty() && !containerInstances.isEmpty()) {
+      evictions.put(CONTAINER_INSTANCES.toString(), evictingContainerInstanceKeys);
+    }
+    log.info("Evicting " + evictions.size() + " container instances in " + getAgentType());
+
+    return new DefaultCacheResult(dataMap, evictions);
   }
 }
