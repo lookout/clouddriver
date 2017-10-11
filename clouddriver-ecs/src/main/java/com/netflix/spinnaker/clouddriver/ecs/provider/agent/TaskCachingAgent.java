@@ -32,6 +32,7 @@ import java.util.Set;
 import java.util.stream.Collectors;
 
 import static com.netflix.spinnaker.cats.agent.AgentDataType.Authority.AUTHORITATIVE;
+import static com.netflix.spinnaker.cats.agent.AgentDataType.Authority.INFORMATIVE;
 import static com.netflix.spinnaker.clouddriver.core.provider.agent.Namespace.ON_DEMAND;
 import static com.netflix.spinnaker.clouddriver.ecs.cache.Keys.Namespace.ECS_CLUSTERS;
 import static com.netflix.spinnaker.clouddriver.ecs.cache.Keys.Namespace.SERVICES;
@@ -39,7 +40,8 @@ import static com.netflix.spinnaker.clouddriver.ecs.cache.Keys.Namespace.TASKS;
 
 public class TaskCachingAgent extends AbstractEcsCachingAgent<Task> {
   static final Collection<AgentDataType> types = Collections.unmodifiableCollection(Arrays.asList(
-    AUTHORITATIVE.forType(TASKS.toString())
+    AUTHORITATIVE.forType(TASKS.toString()),
+    INFORMATIVE.forType(ECS_CLUSTERS.toString())
   ));
   private final Logger log = LoggerFactory.getLogger(getClass());
 
@@ -60,12 +62,12 @@ public class TaskCachingAgent extends AbstractEcsCachingAgent<Task> {
   @Override
   protected List<Task> getItems(AmazonECS ecs, ProviderCache providerCache) {
     List<Task> taskList = new LinkedList<>();
-    Collection<CacheData> clusters = providerCache.getAll(ECS_CLUSTERS.toString());
+    Set<String> clusters = getClusters(ecs, providerCache);
 
-    for (CacheData cluster : clusters) {
+    for (String cluster : clusters) {
       String nextToken = null;
       do {
-        ListTasksRequest listTasksRequest = new ListTasksRequest().withCluster((String) cluster.getAttributes().get("clusterName"));
+        ListTasksRequest listTasksRequest = new ListTasksRequest().withCluster(cluster);
         if (nextToken != null) {
           listTasksRequest.setNextToken(nextToken);
         }
@@ -74,7 +76,7 @@ public class TaskCachingAgent extends AbstractEcsCachingAgent<Task> {
         if (taskArns.size() == 0) {
           continue;
         }
-        List<Task> tasks = ecs.describeTasks(new DescribeTasksRequest().withCluster((String) cluster.getAttributes().get("clusterName")).withTasks(taskArns)).getTasks();
+        List<Task> tasks = ecs.describeTasks(new DescribeTasksRequest().withCluster(cluster).withTasks(taskArns)).getTasks();
         taskList.addAll(tasks);
         nextToken = listTasksResult.getNextToken();
       } while (nextToken != null && nextToken.length() != 0);
@@ -85,6 +87,7 @@ public class TaskCachingAgent extends AbstractEcsCachingAgent<Task> {
   @Override
   protected CacheResult buildCacheResult(List<Task> tasks, ProviderCache providerCache) {
     Collection<CacheData> dataPoints = new LinkedList<>();
+    Map<String, CacheData> clusterDataPoints = new HashMap<>();
     Set<String> evictingTaskKeys = providerCache.getAll(TASKS.toString()).stream()
       .map(cache -> cache.getId()).collect(Collectors.toSet());
 
@@ -105,11 +108,23 @@ public class TaskCachingAgent extends AbstractEcsCachingAgent<Task> {
       String key = Keys.getTaskKey(accountName, region, taskId);
       dataPoints.add(new DefaultCacheData(key, attributes, Collections.emptyMap()));
       evictingTaskKeys.remove(key);
+
+      String clusterName = StringUtils.substringAfterLast(task.getClusterArn(), "/");
+      Map<String, Object> clusterAttributes = new HashMap<>();
+      attributes.put("account", accountName);
+      attributes.put("region", region);
+      attributes.put("clusterName", clusterName);
+      attributes.put("clusterArn", task.getClusterArn());
+      key = Keys.getClusterKey(accountName, region, clusterName);
+      clusterDataPoints.put(key, new DefaultCacheData(key, clusterAttributes, Collections.emptyMap()));
     }
 
     log.info("Caching " + dataPoints.size() + " tasks in " + getAgentType());
     Map<String, Collection<CacheData>> dataMap = new HashMap<>();
     dataMap.put(TASKS.toString(), dataPoints);
+
+    log.info("Caching " + clusterDataPoints.size() + " ECS clusters in " + getAgentType());
+    dataMap.put(ECS_CLUSTERS.toString(), clusterDataPoints.values());
 
     Map<String, Collection<String>> evictions = new HashMap<>();
     if (!evictingTaskKeys.isEmpty() && !tasks.isEmpty()) {

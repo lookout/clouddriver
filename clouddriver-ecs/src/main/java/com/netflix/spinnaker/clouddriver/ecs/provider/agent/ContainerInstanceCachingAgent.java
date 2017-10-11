@@ -32,7 +32,6 @@ import java.util.stream.Collectors;
 
 import static com.netflix.spinnaker.cats.agent.AgentDataType.Authority.AUTHORITATIVE;
 import static com.netflix.spinnaker.clouddriver.ecs.cache.Keys.Namespace.CONTAINER_INSTANCES;
-import static com.netflix.spinnaker.clouddriver.ecs.cache.Keys.Namespace.ECS_CLUSTERS;
 
 public class ContainerInstanceCachingAgent extends AbstractEcsCachingAgent<ContainerInstance> implements CachingAgent, OnDemandAgent {
   static final Collection<AgentDataType> types = Collections.unmodifiableCollection(Arrays.asList(
@@ -46,7 +45,7 @@ public class ContainerInstanceCachingAgent extends AbstractEcsCachingAgent<Conta
 
   @Override
   public String getAgentType() {
-    return ServiceCachingAgent.class.getSimpleName();
+    return ContainerInstanceCachingAgent.class.getSimpleName();
   }
 
   @Override
@@ -57,12 +56,12 @@ public class ContainerInstanceCachingAgent extends AbstractEcsCachingAgent<Conta
   @Override
   protected List<ContainerInstance> getItems(AmazonECS ecs, ProviderCache providerCache) {
     List<ContainerInstance> containerInstanceList = new LinkedList<>();
-    Collection<CacheData> clusters = providerCache.getAll(ECS_CLUSTERS.toString());
+    Set<String> clusters = getClusters(ecs, providerCache);
 
-    for (CacheData cluster : clusters) {
+    for (String cluster : clusters) {
       String nextToken = null;
       do {
-        ListContainerInstancesRequest listContainerInstancesRequest = new ListContainerInstancesRequest().withCluster((String) cluster.getAttributes().get("clusterName"));
+        ListContainerInstancesRequest listContainerInstancesRequest = new ListContainerInstancesRequest().withCluster(cluster);
         if (nextToken != null) {
           listContainerInstancesRequest.setNextToken(nextToken);
         }
@@ -74,7 +73,7 @@ public class ContainerInstanceCachingAgent extends AbstractEcsCachingAgent<Conta
         }
 
         List<ContainerInstance> containerInstances = ecs.describeContainerInstances(new DescribeContainerInstancesRequest()
-          .withCluster((String) cluster.getAttributes().get("clusterName")).withContainerInstances(containerInstanceArns)).getContainerInstances();
+          .withCluster(cluster).withContainerInstances(containerInstanceArns)).getContainerInstances();
         containerInstanceList.addAll(containerInstances);
 
         nextToken = listContainerInstancesResult.getNextToken();

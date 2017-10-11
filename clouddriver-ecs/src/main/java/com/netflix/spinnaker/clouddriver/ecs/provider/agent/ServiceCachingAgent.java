@@ -30,12 +30,14 @@ import java.util.Set;
 import java.util.stream.Collectors;
 
 import static com.netflix.spinnaker.cats.agent.AgentDataType.Authority.AUTHORITATIVE;
+import static com.netflix.spinnaker.cats.agent.AgentDataType.Authority.INFORMATIVE;
 import static com.netflix.spinnaker.clouddriver.ecs.cache.Keys.Namespace.ECS_CLUSTERS;
 import static com.netflix.spinnaker.clouddriver.ecs.cache.Keys.Namespace.SERVICES;
 
-public class ServiceCachingAgent extends AbstractEcsCachingAgent<Service>{
+public class ServiceCachingAgent extends AbstractEcsCachingAgent<Service> {
   static final Collection<AgentDataType> types = Collections.unmodifiableCollection(Arrays.asList(
-    AUTHORITATIVE.forType(SERVICES.toString())
+    AUTHORITATIVE.forType(SERVICES.toString()),
+    INFORMATIVE.forType(ECS_CLUSTERS.toString())
   ));
   private final Logger log = LoggerFactory.getLogger(getClass());
 
@@ -56,12 +58,12 @@ public class ServiceCachingAgent extends AbstractEcsCachingAgent<Service>{
   @Override
   protected List<Service> getItems(AmazonECS ecs, ProviderCache providerCache) {
     List<Service> serviceList = new LinkedList<>();
-    Collection<CacheData> clusters = providerCache.getAll(ECS_CLUSTERS.toString());
+    Set<String> clusters = getClusters(ecs, providerCache);
 
-    for (CacheData cluster : clusters) {
+    for (String cluster : clusters) {
       String nextToken = null;
       do {
-        ListServicesRequest listServicesRequest = new ListServicesRequest().withCluster((String) cluster.getAttributes().get("clusterName"));
+        ListServicesRequest listServicesRequest = new ListServicesRequest().withCluster(cluster);
         if (nextToken != null) {
           listServicesRequest.setNextToken(nextToken);
         }
@@ -71,7 +73,7 @@ public class ServiceCachingAgent extends AbstractEcsCachingAgent<Service>{
           continue;
         }
 
-        List<Service> services = ecs.describeServices(new DescribeServicesRequest().withCluster((String) cluster.getAttributes().get("clusterName")).withServices(serviceArns)).getServices();
+        List<Service> services = ecs.describeServices(new DescribeServicesRequest().withCluster(cluster).withServices(serviceArns)).getServices();
         serviceList.addAll(services);
 
         nextToken = listServicesResult.getNextToken();
@@ -83,6 +85,7 @@ public class ServiceCachingAgent extends AbstractEcsCachingAgent<Service>{
   @Override
   protected CacheResult buildCacheResult(List<Service> services, ProviderCache providerCache) {
     Collection<CacheData> dataPoints = new LinkedList<>();
+    Map<String, CacheData> clusterDataPoints = new HashMap<>();
     Set<String> evictingServiceKeys = providerCache.getAll(SERVICES.toString()).stream()
       .map(cache -> cache.getId()).collect(Collectors.toSet());
 
@@ -108,14 +111,25 @@ public class ServiceCachingAgent extends AbstractEcsCachingAgent<Service>{
       String key = Keys.getServiceKey(accountName, region, service.getServiceName());
       dataPoints.add(new DefaultCacheData(key, attributes, Collections.emptyMap()));
       evictingServiceKeys.remove(key);
+
+      Map<String, Object> clusterAttributes = new HashMap<>();
+      attributes.put("account", accountName);
+      attributes.put("region", region);
+      attributes.put("clusterName", clusterName);
+      attributes.put("clusterArn", service.getClusterArn());
+      key = Keys.getClusterKey(accountName, region, clusterName);
+      clusterDataPoints.put(key, new DefaultCacheData(key, clusterAttributes, Collections.emptyMap()));
     }
 
     log.info("Caching " + dataPoints.size() + " services in " + getAgentType());
     Map<String, Collection<CacheData>> dataMap = new HashMap<>();
     dataMap.put(SERVICES.toString(), dataPoints);
 
+    log.info("Caching " + clusterDataPoints.size() + " ECS clusters in " + getAgentType());
+    dataMap.put(ECS_CLUSTERS.toString(), clusterDataPoints.values());
+
     Map<String, Collection<String>> evictions = new HashMap<>();
-    if(!evictingServiceKeys.isEmpty() && !services.isEmpty()){
+    if (!evictingServiceKeys.isEmpty() && !services.isEmpty()) {
       evictions.put(SERVICES.toString(), evictingServiceKeys);
     }
     log.info("Evicting " + evictions.size() + " services in " + getAgentType());
