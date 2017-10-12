@@ -83,23 +83,31 @@ public class TaskHealthCachingAgent implements CachingAgent, HealthProvidingCach
           continue;
         }
 
-        int port = 0;
+        int port;
         try {
           port = (Integer) ((List<Map<String, Object>>) ((List<Map<String, Object>>) taskCache.getAttributes().get("containers")).get(0).get("networkBindings")).get(0).get("hostPort");
         } catch (Exception e) {
           e.printStackTrace();
+          continue;
         }
 
-        List<Map<String, Object>> loadBalancers = new LinkedList<>();
+        List<Map<String, Object>> loadBalancers;
         try {
           loadBalancers = (List<Map<String, Object>>) serviceCache.getAttributes().get("loadBalancers");
-        } catch (NullPointerException e) {
+        } catch (Exception e) {
           e.printStackTrace();
+          continue;
         }
+
         for (Map<String, Object> loadBalancer : loadBalancers) {
-          DescribeTargetHealthResult describeTargetHealthResult = amazonloadBalancing.describeTargetHealth(
-            new DescribeTargetHealthRequest().withTargetGroupArn((String) loadBalancer.get("targetGroupArn")).withTargets(
-              new TargetDescription().withId((String) containerInstance.getAttributes().get("ec2InstanceId")).withPort(port)));
+          DescribeTargetHealthResult describeTargetHealthResult;
+          try {
+            describeTargetHealthResult = amazonloadBalancing.describeTargetHealth(
+              new DescribeTargetHealthRequest().withTargetGroupArn((String) loadBalancer.get("targetGroupArn")).withTargets(
+                new TargetDescription().withId((String) containerInstance.getAttributes().get("ec2InstanceId")).withPort(port)));
+          }catch(NullPointerException e){
+            continue;
+          }
 
           if (describeTargetHealthResult.getTargetHealthDescriptions().size() == 0) {
             serviceEvicitions.add(serviceCache.getId());

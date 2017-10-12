@@ -29,16 +29,13 @@ import java.util.Set;
 import java.util.stream.Collectors;
 
 import static com.netflix.spinnaker.cats.agent.AgentDataType.Authority.AUTHORITATIVE;
-import static com.netflix.spinnaker.clouddriver.ecs.cache.Keys.Namespace.CONTAINER_INSTANCES;
 import static com.netflix.spinnaker.clouddriver.ecs.cache.Keys.Namespace.ECS_CLUSTERS;
 
 public class EcsClusterCachingAgent implements CachingAgent {
-  private final Logger log = LoggerFactory.getLogger(getClass());
-
   static final Collection<AgentDataType> types = Collections.unmodifiableCollection(Arrays.asList(
     AUTHORITATIVE.forType(ECS_CLUSTERS.toString())
   ));
-
+  private final Logger log = LoggerFactory.getLogger(getClass());
   private AmazonClientProvider amazonClientProvider;
   private AWSCredentialsProvider awsCredentialsProvider;
   private String region;
