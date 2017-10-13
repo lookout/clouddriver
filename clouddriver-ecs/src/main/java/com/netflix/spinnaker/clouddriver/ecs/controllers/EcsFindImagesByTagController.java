@@ -22,15 +22,12 @@ import com.amazonaws.services.ecr.model.DescribeImagesResult;
 import com.amazonaws.services.ecr.model.ImageDetail;
 import com.amazonaws.services.ecr.model.ListImagesRequest;
 import com.amazonaws.services.ecr.model.ListImagesResult;
-import com.amazonaws.services.ecr.model.Repository;
-import com.fasterxml.jackson.annotation.JsonProperty;
-import com.netflix.spinnaker.clouddriver.aws.controllers.AmazonNamedImageLookupController;
 import com.netflix.spinnaker.clouddriver.aws.security.AmazonClientProvider;
 import com.netflix.spinnaker.clouddriver.aws.security.NetflixAmazonCredentials;
-import com.netflix.spinnaker.clouddriver.aws.security.NetflixAssumeRoleAmazonCredentials;
 import com.netflix.spinnaker.clouddriver.security.AccountCredentials;
 import com.netflix.spinnaker.clouddriver.security.AccountCredentialsProvider;
 import com.netflix.spinnaker.kork.web.exceptions.NotFoundException;
+import org.apache.commons.lang3.StringUtils;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.web.bind.annotation.RequestMapping;
 import org.springframework.web.bind.annotation.RequestMethod;
@@ -43,10 +40,14 @@ import java.util.Arrays;
 import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
+import java.util.regex.Matcher;
+import java.util.regex.Pattern;
+import java.util.stream.Collectors;
 
 @RestController
 @RequestMapping("/ecs")
 public class EcsFindImagesByTagController {
+  private static final Pattern REPOSITORY_URI_PATTERN = Pattern.compile("([0-9]{12}).*\\/([a-z0-9._-]*)(:([a-z0-9._-]*)|@(sha256:[0-9a-f]{64}))");
 
   AmazonClientProvider amazonClientProvider;
 
@@ -76,42 +77,46 @@ public class EcsFindImagesByTagController {
 
   @RequestMapping(value = "/images/find", method = RequestMethod.GET)
   public Object findImage(@RequestParam("q") String dockerImageUrl, HttpServletRequest request) {
-    String accountId = dockerImageUrl.split("\\.")[0];
-    String tag = dockerImageUrl.split("\\:")[1];
-    String repository = dockerImageUrl.split("\\/")[1].split(":")[0]; //TODO - these regexes make my eyes bleed.  Use a better approach.
+    Matcher uriRegexMatcher = REPOSITORY_URI_PATTERN.matcher(dockerImageUrl);
+    if (!uriRegexMatcher.find()) {
+      throw new Error("The repository URI provided is not proper.");
+    }
+
+    String accountId = uriRegexMatcher.group(1);
+    String repository = uriRegexMatcher.group(2);
+    final boolean isTag = uriRegexMatcher.group(3).startsWith(":");
+    final String identifier = isTag ? uriRegexMatcher.group(4) : uriRegexMatcher.group(5);
 
     NetflixAmazonCredentials credentials = getCredentials(accountId);
 
     AmazonECR amazonECR = amazonClientProvider.getAmazonEcr(credentials.getName(), credentials.getCredentialsProvider(), "us-west-2");
 
     ListImagesResult result = amazonECR.listImages(new ListImagesRequest().withRegistryId(accountId).withRepositoryName(repository));
-    DescribeImagesResult imagesResult = amazonECR.describeImages(new DescribeImagesRequest().withRegistryId(accountId).withRepositoryName(repository ).withImageIds(result.getImageIds()));
+    DescribeImagesResult imagesResult = amazonECR.describeImages(new DescribeImagesRequest().withRegistryId(accountId).withRepositoryName(repository).withImageIds(result.getImageIds()));
 
-    List<ImageDetail> imagesWithThisTag = new ArrayList<>();
+    List<ImageDetail> imagesWithThisIdentifier = imagesResult.getImageDetails().stream()
+      .filter(imageDetail -> isTag ? imageDetail.getImageTags().contains(identifier) : // TODO - what is the user interface we want to have here?  We should discuss with Lars and Ethan from the community as this whole thing will undergo a big refactoring
+                                     imageDetail.getImageDigest().equals(identifier))
+      .collect(Collectors.toList());
 
-    for (ImageDetail imageDetail: imagesResult.getImageDetails()) {
-      if (imageDetail.getImageTags() != null && imageDetail.getImageTags().contains(tag)) {  // TODO - what is the user interface we want to have here?  We should discuss with Lars and Ethan from the community as this whole thing will undergo a big refactoring
-        imagesWithThisTag.add(imageDetail);
-      }
-    }
-
-    if (imagesWithThisTag.size() > 1) {
-      throw new Error("More than 1 image has this tag!  We can't handle this in the POC!");
-    } else if (imagesWithThisTag.size() == 0) {
-      throw new Error(String.format("No image with the tag %s was found", tag));
+    if (imagesWithThisIdentifier.size() > 1) {
+      throw new Error("More than 1 image has this " + (isTag ? "tag" : "digest") + "!  We can't handle this in the POC!");
+    } else if (imagesWithThisIdentifier.size() == 0) {
+      throw new Error(String.format("No image with the " + (isTag ? "tag" : "digest") + " %s was found.", identifier));
     }
 
 
+    ImageDetail matchedImage = imagesWithThisIdentifier.get(0);
 
     List<Map<String, Object>> responseBody = new ArrayList<>();
     Map<String, Object> map = new HashMap<>();
-    map.put("imageName", buildFullDockerImageUrl(imagesWithThisTag.get(0).getImageDigest(),
-      imagesWithThisTag.get(0).getRegistryId(),
-      imagesWithThisTag.get(0).getRepositoryName(),
+    map.put("imageName", buildFullDockerImageUrl(matchedImage.getImageDigest(),
+      matchedImage.getRegistryId(),
+      matchedImage.getRepositoryName(),
       "us-west-2"));  // TODO - this is so cheesy, uncheese this
 
     Map<String, List<String>> amis = new HashMap<>();
-    amis.put("us-west-2", Arrays.asList(imagesWithThisTag.get(0).getImageDigest()));
+    amis.put("us-west-2", Arrays.asList(matchedImage.getImageDigest()));
     map.put("amis", amis);
 
     responseBody.add(map);
