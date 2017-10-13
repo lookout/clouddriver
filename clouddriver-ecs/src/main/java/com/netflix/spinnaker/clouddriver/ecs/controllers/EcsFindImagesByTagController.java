@@ -113,7 +113,7 @@ public class EcsFindImagesByTagController {
     DescribeImagesResult imagesResult = amazonECR.describeImages(new DescribeImagesRequest().withRegistryId(accountId).withRepositoryName(repository).withImageIds(result.getImageIds()));
 
     List<ImageDetail> imagesWithThisIdentifier = imagesResult.getImageDetails().stream()
-      .filter(imageDetail -> isTag ? imageDetail.getImageTags().contains(identifier) : // TODO - what is the user interface we want to have here?  We should discuss with Lars and Ethan from the community as this whole thing will undergo a big refactoring
+      .filter(imageDetail -> isTag ? imageDetail.getImageTags() != null  && imageDetail.getImageTags().contains(identifier): // TODO - what is the user interface we want to have here?  We should discuss with Lars and Ethan from the community as this whole thing will undergo a big refactoring
                                      imageDetail.getImageDigest().equals(identifier))
       .collect(Collectors.toList());
 
