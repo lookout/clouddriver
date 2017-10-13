@@ -47,7 +47,10 @@ import java.util.stream.Collectors;
 @RestController
 @RequestMapping("/ecs")
 public class EcsFindImagesByTagController {
-  private static final Pattern REPOSITORY_URI_PATTERN = Pattern.compile("([0-9]{12}).*\\/([a-z0-9._-]*)(:([a-z0-9._-]*)|@(sha256:[0-9a-f]{64}))");
+  private static final Pattern ACCOUNT_ID_PATTERN = Pattern.compile("^([0-9]{12})");
+  private static final Pattern REPOSITORY_NAME_PATTERN = Pattern.compile("\\/([a-z0-9._-]+)");
+  private static final String IDENTIFIER_PATTERN = "(:([a-z0-9._-]+)|@(sha256:[0-9a-f]{64}))";
+  private static final Pattern REPOSITORY_URI_PATTERN = Pattern.compile(ACCOUNT_ID_PATTERN.toString()+".+"+REPOSITORY_NAME_PATTERN.toString()+IDENTIFIER_PATTERN);
 
   AmazonClientProvider amazonClientProvider;
 
@@ -77,15 +80,30 @@ public class EcsFindImagesByTagController {
 
   @RequestMapping(value = "/images/find", method = RequestMethod.GET)
   public Object findImage(@RequestParam("q") String dockerImageUrl, HttpServletRequest request) {
-    Matcher uriRegexMatcher = REPOSITORY_URI_PATTERN.matcher(dockerImageUrl);
-    if (!uriRegexMatcher.find()) {
-      throw new Error("The repository URI provided is not proper.");
+    Matcher matcher = ACCOUNT_ID_PATTERN.matcher(dockerImageUrl);
+    if (!matcher.find()) {
+      throw new Error("The repository URI provided does not contain a proper account ID.");
     }
+    String accountId = matcher.group(1);
 
-    String accountId = uriRegexMatcher.group(1);
-    String repository = uriRegexMatcher.group(2);
-    final boolean isTag = uriRegexMatcher.group(3).startsWith(":");
-    final String identifier = isTag ? uriRegexMatcher.group(4) : uriRegexMatcher.group(5);
+    matcher = REPOSITORY_NAME_PATTERN.matcher(dockerImageUrl);
+    if (!matcher.find()) {
+      throw new Error("The repository URI provided does not contain a proper repository name.");
+    }
+    String repository = matcher.group(1);
+
+    final Pattern identifierPatter = Pattern.compile(repository+IDENTIFIER_PATTERN);
+    matcher = identifierPatter.matcher(dockerImageUrl);
+    if (!matcher.find()) {
+      throw new Error("The repository URI provided does not contain a proper tag or sha256 digest.");
+    }
+    final boolean isTag = matcher.group(1).startsWith(":");
+    final String identifier = isTag ? matcher.group(2) : matcher.group(3);
+
+    matcher = REPOSITORY_URI_PATTERN.matcher(dockerImageUrl);
+    if (!matcher.find()) {
+      throw new Error("The repository URI provided is not properly structured.");
+    }
 
     NetflixAmazonCredentials credentials = getCredentials(accountId);
 
