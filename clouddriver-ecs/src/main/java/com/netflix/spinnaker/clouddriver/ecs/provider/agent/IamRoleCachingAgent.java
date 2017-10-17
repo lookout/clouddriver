@@ -129,6 +129,7 @@ public class IamRoleCachingAgent implements CachingAgent {
       String key = Keys.getIamRoleKey(accountName, region, iamRole.getName());
       Map<String, Object> attributes = new HashMap<>();
 
+      // TODO - add attributes
 
       CacheData data = new DefaultCacheData(key, attributes, Collections.emptyMap());
       dataPoints.add(data);
