@@ -35,6 +35,7 @@ import com.amazonaws.services.ecs.AmazonECSClientBuilder;
 import com.amazonaws.services.elasticloadbalancing.AmazonElasticLoadBalancing;
 import com.amazonaws.services.elasticloadbalancing.AmazonElasticLoadBalancingClientBuilder;
 import com.amazonaws.services.identitymanagement.AmazonIdentityManagement;
+import com.amazonaws.services.identitymanagement.AmazonIdentityManagementClient;
 import com.amazonaws.services.identitymanagement.AmazonIdentityManagementClientBuilder;
 import com.amazonaws.services.lambda.AWSLambda;
 import com.amazonaws.services.lambda.AWSLambdaAsync;
@@ -291,6 +292,10 @@ public class AmazonClientProvider {
 
   public AmazonECR getAmazonEcr(String accountName, AWSCredentialsProvider awsCredentialsProvider, String region) {
     return awsSdkClientSupplier.getClient(AmazonECRClientBuilder.class, AmazonECR.class, accountName, awsCredentialsProvider, region);
+  }
+
+  public AmazonIdentityManagement getIam(String accountName, AWSCredentialsProvider awsCredentialsProvider, String region) {
+    return awsSdkClientSupplier.getClient(AmazonIdentityManagementClientBuilder.class, AmazonIdentityManagement.class, accountName, awsCredentialsProvider, region);
   }
 
   public AWSLambda getAmazonLambda(NetflixAmazonCredentials amazonCredentials, String region) {

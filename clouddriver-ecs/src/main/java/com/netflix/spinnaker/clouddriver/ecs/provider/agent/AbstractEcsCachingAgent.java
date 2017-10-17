@@ -41,8 +41,20 @@ public abstract class AbstractEcsCachingAgent<T> implements CachingAgent, OnDema
     this.metricsSupport = new OnDemandMetricsSupport(registry, this, EcsCloudProvider.ID + ":" + EcsCloudProvider.ID + ":${OnDemandAgent.OnDemandType.ServerGroup}");
   }
 
+  /**
+   * Fetches items to be stored from the AWS API
+   * @param ecs
+   * @param providerCache
+   * @return
+   */
   protected abstract List<T> getItems(AmazonECS ecs, ProviderCache providerCache);
 
+  /**
+   * Transforms raw cached objects as cache-storeable objects
+   * @param items
+   * @param providerCache
+   * @return
+   */
   protected abstract CacheResult buildCacheResult(List<T> items, ProviderCache providerCache);
 
   @Override
