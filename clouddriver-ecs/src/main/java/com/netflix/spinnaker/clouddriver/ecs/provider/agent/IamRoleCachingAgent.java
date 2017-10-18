@@ -109,7 +109,7 @@ public class IamRoleCachingAgent implements CachingAgent {
     Map<String, Collection<CacheData>> newDataMap = new HashMap<>();
 
     for (IamRole iamRole: cacheableRoles) {
-      String key = Keys.getIamRoleKey(accountName, region, iamRole.getName());
+      String key = Keys.getIamRoleKey(accountName, iamRole.getName());
       Map<String, Object> attributes = new HashMap<>();
       attributes.put("name", iamRole.getName());
       attributes.put("arn", iamRole.getId());

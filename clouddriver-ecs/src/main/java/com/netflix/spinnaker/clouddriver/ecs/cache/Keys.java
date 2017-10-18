@@ -111,7 +111,7 @@ public class Keys implements KeyParser {
     return ID + SEPARATOR + Namespace.TASK_DEFINITIONS + SEPARATOR + account + SEPARATOR + region + SEPARATOR + taskDefinitionArn;
   }
 
-  public static String getIamRoleKey(String account, String region, String iamRoleName) {
-    return ID + SEPARATOR + Namespace.IAM_ROLE + SEPARATOR + account + SEPARATOR + region + SEPARATOR + iamRoleName;
+  public static String getIamRoleKey(String account, String iamRoleName) {
+    return ID + SEPARATOR + Namespace.IAM_ROLE + SEPARATOR + account + SEPARATOR + iamRoleName;
   }
 }

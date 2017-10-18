@@ -44,7 +44,7 @@ public class RoleController {
     //TODO(Bruno Carrier) - I am sure we can make a nice java Stream that does it more elegantly
     for (RoleProvider roleProvider: roleProviders) {
       if (roleProvider.getCloudProvider().equals(provider)) {
-        result.addAll(roleProvider.getAll());
+        result.addAll(roleProvider.getAll(account, region));
       }
     }
 

@@ -19,6 +19,7 @@ package com.netflix.spinnaker.clouddriver.ecs.provider.view;
 import com.netflix.spinnaker.clouddriver.ecs.EcsCloudProvider;
 import com.netflix.spinnaker.clouddriver.ecs.cache.IamRoleCacheClient;
 import com.netflix.spinnaker.clouddriver.ecs.cache.model.IamRole;
+import com.netflix.spinnaker.clouddriver.model.Role;
 import com.netflix.spinnaker.clouddriver.model.RoleProvider;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.stereotype.Component;
@@ -45,4 +46,8 @@ public class EcsRoleProvider implements RoleProvider {
     return cacheClient.getAll();
   }
 
+  @Override
+  public Collection<? extends Role> getAll(String account, String region) {
+    return cacheClient.getAll(account, region);
+  }
 }

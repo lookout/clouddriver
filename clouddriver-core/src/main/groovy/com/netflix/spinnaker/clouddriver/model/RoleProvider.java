@@ -23,4 +23,6 @@ public interface RoleProvider {
   String getCloudProvider();
 
   Collection<? extends Role> getAll();
+
+  Collection<? extends Role> getAll(String account, String region);
 }

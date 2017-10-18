@@ -30,7 +30,7 @@ import java.util.Set;
 
 import static com.netflix.spinnaker.clouddriver.ecs.cache.Keys.Namespace.IAM_ROLE;
 
-public class IamRoleCacheClient implements EcsCacheClient {
+public class IamRoleCacheClient {
 
   private final Cache cache;
 
@@ -41,7 +41,18 @@ public class IamRoleCacheClient implements EcsCacheClient {
 
   public Collection<IamRole> getAll() {
     Collection<CacheData> allData = cache.getAll(IAM_ROLE.toString());
+    return filterResultsForEcsTrustRelationship(allData);
+  }
 
+  public Collection<IamRole> getAll(String account, String region) {
+    Collection<CacheData> data = fetchFromCache(account, region);
+
+    Collection<IamRole> result = filterResultsForEcsTrustRelationship(data);
+
+    return result;
+  }
+
+  private Collection<IamRole> filterResultsForEcsTrustRelationship(Collection<CacheData> allData) {
     Set<IamRole> result = new HashSet<>();
 
     for (CacheData cacheData: allData) {
@@ -81,4 +92,20 @@ public class IamRoleCacheClient implements EcsCacheClient {
     return iamRole;
   }
 
+  /**
+   *
+   * @param account name of the AWS account, as defined in clouddriver.yml
+   * @param region is not used in AWS as IAM is region-agnostic
+   * @return
+   */
+  private Collection<CacheData> fetchFromCache(String account, String region) {
+    Set<String> keys = new HashSet<>();
+    Collection<String> nameMatches = cache.filterIdentifiers(IAM_ROLE.ns, "*:" + account + ":*");
+
+    keys.addAll(nameMatches);
+
+    Collection<CacheData> allData = cache.getAll(IAM_ROLE.ns, keys);
+
+    return allData;
+  }
 }
