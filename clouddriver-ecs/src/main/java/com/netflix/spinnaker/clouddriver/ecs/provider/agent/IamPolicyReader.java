@@ -19,8 +19,6 @@ package com.netflix.spinnaker.clouddriver.ecs.provider.agent;
 
 import com.fasterxml.jackson.databind.ObjectMapper;
 import com.google.common.collect.Sets;
-import lombok.Data;
-import org.omg.CORBA.Policy;
 
 import java.io.IOException;
 import java.net.URLDecoder;
@@ -36,8 +34,8 @@ public class IamPolicyReader {
     this.mapper = objectMapper;
   }
 
-  public Set<TrustedEntity> getTrustedEntities(String urlEncodedPolicyDocument) {
-    Set<TrustedEntity> trustedEntities = Sets.newHashSet();
+  public Set<TrustRelationship> getTrustedEntities(String urlEncodedPolicyDocument) {
+    Set<TrustRelationship> trustedEntities = Sets.newHashSet();
 
     String decodedPolicyDocument = URLDecoder.decode(urlEncodedPolicyDocument);
 
@@ -51,9 +49,9 @@ public class IamPolicyReader {
 
           for (Map.Entry<String, Object> principalEntry: principal.entrySet()) {
             if (principalEntry.getValue() instanceof List) {
-              ((List) principalEntry.getValue()).stream().forEach(o -> trustedEntities.add(new TrustedEntity(principalEntry.getKey(), o.toString())));
+              ((List) principalEntry.getValue()).stream().forEach(o -> trustedEntities.add(new TrustRelationship(principalEntry.getKey(), o.toString())));
             } else {
-              trustedEntities.add(new TrustedEntity(principalEntry.getKey(), principalEntry.getValue().toString()));
+              trustedEntities.add(new TrustRelationship(principalEntry.getKey(), principalEntry.getValue().toString()));
             }
           }
         }

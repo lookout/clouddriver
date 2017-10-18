@@ -17,21 +17,10 @@
 package com.netflix.spinnaker.clouddriver.ecs.provider.agent;
 
 import com.amazonaws.auth.AWSCredentialsProvider;
-import com.amazonaws.services.ecs.AmazonECS;
-import com.amazonaws.services.ecs.model.DescribeServicesRequest;
-import com.amazonaws.services.ecs.model.ListClustersRequest;
-import com.amazonaws.services.ecs.model.ListClustersResult;
-import com.amazonaws.services.ecs.model.ListServicesRequest;
-import com.amazonaws.services.ecs.model.ListServicesResult;
-import com.amazonaws.services.ecs.model.Service;
 import com.amazonaws.services.identitymanagement.AmazonIdentityManagement;
-import com.amazonaws.services.identitymanagement.AmazonIdentityManagementClient;
-import com.amazonaws.services.identitymanagement.model.GetPolicyRequest;
 import com.amazonaws.services.identitymanagement.model.ListRolesRequest;
 import com.amazonaws.services.identitymanagement.model.ListRolesResult;
 import com.amazonaws.services.identitymanagement.model.Role;
-import com.fasterxml.jackson.core.type.TypeReference;
-import com.fasterxml.jackson.databind.ObjectMapper;
 import com.netflix.spinnaker.cats.agent.AgentDataType;
 import com.netflix.spinnaker.cats.agent.CacheResult;
 import com.netflix.spinnaker.cats.agent.CachingAgent;
@@ -43,18 +32,14 @@ import com.netflix.spinnaker.clouddriver.aws.security.AmazonClientProvider;
 import com.netflix.spinnaker.clouddriver.ecs.cache.Keys;
 import com.netflix.spinnaker.clouddriver.ecs.cache.model.IamRole;
 import com.netflix.spinnaker.clouddriver.ecs.provider.EcsProvider;
-import org.apache.commons.lang.StringUtils;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
-import java.io.IOException;
-import java.net.URLDecoder;
 import java.util.Arrays;
 import java.util.Collection;
 import java.util.Collections;
 import java.util.HashMap;
 import java.util.HashSet;
-import java.util.LinkedList;
 import java.util.List;
 import java.util.Map;
 import java.util.Set;
@@ -63,7 +48,6 @@ import java.util.stream.Collectors;
 import static com.netflix.spinnaker.cats.agent.AgentDataType.Authority.AUTHORITATIVE;
 import static com.netflix.spinnaker.clouddriver.ecs.cache.Keys.Namespace.ECS_CLUSTERS;
 import static com.netflix.spinnaker.clouddriver.ecs.cache.Keys.Namespace.IAM_ROLE;
-import static com.netflix.spinnaker.clouddriver.ecs.cache.Keys.Namespace.SERVICES;
 
 public class IamRoleCachingAgent implements CachingAgent {
 
@@ -93,12 +77,54 @@ public class IamRoleCachingAgent implements CachingAgent {
   @Override
   public CacheResult loadData(ProviderCache providerCache) {
     AmazonIdentityManagement iam = amazonClientProvider.getIam(accountName, awsCredentialsProvider, region);
-    Set<IamRole> cacheableRoles = new HashSet();
 
+    Set<IamRole> cacheableRoles = fetchIamRoles(iam);
+    Map<String, Collection<CacheData>> newDataMap = generateFreshData(cacheableRoles);
+    Collection<CacheData> newData = newDataMap.get(IAM_ROLE.toString());
+
+    Set<String> oldKeys = providerCache.getAll(IAM_ROLE.toString()).stream()
+      .map(cache -> cache.getId()).collect(Collectors.toSet());
+    Map<String, Collection<String>> evictionsByKey = computeEvictableData(newData, oldKeys);
+
+    DefaultCacheResult cacheResult = new DefaultCacheResult(newDataMap, evictionsByKey);
+    return cacheResult;
+  }
+
+  private Map<String, Collection<String>> computeEvictableData(Collection<CacheData> newData, Collection<String> oldKeys) {
+
+    Set<String> newKeys = newData.stream().map(newKey -> newKey.getId()).collect(Collectors.toSet());
+
+    Set<String> evictedKeys = new HashSet<>();
+    for (String oldKey: oldKeys) {
+      if (!newKeys.contains(oldKey)) {
+        evictedKeys.add(oldKey);
+      }
+    }
+    Map<String, Collection<String>> evictionsByKey = new HashMap<>();
+    evictionsByKey.put(IAM_ROLE.toString(), evictedKeys);
+    return evictionsByKey;
+  }
+
+  private Map<String, Collection<CacheData>> generateFreshData(Set<IamRole> cacheableRoles) {
     Collection<CacheData> dataPoints = new HashSet<>();
     Map<String, Collection<CacheData>> newDataMap = new HashMap<>();
-    Map<String, Collection<String>> evictionsByKey = new HashMap<>();
+    for (IamRole iamRole: cacheableRoles) {
+      String key = Keys.getIamRoleKey(accountName, region, iamRole.getName());
+      Map<String, Object> attributes = new HashMap<>();
+      attributes.put("name", iamRole.getName());
+      attributes.put("arn", iamRole.getRoleArn());
+      attributes.put("trustRelationships", iamRole.getTrustRelationships());
 
+      CacheData data = new DefaultCacheData(key, attributes, Collections.emptyMap());
+      dataPoints.add(data);
+    }
+
+    newDataMap.put(IAM_ROLE.toString(), dataPoints);
+    return newDataMap;
+  }
+
+  private Set<IamRole> fetchIamRoles(AmazonIdentityManagement iam) {
+    Set<IamRole> cacheableRoles = new HashSet();
     String marker = null;
     do {
       ListRolesRequest request = new ListRolesRequest();
@@ -125,23 +151,7 @@ public class IamRoleCachingAgent implements CachingAgent {
 
     } while (marker != null && marker.length() != 0);
 
-    for (IamRole iamRole: cacheableRoles) {
-      String key = Keys.getIamRoleKey(accountName, region, iamRole.getName());
-      Map<String, Object> attributes = new HashMap<>();
-
-      // TODO - add attributes
-
-      CacheData data = new DefaultCacheData(key, attributes, Collections.emptyMap());
-      dataPoints.add(data);
-    }
-
-
-    newDataMap.put(IAM_ROLE.toString(), dataPoints);
-
-    //TODO - do the evictions here
-
-    DefaultCacheResult cacheResult = new DefaultCacheResult(newDataMap, evictionsByKey);
-    return cacheResult;
+    return cacheableRoles;
   }
 
   @Override

@@ -16,7 +16,7 @@
 
 package com.netflix.spinnaker.clouddriver.ecs.cache.model;
 
-import com.netflix.spinnaker.clouddriver.ecs.provider.agent.TrustedEntity;
+import com.netflix.spinnaker.clouddriver.ecs.provider.agent.TrustRelationship;
 import lombok.AllArgsConstructor;
 import lombok.Data;
 
@@ -28,6 +28,6 @@ public class IamRole {
 
   String name;
   String roleArn;
-  Set<TrustedEntity> trustedEntities;
+  Set<TrustRelationship> trustRelationships;
 
 }

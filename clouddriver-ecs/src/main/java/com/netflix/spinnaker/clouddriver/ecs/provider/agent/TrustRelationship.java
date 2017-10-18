@@ -21,7 +21,7 @@ import lombok.Data;
 
 @Data
 @AllArgsConstructor
-public class TrustedEntity {
+public class TrustRelationship {
   String type;
   String value;
 }
