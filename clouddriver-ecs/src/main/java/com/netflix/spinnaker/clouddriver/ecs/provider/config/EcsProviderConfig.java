@@ -7,6 +7,7 @@ import com.netflix.spinnaker.cats.agent.Agent;
 import com.netflix.spinnaker.cats.cache.Cache;
 import com.netflix.spinnaker.clouddriver.aws.security.AmazonClientProvider;
 import com.netflix.spinnaker.clouddriver.aws.security.NetflixAmazonCredentials;
+import com.netflix.spinnaker.clouddriver.ecs.EcsCloudProvider;
 import com.netflix.spinnaker.clouddriver.ecs.cache.IamRoleCacheClient;
 import com.netflix.spinnaker.clouddriver.ecs.provider.EcsProvider;
 import com.netflix.spinnaker.clouddriver.ecs.provider.agent.EcsClusterCachingAgent;
@@ -62,10 +63,11 @@ public class EcsProviderConfig {
     List<Agent> newAgents = new LinkedList<>();
 
     for (NetflixAmazonCredentials credentials : allAccounts) {
-      if (credentials.getCloudProvider().equals("ecs")) {
+      if (credentials.getCloudProvider().equals(EcsCloudProvider.ID)) {
+        newAgents.add(new IamRoleCachingAgent(credentials.getName(), amazonClientProvider, awsCredentialsProvider, iamPolicyReader)); // IAM is region-agnostic, so one caching agent per account is enough
+
         for (AWSRegion region : credentials.getRegions()) {
           if (!scheduledAccounts.contains(credentials.getName())) {
-            newAgents.add(new IamRoleCachingAgent(credentials.getName(), region.getName(), amazonClientProvider, awsCredentialsProvider, iamPolicyReader));
             newAgents.add(new EcsClusterCachingAgent(credentials.getName(), region.getName(), amazonClientProvider, awsCredentialsProvider));
             newAgents.add(new ServiceCachingAgent(credentials.getName(), region.getName(), amazonClientProvider, awsCredentialsProvider, registry));
             newAgents.add(new TaskCachingAgent(credentials.getName(), region.getName(), amazonClientProvider, awsCredentialsProvider, registry));

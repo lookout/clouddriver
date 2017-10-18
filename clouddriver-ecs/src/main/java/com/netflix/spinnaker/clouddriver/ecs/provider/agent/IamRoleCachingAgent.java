@@ -54,19 +54,20 @@ public class IamRoleCachingAgent implements CachingAgent {
     AUTHORITATIVE.forType(IAM_ROLE.toString())
   ));
 
+  public static final String DEFAULT_IAM_REGION = "us-east-1";
+
   private final Logger log = LoggerFactory.getLogger(getClass());
   private AmazonClientProvider amazonClientProvider;
   private AWSCredentialsProvider awsCredentialsProvider;
-  private String region;
   private String accountName;
   private IamPolicyReader iamPolicyReader;
 
 
-  public IamRoleCachingAgent(String accountName, String region,
-                             AmazonClientProvider amazonClientProvider, AWSCredentialsProvider awsCredentialsProvider,
+  public IamRoleCachingAgent(String accountName,
+                             AmazonClientProvider amazonClientProvider,
+                             AWSCredentialsProvider awsCredentialsProvider,
                              IamPolicyReader iamPolicyReader) {
     this.accountName = accountName;
-    this.region = region;
     this.amazonClientProvider = amazonClientProvider;
     this.awsCredentialsProvider = awsCredentialsProvider;
     this.iamPolicyReader = iamPolicyReader;
@@ -75,7 +76,7 @@ public class IamRoleCachingAgent implements CachingAgent {
 
   @Override
   public CacheResult loadData(ProviderCache providerCache) {
-    AmazonIdentityManagement iam = amazonClientProvider.getIam(accountName, awsCredentialsProvider, region);
+    AmazonIdentityManagement iam = amazonClientProvider.getIam(accountName, awsCredentialsProvider, DEFAULT_IAM_REGION);
 
     Set<IamRole> cacheableRoles = fetchIamRoles(iam);
     Map<String, Collection<CacheData>> newDataMap = generateFreshData(cacheableRoles);
