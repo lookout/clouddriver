@@ -46,7 +46,6 @@ import java.util.Set;
 import java.util.stream.Collectors;
 
 import static com.netflix.spinnaker.cats.agent.AgentDataType.Authority.AUTHORITATIVE;
-import static com.netflix.spinnaker.clouddriver.ecs.cache.Keys.Namespace.ECS_CLUSTERS;
 import static com.netflix.spinnaker.clouddriver.ecs.cache.Keys.Namespace.IAM_ROLE;
 
 public class IamRoleCachingAgent implements CachingAgent {
@@ -108,11 +107,12 @@ public class IamRoleCachingAgent implements CachingAgent {
   private Map<String, Collection<CacheData>> generateFreshData(Set<IamRole> cacheableRoles) {
     Collection<CacheData> dataPoints = new HashSet<>();
     Map<String, Collection<CacheData>> newDataMap = new HashMap<>();
+
     for (IamRole iamRole: cacheableRoles) {
       String key = Keys.getIamRoleKey(accountName, region, iamRole.getName());
       Map<String, Object> attributes = new HashMap<>();
       attributes.put("name", iamRole.getName());
-      attributes.put("arn", iamRole.getRoleArn());
+      attributes.put("arn", iamRole.getId());
       attributes.put("trustRelationships", iamRole.getTrustRelationships());
 
       CacheData data = new DefaultCacheData(key, attributes, Collections.emptyMap());
@@ -137,8 +137,8 @@ public class IamRoleCachingAgent implements CachingAgent {
 
       for (Role role: roles) {
         cacheableRoles.add(
-          new IamRole(role.getRoleName(),
-            role.getArn(),
+          new IamRole(role.getArn(),
+            role.getRoleName(),
             iamPolicyReader.getTrustedEntities(role.getAssumeRolePolicyDocument()))
         );
       }

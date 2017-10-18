@@ -14,14 +14,13 @@
  * limitations under the License.
  */
 
-package com.netflix.spinnaker.clouddriver.ecs.provider.agent;
+package com.netflix.spinnaker.clouddriver.model;
 
-import lombok.AllArgsConstructor;
-import lombok.Data;
+import java.util.Collection;
 
-@Data
-@AllArgsConstructor
-public class TrustRelationship {
-  String type;
-  String value;
+public interface RoleProvider {
+
+  String getCloudProvider();
+
+  Collection<? extends Role> getAll();
 }

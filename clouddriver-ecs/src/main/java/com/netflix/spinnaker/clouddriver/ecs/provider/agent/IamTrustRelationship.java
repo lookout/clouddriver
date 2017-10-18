@@ -14,27 +14,17 @@
  * limitations under the License.
  */
 
-package com.netflix.spinnaker.clouddriver.ecs.cache.model;
+package com.netflix.spinnaker.clouddriver.ecs.provider.agent;
 
-import com.netflix.spinnaker.clouddriver.model.Role;
 import com.netflix.spinnaker.clouddriver.model.TrustRelationship;
 import lombok.AllArgsConstructor;
 import lombok.Data;
 import lombok.NoArgsConstructor;
 
-import java.util.Set;
-
 @Data
 @AllArgsConstructor
 @NoArgsConstructor
-public class IamRole implements Role {
-
-  /*
-  The ID is the AWS ARN, in the format arn:aws:iam::account-id:role/role-name
-   */
-  String id;
-
-  String name;
-  Set<? extends TrustRelationship> trustRelationships;
-
+public class IamTrustRelationship implements TrustRelationship {
+  String type;
+  String value;
 }

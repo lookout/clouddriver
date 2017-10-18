@@ -14,27 +14,19 @@
  * limitations under the License.
  */
 
-package com.netflix.spinnaker.clouddriver.ecs.cache.model;
+package com.netflix.spinnaker.clouddriver.model;
 
-import com.netflix.spinnaker.clouddriver.model.Role;
-import com.netflix.spinnaker.clouddriver.model.TrustRelationship;
-import lombok.AllArgsConstructor;
-import lombok.Data;
-import lombok.NoArgsConstructor;
+import java.util.Collection;
 
-import java.util.Set;
+/**
+ * A trust relationship allows a user or service to assume that role.
+ */
+public interface TrustRelationship {
 
-@Data
-@AllArgsConstructor
-@NoArgsConstructor
-public class IamRole implements Role {
+  String getType();
 
   /*
-  The ID is the AWS ARN, in the format arn:aws:iam::account-id:role/role-name
+  The value represents an ID, ARN, or any other way of identifying the principal
    */
-  String id;
-
-  String name;
-  Set<? extends TrustRelationship> trustRelationships;
-
+  String getValue();
 }

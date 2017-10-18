@@ -17,10 +17,18 @@
 package com.netflix.spinnaker.clouddriver.ecs.cache;
 
 import com.netflix.spinnaker.cats.cache.Cache;
+import com.netflix.spinnaker.cats.cache.CacheData;
 import com.netflix.spinnaker.clouddriver.ecs.cache.model.IamRole;
+import com.netflix.spinnaker.clouddriver.ecs.provider.agent.IamTrustRelationship;
 import org.springframework.beans.factory.annotation.Autowired;
 
+import java.util.Collection;
+import java.util.HashSet;
 import java.util.List;
+import java.util.Map;
+import java.util.Set;
+
+import static com.netflix.spinnaker.clouddriver.ecs.cache.Keys.Namespace.IAM_ROLE;
 
 public class IamRoleCacheClient implements EcsCacheClient {
 
@@ -31,9 +39,46 @@ public class IamRoleCacheClient implements EcsCacheClient {
     this.cache = cache;
   }
 
-  public List<IamRole> findAll() {
-    return null;
+  public Collection<IamRole> getAll() {
+    Collection<CacheData> allData = cache.getAll(IAM_ROLE.toString());
+
+    Set<IamRole> result = new HashSet<>();
+
+    for (CacheData cacheData: allData) {
+      List<Map<String, String>> trustRelationships = (List<Map<String, String>> ) cacheData.getAttributes().get("trustRelationships");
+      for (Map<String, String> trustRelationship : trustRelationships) {
+        if (trustRelationship.get("type").equals("Service") && trustRelationship.get("value").equals("ecs.amazonaws.com")) {
+
+          result.add(convertToRole(cacheData));
+          continue;
+        }
+      }
+
+    }
+
+    return result;
   }
 
+  private IamRole convertToRole(CacheData cacheData) {
+
+    List<Map<String, String>> trustRelationships = (List<Map<String, String>> ) cacheData.getAttributes().get("trustRelationships");
+    Set<IamTrustRelationship> iamTrustRelationships = new HashSet<>();
+
+    IamRole iamRole = new IamRole();
+    iamRole.setId(cacheData.getAttributes().get("arn").toString());
+    iamRole.setName(cacheData.getAttributes().get("name").toString());
+
+    for (Map<String, String> trustRelationship : trustRelationships) {
+      IamTrustRelationship iamTrustRelationship = new IamTrustRelationship();
+      iamTrustRelationship.setType(trustRelationship.get("type"));
+      iamTrustRelationship.setValue(trustRelationship.get("value"));
+      iamTrustRelationships.add(iamTrustRelationship);
+    }
+
+    iamRole.setTrustRelationships(iamTrustRelationships);
+
+
+    return iamRole;
+  }
 
 }

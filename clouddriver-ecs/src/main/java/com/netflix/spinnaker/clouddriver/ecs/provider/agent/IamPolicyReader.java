@@ -34,8 +34,8 @@ public class IamPolicyReader {
     this.mapper = objectMapper;
   }
 
-  public Set<TrustRelationship> getTrustedEntities(String urlEncodedPolicyDocument) {
-    Set<TrustRelationship> trustedEntities = Sets.newHashSet();
+  public Set<IamTrustRelationship> getTrustedEntities(String urlEncodedPolicyDocument) {
+    Set<IamTrustRelationship> trustedEntities = Sets.newHashSet();
 
     String decodedPolicyDocument = URLDecoder.decode(urlEncodedPolicyDocument);
 
@@ -49,9 +49,9 @@ public class IamPolicyReader {
 
           for (Map.Entry<String, Object> principalEntry: principal.entrySet()) {
             if (principalEntry.getValue() instanceof List) {
-              ((List) principalEntry.getValue()).stream().forEach(o -> trustedEntities.add(new TrustRelationship(principalEntry.getKey(), o.toString())));
+              ((List) principalEntry.getValue()).stream().forEach(o -> trustedEntities.add(new IamTrustRelationship(principalEntry.getKey(), o.toString())));
             } else {
-              trustedEntities.add(new TrustRelationship(principalEntry.getKey(), principalEntry.getValue().toString()));
+              trustedEntities.add(new IamTrustRelationship(principalEntry.getKey(), principalEntry.getValue().toString()));
             }
           }
         }
