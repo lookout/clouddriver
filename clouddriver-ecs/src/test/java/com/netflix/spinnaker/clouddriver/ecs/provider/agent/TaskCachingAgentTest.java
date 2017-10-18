@@ -1,7 +1,5 @@
 package com.netflix.spinnaker.clouddriver.ecs.provider.agent;
 
-import com.amazonaws.auth.AWSCredentialsProvider;
-import com.amazonaws.services.ecs.AmazonECS;
 import com.amazonaws.services.ecs.model.DescribeTasksRequest;
 import com.amazonaws.services.ecs.model.DescribeTasksResult;
 import com.amazonaws.services.ecs.model.ListClustersRequest;
@@ -9,13 +7,9 @@ import com.amazonaws.services.ecs.model.ListClustersResult;
 import com.amazonaws.services.ecs.model.ListTasksRequest;
 import com.amazonaws.services.ecs.model.ListTasksResult;
 import com.amazonaws.services.ecs.model.Task;
-import com.netflix.spectator.api.Registry;
 import com.netflix.spinnaker.cats.agent.CacheResult;
 import com.netflix.spinnaker.cats.cache.CacheData;
-import com.netflix.spinnaker.cats.provider.ProviderCache;
-import com.netflix.spinnaker.clouddriver.aws.security.AmazonClientProvider;
 import com.netflix.spinnaker.clouddriver.ecs.cache.Keys;
-import org.junit.BeforeClass;
 import org.junit.Test;
 import spock.lang.Subject;
 
@@ -25,28 +19,13 @@ import java.util.Date;
 
 import static junit.framework.TestCase.assertTrue;
 import static org.mockito.Matchers.any;
-import static org.mockito.Matchers.anyString;
-import static org.mockito.Mockito.mock;
 import static org.mockito.Mockito.when;
 
 
-public class TaskCachingAgentTest {
-  private static final String REGION = "us-west-2";
-  private static final String ACCOUNT = "test-account";
-
-  private static AmazonECS ecs = mock(AmazonECS.class);
-  private static AmazonClientProvider clientProvider = mock(AmazonClientProvider.class);
-  private ProviderCache providerCache = mock(ProviderCache.class);
-  private AWSCredentialsProvider credentialsProvider = mock(AWSCredentialsProvider.class);
-  private Registry registry = mock(Registry.class);
-
+public class TaskCachingAgentTest extends CommonCachingAgent {
   @Subject
   private TaskCachingAgent agent = new TaskCachingAgent(ACCOUNT, REGION, clientProvider, credentialsProvider, registry);
 
-  @BeforeClass
-  public static void setUp() {
-    when(clientProvider.getAmazonEcs(anyString(), any(AWSCredentialsProvider.class), anyString())).thenReturn(ecs);
-  }
 
   @Test
   public void shouldAddToCache() {
