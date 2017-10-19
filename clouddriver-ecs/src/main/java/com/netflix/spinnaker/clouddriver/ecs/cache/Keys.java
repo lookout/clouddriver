@@ -98,8 +98,8 @@ public class Keys implements KeyParser {
     return ID + SEPARATOR + Namespace.TASKS + SEPARATOR + account + SEPARATOR + region + SEPARATOR + taskId;
   }
 
-  public static String getTaskHealthKey(String account, String region, String taslId) {
-    return ID + SEPARATOR + com.netflix.spinnaker.clouddriver.core.provider.agent.Namespace.HEALTH + SEPARATOR + account + SEPARATOR + region + SEPARATOR + taslId;
+  public static String getTaskHealthKey(String account, String region, String taskId) {
+    return ID + SEPARATOR + com.netflix.spinnaker.clouddriver.core.provider.agent.Namespace.HEALTH + SEPARATOR + account + SEPARATOR + region + SEPARATOR + taskId;
   }
 
   public static String getContainerInstanceKey(String account, String region, String containerInstanceArn) {
