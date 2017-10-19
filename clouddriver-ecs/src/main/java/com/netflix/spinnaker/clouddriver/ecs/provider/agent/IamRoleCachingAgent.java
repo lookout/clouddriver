@@ -86,8 +86,26 @@ public class IamRoleCachingAgent implements CachingAgent {
       .map(cache -> cache.getId()).collect(Collectors.toSet());
     Map<String, Collection<String>> evictionsByKey = computeEvictableData(newData, oldKeys);
 
+    logUpcomingActions(newDataMap, evictionsByKey);
+
     DefaultCacheResult cacheResult = new DefaultCacheResult(newDataMap, evictionsByKey);
     return cacheResult;
+  }
+
+  private void logUpcomingActions(Map<String, Collection<CacheData>> newDataMap, Map<String, Collection<String>> evictionsByKey) {
+    log.info(String.format("Caching %s IAM roles in %s for account %s",
+      newDataMap.get(IAM_ROLE.toString()).size(),
+      getAgentType(),
+      accountName)
+    );
+
+    if (evictionsByKey.get(IAM_ROLE.toString()).size() > 0) {
+      log.info(String.format("Evicting %s IAM roles in %s for account %s",
+        evictionsByKey.get(IAM_ROLE.toString()).size(),
+        getAgentType(),
+        accountName)
+      );
+    }
   }
 
   private Map<String, Collection<String>> computeEvictableData(Collection<CacheData> newData, Collection<String> oldKeys) {
