@@ -141,7 +141,9 @@ public class TaskCachingAgent extends AbstractEcsCachingAgent<Task> {
     List<Map> returnResults = new LinkedList<>();
     for (CacheData onDemand : allOnDemand) {
       Map<String, String> parsedKey = Keys.parse(onDemand.getId());
-      if (parsedKey.get("type") != null && (parsedKey.get("type").equals(SERVICES.toString()) || parsedKey.get("type").equals(TASKS.toString()))) {
+      if (parsedKey!=null && parsedKey.get("type") != null &&
+        (parsedKey.get("type").equals(SERVICES.toString()) || parsedKey.get("type").equals(TASKS.toString()))) {
+
         parsedKey.put("type", "serverGroup");
         parsedKey.put("serverGroup", parsedKey.get("serviceName"));
 

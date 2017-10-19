@@ -84,7 +84,6 @@ public class TaskDefinitionCachingAgent extends AbstractEcsCachingAgent<TaskDefi
     for (TaskDefinition taskDefinition : taskDefinitions) {
       Map<String, Object> attributes = new HashMap<>();
       attributes.put("taskDefinitionArn", taskDefinition.getTaskDefinitionArn());
-      attributes.put("taskArn", taskDefinition.getContainerDefinitions());
       attributes.put("containerDefinitions", taskDefinition.getContainerDefinitions());
 
       String key = Keys.getTaskDefinitionKey(accountName, region, taskDefinition.getTaskDefinitionArn());

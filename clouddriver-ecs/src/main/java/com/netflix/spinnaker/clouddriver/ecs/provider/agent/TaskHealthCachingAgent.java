@@ -1,7 +1,6 @@
 package com.netflix.spinnaker.clouddriver.ecs.provider.agent;
 
 import com.amazonaws.auth.AWSCredentialsProvider;
-import com.amazonaws.services.ecs.AmazonECS;
 import com.amazonaws.services.elasticloadbalancingv2.AmazonElasticLoadBalancing;
 import com.amazonaws.services.elasticloadbalancingv2.model.DescribeTargetHealthRequest;
 import com.amazonaws.services.elasticloadbalancingv2.model.DescribeTargetHealthResult;
@@ -61,7 +60,6 @@ public class TaskHealthCachingAgent implements CachingAgent, HealthProvidingCach
 
   @Override
   public CacheResult loadData(ProviderCache providerCache) {
-    AmazonECS ecs = amazonClientProvider.getAmazonEcs(accountName, awsCredentialsProvider, region);
     AmazonElasticLoadBalancing amazonloadBalancing = amazonClientProvider.getAmazonElasticLoadBalancingV2(accountName, awsCredentialsProvider, region);
 
     Collection<CacheData> dataPoints = new LinkedList<>();
@@ -70,8 +68,7 @@ public class TaskHealthCachingAgent implements CachingAgent, HealthProvidingCach
     Collection<String> taskDefEvicitions = new LinkedList<>();
 
     Collection<CacheData> tasksCache = providerCache.getAll(TASKS.toString());
-    if (tasksCache != null) {
-      for (CacheData taskCache : tasksCache) {
+    if (tasksCache != null) { for (CacheData taskCache : tasksCache) {
         String containerInstanceCacheKey = Keys.getContainerInstanceKey(accountName, region, (String) taskCache.getAttributes().get("containerInstanceArn"));
         CacheData containerInstance = providerCache.get(CONTAINER_INSTANCES.toString(), containerInstanceCacheKey);
 
@@ -105,7 +102,7 @@ public class TaskHealthCachingAgent implements CachingAgent, HealthProvidingCach
             describeTargetHealthResult = amazonloadBalancing.describeTargetHealth(
               new DescribeTargetHealthRequest().withTargetGroupArn((String) loadBalancer.get("targetGroupArn")).withTargets(
                 new TargetDescription().withId((String) containerInstance.getAttributes().get("ec2InstanceId")).withPort(port)));
-          }catch(NullPointerException e){
+          } catch (NullPointerException e) {
             continue;
           }
 
@@ -113,7 +110,7 @@ public class TaskHealthCachingAgent implements CachingAgent, HealthProvidingCach
             serviceEvicitions.add(serviceCache.getId());
             taskEvicitions.add(taskCache.getId());
 
-            String taskDefArn = (String)serviceCache.getAttributes().get("taskDefinition");
+            String taskDefArn = (String) serviceCache.getAttributes().get("taskDefinition");
             String taskDefKey = Keys.getTaskDefinitionKey(accountName, region, taskDefArn);
             taskDefEvicitions.add(taskDefKey);
 
