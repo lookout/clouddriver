@@ -1,13 +1,19 @@
 package com.netflix.spinnaker.clouddriver.ecs.provider.config;
 
 import com.amazonaws.auth.AWSCredentialsProvider;
+import com.fasterxml.jackson.databind.ObjectMapper;
 import com.netflix.spectator.api.Registry;
 import com.netflix.spinnaker.cats.agent.Agent;
+import com.netflix.spinnaker.cats.cache.Cache;
 import com.netflix.spinnaker.clouddriver.aws.security.AmazonClientProvider;
 import com.netflix.spinnaker.clouddriver.aws.security.NetflixAmazonCredentials;
+import com.netflix.spinnaker.clouddriver.ecs.EcsCloudProvider;
+import com.netflix.spinnaker.clouddriver.ecs.cache.IamRoleCacheClient;
 import com.netflix.spinnaker.clouddriver.ecs.provider.EcsProvider;
 import com.netflix.spinnaker.clouddriver.ecs.provider.agent.EcsClusterCachingAgent;
 import com.netflix.spinnaker.clouddriver.ecs.provider.agent.ContainerInstanceCachingAgent;
+import com.netflix.spinnaker.clouddriver.ecs.provider.agent.IamPolicyReader;
+import com.netflix.spinnaker.clouddriver.ecs.provider.agent.IamRoleCachingAgent;
 import com.netflix.spinnaker.clouddriver.ecs.provider.agent.ServiceCachingAgent;
 import com.netflix.spinnaker.clouddriver.ecs.provider.agent.TaskCachingAgent;
 import com.netflix.spinnaker.clouddriver.ecs.provider.agent.TaskDefinitionCachingAgent;
@@ -32,25 +38,34 @@ import static com.netflix.spinnaker.clouddriver.aws.security.AmazonCredentials.A
 @Configuration
 @EnableConfigurationProperties(ReservationReportConfigurationProperties.class)
 public class EcsProviderConfig {
+
+  @Bean
+  public IamPolicyReader iamPolicyReader(ObjectMapper objectMapper) {
+    return new IamPolicyReader(objectMapper);
+  }
+
   @Bean
   @DependsOn("netflixECSCredentials")
-  public EcsProvider ecsProvider(AccountCredentialsRepository accountCredentialsRepository, AmazonClientProvider amazonClientProvider, AWSCredentialsProvider awsCredentialsProvider, Registry registry) {
+  public EcsProvider ecsProvider(AccountCredentialsRepository accountCredentialsRepository, AmazonClientProvider amazonClientProvider, AWSCredentialsProvider awsCredentialsProvider, Registry registry, IamPolicyReader iamPolicyReader) {
     EcsProvider provider = new EcsProvider(accountCredentialsRepository, Collections.newSetFromMap(new ConcurrentHashMap<Agent, Boolean>()));
-    synchronizeEcsProvider(provider, accountCredentialsRepository, amazonClientProvider, awsCredentialsProvider, registry);
+    synchronizeEcsProvider(provider, accountCredentialsRepository, amazonClientProvider, awsCredentialsProvider, registry, iamPolicyReader);
     return provider;
   }
 
   @Scope(ConfigurableBeanFactory.SCOPE_PROTOTYPE)
   @Bean
   public EcsProviderSynchronizer synchronizeEcsProvider(EcsProvider ecsProvider, AccountCredentialsRepository accountCredentialsRepository,
-                                                        AmazonClientProvider amazonClientProvider, AWSCredentialsProvider awsCredentialsProvider, Registry registry) {
+                                                        AmazonClientProvider amazonClientProvider, AWSCredentialsProvider awsCredentialsProvider, Registry registry,
+                                                        IamPolicyReader iamPolicyReader) {
 
     Set<String> scheduledAccounts = ProviderUtils.getScheduledAccounts(ecsProvider);
     Set<NetflixAmazonCredentials> allAccounts = ProviderUtils.buildThreadSafeSetOfAccounts(accountCredentialsRepository, NetflixAmazonCredentials.class);
     List<Agent> newAgents = new LinkedList<>();
 
     for (NetflixAmazonCredentials credentials : allAccounts) {
-      if (credentials.getCloudProvider().equals("ecs")) {
+      if (credentials.getCloudProvider().equals(EcsCloudProvider.ID)) {
+        newAgents.add(new IamRoleCachingAgent(credentials.getName(), amazonClientProvider, awsCredentialsProvider, iamPolicyReader)); // IAM is region-agnostic, so one caching agent per account is enough
+
         for (AWSRegion region : credentials.getRegions()) {
           if (!scheduledAccounts.contains(credentials.getName())) {
             newAgents.add(new EcsClusterCachingAgent(credentials.getName(), region.getName(), amazonClientProvider, awsCredentialsProvider));

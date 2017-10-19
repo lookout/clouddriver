@@ -10,6 +10,7 @@ import static com.netflix.spinnaker.clouddriver.ecs.EcsCloudProvider.ID;
 
 public class Keys implements KeyParser {
   public enum Namespace {
+    IAM_ROLE,
     SERVICES,
     ECS_CLUSTERS,
     TASKS,
@@ -50,10 +51,15 @@ public class Keys implements KeyParser {
     result.put("provider", parts[0]);
     result.put("type", parts[1]);
     result.put("account", parts[2]);
-    result.put("region", parts[3]);
 
 
-    switch (Namespace.valueOf(CaseFormat.LOWER_CAMEL.to(CaseFormat.UPPER_UNDERSCORE, parts[1]))) {
+    Namespace namespace = Namespace.valueOf(CaseFormat.LOWER_CAMEL.to(CaseFormat.UPPER_UNDERSCORE, parts[1]));
+
+    if (!namespace.equals(Namespace.IAM_ROLE)) {
+      result.put("region", parts[3]);
+    }
+
+    switch (namespace) {
       case SERVICES:
         result.put("serviceName", parts[4]);
         break;
@@ -69,6 +75,8 @@ public class Keys implements KeyParser {
       case TASK_DEFINITIONS:
         result.put("taskDefinitionArn", parts[4]);
         break;
+      case IAM_ROLE:
+        result.put("roleName", parts[3]);
       default:
         break;
     }
@@ -108,5 +116,9 @@ public class Keys implements KeyParser {
 
   public static String getTaskDefinitionKey(String account, String region, String taskDefinitionArn) {
     return ID + SEPARATOR + Namespace.TASK_DEFINITIONS + SEPARATOR + account + SEPARATOR + region + SEPARATOR + taskDefinitionArn;
+  }
+
+  public static String getIamRoleKey(String account, String iamRoleName) {
+    return ID + SEPARATOR + Namespace.IAM_ROLE + SEPARATOR + account + SEPARATOR + iamRoleName;
   }
 }
