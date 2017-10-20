@@ -28,6 +28,7 @@ import java.util.Collection;
 import java.util.HashSet;
 import java.util.List;
 import java.util.Set;
+import java.util.stream.Collectors;
 
 @RestController
 @RequestMapping("/roles")
@@ -38,16 +39,9 @@ public class RoleController {
 
   @RequestMapping(method = RequestMethod.GET, value = "/{provider}/{account}/{region}")
   Collection<Role> getRoles(@PathVariable String provider, @PathVariable String account, @PathVariable String region) {
-
-    Set<Role> result = new HashSet<>();
-
-    //TODO(Bruno Carrier) - I am sure we can make a nice java Stream that does it more elegantly
-    for (RoleProvider roleProvider: roleProviders) {
-      if (roleProvider.getCloudProvider().equals(provider)) {
-        result.addAll(roleProvider.getAll(account, region));
-      }
-    }
-
-    return result;
+    return roleProviders.stream()
+      .filter(roleProvider -> roleProvider.getCloudProvider().equals(provider))
+      .flatMap(roleProvider ->  roleProvider.getAll(account, region).stream())
+      .collect(Collectors.toSet());
   }
 }
