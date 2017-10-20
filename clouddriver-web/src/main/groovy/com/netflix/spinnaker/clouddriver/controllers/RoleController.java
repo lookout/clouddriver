@@ -25,9 +25,7 @@ import org.springframework.web.bind.annotation.RequestMethod;
 import org.springframework.web.bind.annotation.RestController;
 
 import java.util.Collection;
-import java.util.HashSet;
 import java.util.List;
-import java.util.Set;
 import java.util.stream.Collectors;
 
 @RestController
@@ -41,7 +39,7 @@ public class RoleController {
   Collection<Role> getRoles(@PathVariable String provider, @PathVariable String account, @PathVariable String region) {
     return roleProviders.stream()
       .filter(roleProvider -> roleProvider.getCloudProvider().equals(provider))
-      .flatMap(roleProvider ->  roleProvider.getAll(account, region).stream())
+      .flatMap(roleProvider -> roleProvider.getAll(account, region).stream())
       .collect(Collectors.toSet());
   }
 }
