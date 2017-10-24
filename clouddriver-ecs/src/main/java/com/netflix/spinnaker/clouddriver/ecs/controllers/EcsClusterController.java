@@ -37,7 +37,7 @@ public class EcsClusterController {
   }
 
 
-  @RequestMapping(value = "/ecs/{account}/{region}/ecscluster")
+  @RequestMapping(value = {"/ecs/{account}/{region}/ecscluster"})
   public List<String> findEcsClusters(@PathVariable("account") String account,
                                       @PathVariable("region") String region) {
     return ecsClusterProvider.getEcsClusters(account, region);
