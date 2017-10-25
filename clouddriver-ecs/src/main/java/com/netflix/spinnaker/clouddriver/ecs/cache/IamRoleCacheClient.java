@@ -58,7 +58,7 @@ public class IamRoleCacheClient {
     for (CacheData cacheData: allData) {
       List<Map<String, String>> trustRelationships = (List<Map<String, String>> ) cacheData.getAttributes().get("trustRelationships");
       for (Map<String, String> trustRelationship : trustRelationships) {
-        if (trustRelationship.get("type").equals("Service") && trustRelationship.get("value").equals("ecs.amazonaws.com")) {
+        if (trustRelationship.get("type").equals("Service") && trustRelationship.get("value").equals("ecs-tasks.amazonaws.com")) {
 
           result.add(convertToRole(cacheData));
           continue;
