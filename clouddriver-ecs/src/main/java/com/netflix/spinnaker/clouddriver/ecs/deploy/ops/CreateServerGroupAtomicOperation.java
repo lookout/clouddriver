@@ -137,7 +137,7 @@ public class CreateServerGroupAtomicOperation implements AtomicOperation<Deploym
       .withServiceName(serviceName)
       .withDesiredCount(desiredCapacity != null ? desiredCapacity : 1)
       .withCluster(description.getEcsClusterName())
-      .withRole(ecsServiceRole) // poc-role is used here
+      .withRole(ecsServiceRole)
       .withLoadBalancers(loadBalancers)
       .withTaskDefinition(taskDefinitionArn)
       .withDeploymentConfiguration(deploymentConfiguration);
