@@ -76,8 +76,8 @@ public class CreateServerGroupAtomicOperation implements AtomicOperation<Deploym
     TaskDefinition taskDefinition = registerTaskDefinition(ecs);
     updateTaskStatus("Done creating Amazon ECS Task Definition...");
 
-
-    Service service = createService(ecs, taskDefinition);
+    String ecsServiceRole = inferAssumedRoleArn(credentials);
+    Service service = createService(ecs, taskDefinition, ecsServiceRole);
 
     createAutoScalingGroup(autoScalingClient, credentials, service);
 
@@ -113,14 +113,15 @@ public class CreateServerGroupAtomicOperation implements AtomicOperation<Deploym
 
     RegisterTaskDefinitionRequest request = new RegisterTaskDefinitionRequest()
       .withContainerDefinitions(containerDefinitions)
-      .withFamily(getFamilyName());
+      .withFamily(getFamilyName())
+      .withTaskRoleArn(description.getIamRole());
 
     RegisterTaskDefinitionResult registerTaskDefinitionResult = ecs.registerTaskDefinition(request);
 
     return registerTaskDefinitionResult.getTaskDefinition();
   }
 
-  private Service createService(AmazonECS ecs, TaskDefinition taskDefinition) {
+  private Service createService(AmazonECS ecs, TaskDefinition taskDefinition, String ecsServiceRole) {
     String serviceName = getNextServiceName();
     Collection<LoadBalancer> loadBalancers = new LinkedList<>();
     loadBalancers.add(retrieveLoadBalancer());
@@ -136,7 +137,7 @@ public class CreateServerGroupAtomicOperation implements AtomicOperation<Deploym
       .withServiceName(serviceName)
       .withDesiredCount(desiredCapacity != null ? desiredCapacity : 1)
       .withCluster(description.getEcsClusterName())
-      .withRole(description.getIamRole())
+      .withRole(ecsServiceRole)
       .withLoadBalancers(loadBalancers)
       .withTaskDefinition(taskDefinitionArn)
       .withDeploymentConfiguration(deploymentConfiguration);
