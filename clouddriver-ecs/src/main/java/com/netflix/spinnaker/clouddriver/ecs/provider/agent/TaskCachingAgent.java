@@ -38,7 +38,7 @@ import static com.netflix.spinnaker.clouddriver.ecs.cache.Keys.Namespace.ECS_CLU
 import static com.netflix.spinnaker.clouddriver.ecs.cache.Keys.Namespace.SERVICES;
 import static com.netflix.spinnaker.clouddriver.ecs.cache.Keys.Namespace.TASKS;
 
-public class TaskCachingAgent extends AbstractEcsCachingAgent<Task> {
+public class TaskCachingAgent extends AbstractEcsOnDemandAgent<Task> {
   static final Collection<AgentDataType> types = Collections.unmodifiableCollection(Arrays.asList(
     AUTHORITATIVE.forType(TASKS.toString()),
     INFORMATIVE.forType(ECS_CLUSTERS.toString())
@@ -141,7 +141,7 @@ public class TaskCachingAgent extends AbstractEcsCachingAgent<Task> {
     List<Map> returnResults = new LinkedList<>();
     for (CacheData onDemand : allOnDemand) {
       Map<String, String> parsedKey = Keys.parse(onDemand.getId());
-      if (parsedKey!=null && parsedKey.get("type") != null &&
+      if (parsedKey != null && parsedKey.get("type") != null &&
         (parsedKey.get("type").equals(SERVICES.toString()) || parsedKey.get("type").equals(TASKS.toString()))) {
 
         parsedKey.put("type", "serverGroup");

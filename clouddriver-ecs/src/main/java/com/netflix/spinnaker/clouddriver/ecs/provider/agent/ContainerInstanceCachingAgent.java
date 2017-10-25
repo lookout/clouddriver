@@ -33,7 +33,7 @@ import java.util.stream.Collectors;
 import static com.netflix.spinnaker.cats.agent.AgentDataType.Authority.AUTHORITATIVE;
 import static com.netflix.spinnaker.clouddriver.ecs.cache.Keys.Namespace.CONTAINER_INSTANCES;
 
-public class ContainerInstanceCachingAgent extends AbstractEcsCachingAgent<ContainerInstance> implements CachingAgent, OnDemandAgent {
+public class ContainerInstanceCachingAgent extends AbstractEcsOnDemandAgent<ContainerInstance> {
   static final Collection<AgentDataType> types = Collections.unmodifiableCollection(Arrays.asList(
     AUTHORITATIVE.forType(CONTAINER_INSTANCES.toString())
   ));

@@ -26,19 +26,17 @@ import java.util.stream.Collectors;
 
 import static com.netflix.spinnaker.clouddriver.ecs.cache.Keys.Namespace.ECS_CLUSTERS;
 
-public abstract class AbstractEcsCachingAgent<T> implements CachingAgent, OnDemandAgent {
+public abstract class AbstractEcsCachingAgent<T> implements CachingAgent {
   protected AmazonClientProvider amazonClientProvider;
   protected AWSCredentialsProvider awsCredentialsProvider;
   protected String region;
   protected String accountName;
-  protected OnDemandMetricsSupport metricsSupport;
 
-  public AbstractEcsCachingAgent(String accountName, String region, AmazonClientProvider amazonClientProvider, AWSCredentialsProvider awsCredentialsProvider, Registry registry) {
+  public AbstractEcsCachingAgent(String accountName, String region, AmazonClientProvider amazonClientProvider, AWSCredentialsProvider awsCredentialsProvider) {
     this.accountName = accountName;
     this.region = region;
     this.amazonClientProvider = amazonClientProvider;
     this.awsCredentialsProvider = awsCredentialsProvider;
-    this.metricsSupport = new OnDemandMetricsSupport(registry, this, EcsCloudProvider.ID + ":" + EcsCloudProvider.ID + ":${OnDemandAgent.OnDemandType.ServerGroup}");
   }
 
   /**
@@ -63,66 +61,10 @@ public abstract class AbstractEcsCachingAgent<T> implements CachingAgent, OnDema
   }
 
   @Override
-  public String getOnDemandAgentType() {
-    return getAgentType();
-  }
-
-  @Override
-  public OnDemandMetricsSupport getMetricsSupport() {
-    return metricsSupport;
-  }
-
-  @Override
-  public Collection<Map> pendingOnDemandRequests(ProviderCache providerCache) {
-    return new LinkedList<>();
-  }
-
-  @Override
-  public boolean handles(OnDemandType type, String cloudProvider) {
-    return type.equals(OnDemandType.ServerGroup) && cloudProvider.equals(EcsCloudProvider.ID);
-  }
-
-  @Override
   public CacheResult loadData(ProviderCache providerCache) {
     AmazonECS ecs = amazonClientProvider.getAmazonEcs(accountName, awsCredentialsProvider, region);
     List<T> items = getItems(ecs, providerCache);
     return buildCacheResult(items, providerCache);
-  }
-
-  @Override
-  public OnDemandResult handle(ProviderCache providerCache, Map<String, ?> data) {
-    if (!data.get("account").equals(accountName) || !data.get("region").equals(region)) {
-      return null;
-    }
-
-    AmazonECS ecs = amazonClientProvider.getAmazonEcs(accountName, awsCredentialsProvider, region);
-
-    List<T> items = metricsSupport.readData(new Closure<List<T>>(this, this) {
-      public List<T> doCall() {
-        return getItems(ecs, providerCache);
-      }
-    });
-
-    storeOnDemand(providerCache, data);
-
-    CacheResult cacheResult = metricsSupport.transformData(new Closure<CacheResult>(this, this) {
-      public CacheResult doCall() {
-        return buildCacheResult(items, providerCache);
-      }
-    });
-
-
-    Collection<String> typeStrings = new LinkedList<>();
-    for (AgentDataType agentDataType : getProvidedDataTypes()) {
-      typeStrings.add(agentDataType.toString());
-    }
-
-    OnDemandResult result = new OnDemandResult();
-    result.setAuthoritativeTypes(typeStrings);
-    result.setCacheResult(cacheResult);
-    result.setSourceAgentType(getAgentType());
-
-    return result;
   }
 
   protected Set<String> getClusters(AmazonECS ecs, ProviderCache providerCache) {
@@ -146,9 +88,5 @@ public abstract class AbstractEcsCachingAgent<T> implements CachingAgent, OnDema
     }
 
     return clusters;
-  }
-
-  protected void storeOnDemand(ProviderCache providerCache, Map<String, ?> data) {
-    // TODO: Overwrite if needed.
   }
 }

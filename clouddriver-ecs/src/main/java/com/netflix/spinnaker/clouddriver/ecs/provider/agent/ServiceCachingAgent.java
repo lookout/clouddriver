@@ -34,7 +34,7 @@ import static com.netflix.spinnaker.cats.agent.AgentDataType.Authority.INFORMATI
 import static com.netflix.spinnaker.clouddriver.ecs.cache.Keys.Namespace.ECS_CLUSTERS;
 import static com.netflix.spinnaker.clouddriver.ecs.cache.Keys.Namespace.SERVICES;
 
-public class ServiceCachingAgent extends AbstractEcsCachingAgent<Service> {
+public class ServiceCachingAgent extends AbstractEcsOnDemandAgent<Service> {
   static final Collection<AgentDataType> types = Collections.unmodifiableCollection(Arrays.asList(
     AUTHORITATIVE.forType(SERVICES.toString()),
     INFORMATIVE.forType(ECS_CLUSTERS.toString())
