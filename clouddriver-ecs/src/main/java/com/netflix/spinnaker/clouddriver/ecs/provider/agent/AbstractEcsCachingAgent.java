@@ -8,6 +8,7 @@ import com.netflix.spectator.api.Registry;
 import com.netflix.spinnaker.cats.agent.AgentDataType;
 import com.netflix.spinnaker.cats.agent.CacheResult;
 import com.netflix.spinnaker.cats.agent.CachingAgent;
+import com.netflix.spinnaker.cats.cache.CacheData;
 import com.netflix.spinnaker.cats.provider.ProviderCache;
 import com.netflix.spinnaker.clouddriver.aws.security.AmazonClientProvider;
 import com.netflix.spinnaker.clouddriver.cache.OnDemandAgent;
@@ -54,6 +55,10 @@ public abstract class AbstractEcsCachingAgent<T> implements CachingAgent {
    * @return
    */
   protected abstract CacheResult buildCacheResult(List<T> items, ProviderCache providerCache);
+
+  protected abstract Map<String, Collection<CacheData>> generateFreshData(Collection<T> cacheableItems);
+
+  protected abstract Map<String, Collection<String>> computeEvictableData(Collection<CacheData> newData, Collection<String> oldKeys);
 
   @Override
   public String getProviderName() {

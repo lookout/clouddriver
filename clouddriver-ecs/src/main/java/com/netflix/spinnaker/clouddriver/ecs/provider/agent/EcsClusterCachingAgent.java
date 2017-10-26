@@ -22,6 +22,7 @@ import java.util.Arrays;
 import java.util.Collection;
 import java.util.Collections;
 import java.util.HashMap;
+import java.util.HashSet;
 import java.util.LinkedList;
 import java.util.List;
 import java.util.Map;
@@ -30,6 +31,7 @@ import java.util.stream.Collectors;
 
 import static com.netflix.spinnaker.cats.agent.AgentDataType.Authority.AUTHORITATIVE;
 import static com.netflix.spinnaker.clouddriver.ecs.cache.Keys.Namespace.ECS_CLUSTERS;
+import static com.netflix.spinnaker.clouddriver.ecs.cache.Keys.Namespace.IAM_ROLE;
 
 public class EcsClusterCachingAgent extends AbstractEcsCachingAgent<String> {
   static final Collection<AgentDataType> types = Collections.unmodifiableCollection(Arrays.asList(
@@ -72,10 +74,22 @@ public class EcsClusterCachingAgent extends AbstractEcsCachingAgent<String> {
 
   @Override
   protected CacheResult buildCacheResult(List<String> clusterArns, ProviderCache providerCache) {
-    Collection<CacheData> dataPoints = new LinkedList<>();
-    Set<String> evictingClusterKeys = providerCache.getAll(ECS_CLUSTERS.toString()).stream()
+    Map<String, Collection<CacheData>> dataMap = generateFreshData(clusterArns);
+    log.info("Caching " + dataMap.values().size() + " ECS clusters in " + getAgentType());
+
+
+    Set<String> oldKeys = providerCache.getAll(ECS_CLUSTERS.toString()).stream()
       .map(cache -> cache.getId()).collect(Collectors.toSet());
 
+    Map<String, Collection<String>> evictions = computeEvictableData(dataMap.get(ECS_CLUSTERS.toString()), oldKeys);
+    log.info("Evicting " + evictions.size() + " ECS clusters in " + getAgentType());
+
+    return new DefaultCacheResult(dataMap, evictions);
+  }
+
+  @Override
+  protected Map<String, Collection<CacheData>> generateFreshData(Collection<String> clusterArns) {
+    Collection<CacheData> dataPoints = new LinkedList<>();
     for (String clusterArn : clusterArns) {
       String clusterName = StringUtils.substringAfterLast(clusterArn, "/");
 
@@ -87,19 +101,22 @@ public class EcsClusterCachingAgent extends AbstractEcsCachingAgent<String> {
 
       String key = Keys.getClusterKey(accountName, region, clusterName);
       dataPoints.add(new DefaultCacheData(key, attributes, Collections.emptyMap()));
-      evictingClusterKeys.remove(key);
     }
 
     log.info("Caching " + dataPoints.size() + " ECS clusters in " + getAgentType());
     Map<String, Collection<CacheData>> dataMap = new HashMap<>();
     dataMap.put(ECS_CLUSTERS.toString(), dataPoints);
 
-    Map<String, Collection<String>> evictions = new HashMap<>();
-    if (!evictingClusterKeys.isEmpty() && !evictingClusterKeys.isEmpty()) {
-      evictions.put(ECS_CLUSTERS.toString(), evictingClusterKeys);
-    }
-    log.info("Evicting " + evictions.size() + " ECS clusters in " + getAgentType());
+    return dataMap;
+  }
 
-    return new DefaultCacheResult(dataMap, evictions);
+  @Override
+  protected Map<String, Collection<String>> computeEvictableData(Collection<CacheData> newData, Collection<String> oldKeys) {
+    Set<String> newKeys = newData.stream().map(newKey -> newKey.getId()).collect(Collectors.toSet());
+    Set<String> evictedKeys = oldKeys.stream().filter(oldKey -> !newKeys.contains(oldKey)).collect(Collectors.toSet());
+
+    Map<String, Collection<String>> evictionsByKey = new HashMap<>();
+    evictionsByKey.put(ECS_CLUSTERS.toString(), evictedKeys);
+    return evictionsByKey;
   }
 }
