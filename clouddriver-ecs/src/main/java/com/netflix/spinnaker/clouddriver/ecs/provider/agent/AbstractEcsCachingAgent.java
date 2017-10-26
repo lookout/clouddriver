@@ -117,10 +117,7 @@ public abstract class AbstractEcsCachingAgent<T> implements CachingAgent, OnDema
       typeStrings.add(agentDataType.toString());
     }
 
-    OnDemandResult result = new OnDemandResult();
-    result.setAuthoritativeTypes(typeStrings);
-    result.setCacheResult(cacheResult);
-    result.setSourceAgentType(getAgentType());
+    OnDemandResult result = new OnDemandResult(getAgentType(), cacheResult, null); // TODO(Bruno Carrier) - evictions should happen properly instead of having a null here
 
     return result;
   }
