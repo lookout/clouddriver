@@ -8,7 +8,7 @@ It is a work in progress
 
 
 ## Spinnaker role
-Make sure that you allow the `application-autoscaling.amazonaws.com` to assume the SpinnakerManaged role by adding it as a principal.  See example code below.  Failure to do so will prevent you from deploying ECS server groups, as they rely on auto-scaling:
+Make sure that you allow the `application-autoscaling.amazonaws.com` and `ecs.amazonaws.com` principals to assume the SpinnakerManaged role by adding it as a principal.  See example code below.  Failure to do so will prevent you from deploying ECS server groups:
 ```
 {
   "Version": "2012-10-17",
@@ -16,10 +16,18 @@ Make sure that you allow the `application-autoscaling.amazonaws.com` to assume t
     {
       "Effect": "Allow",
       "Principal": {
-        "Service": "application-autoscaling.amazonaws.com"
+                "Service": [
+                  "ecs.amazonaws.com",
+                  "application-autoscaling.amazonaws.com"
+                ],
       },
       "Action": "sts:AssumeRole"
     }
   ]
 }
 ```
+## 
+
+
+TODO Wishlist:
+1. Perhaps clouddriver should try to add the 2 required trust relationships on startup if they are detected as not being present
