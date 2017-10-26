@@ -21,10 +21,12 @@ import com.google.common.collect.Lists;
 import com.netflix.servo.util.VisibleForTesting;
 import com.netflix.spectator.api.Registry;
 import com.netflix.spinnaker.clouddriver.docker.registry.security.DockerRegistryNamedAccountCredentials;
-import com.netflix.spinnaker.clouddriver.kubernetes.api.KubernetesApiAdaptor;
+import com.netflix.spinnaker.clouddriver.kubernetes.v1.api.KubernetesApiAdaptor;
+import com.netflix.spinnaker.clouddriver.kubernetes.v1.api.KubernetesClientApiAdapter;
 import com.netflix.spinnaker.clouddriver.kubernetes.config.LinkedDockerRegistryConfiguration;
 import com.netflix.spinnaker.clouddriver.kubernetes.security.KubernetesCredentials;
 import com.netflix.spinnaker.clouddriver.security.AccountCredentialsRepository;
+import com.netflix.spinnaker.clouddriver.kubernetes.security.KubernetesApiClientConfig;
 import io.fabric8.kubernetes.api.model.Namespace;
 import io.fabric8.kubernetes.api.model.NamespaceBuilder;
 import io.fabric8.kubernetes.api.model.Secret;
@@ -45,6 +47,7 @@ import java.util.Set;
 
 public class KubernetesV1Credentials implements KubernetesCredentials {
   private final KubernetesApiAdaptor apiAdaptor;
+  private KubernetesClientApiAdapter apiClientAdaptor;
   private final List<String> namespaces;
   private final List<String> omitNamespaces;
   private final List<LinkedDockerRegistryConfiguration> dockerRegistries;
@@ -74,7 +77,10 @@ public class KubernetesV1Credentials implements KubernetesCredentials {
     Config config = KubernetesConfigParser.parse(kubeconfigFile, context, cluster, user, namespaces, serviceAccount);
     config.setUserAgent(userAgent);
 
+    KubernetesApiClientConfig configClient = new KubernetesApiClientConfig(kubeconfigFile, context, cluster, user, userAgent);
+
     this.apiAdaptor = new KubernetesApiAdaptor(name, config, spectatorRegistry);
+    this.apiClientAdaptor = new KubernetesClientApiAdapter(name, configClient, spectatorRegistry);
     this.namespaces = namespaces != null ? namespaces : new ArrayList<>();
     this.omitNamespaces = omitNamespaces != null ? omitNamespaces : new ArrayList<>();
     this.dockerRegistries = dockerRegistries;
@@ -119,7 +125,7 @@ public class KubernetesV1Credentials implements KubernetesCredentials {
 
   }
 
-  public List<String> getNamespaces() {
+  public List<String> getDeclaredNamespaces() {
     if (namespaces != null && !namespaces.isEmpty()) {
       // If namespaces are provided, used them
       return namespaces;
@@ -223,6 +229,11 @@ public class KubernetesV1Credentials implements KubernetesCredentials {
     return apiAdaptor;
   }
 
+  public KubernetesClientApiAdapter getClientApiAdaptor() {
+    return apiClientAdaptor;
+  }
+
+
   public List<LinkedDockerRegistryConfiguration> getDockerRegistries() {
     return dockerRegistries;
   }
@@ -232,7 +243,7 @@ public class KubernetesV1Credentials implements KubernetesCredentials {
   }
 
   public Boolean isRegisteredNamespace(String namespace) {
-    return getNamespaces().contains(namespace);
+    return getDeclaredNamespaces().contains(namespace);
   }
 
   public Boolean isRegisteredImagePullSecret(String secret, String namespace) {

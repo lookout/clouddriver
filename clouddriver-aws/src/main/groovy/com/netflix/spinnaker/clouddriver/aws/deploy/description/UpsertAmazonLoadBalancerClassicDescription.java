@@ -21,10 +21,12 @@ import java.util.List;
 public class UpsertAmazonLoadBalancerClassicDescription extends UpsertAmazonLoadBalancerDescription {
   private List<Listener> listeners;
   private String healthCheck;
+  private Integer healthCheckPort;
   private Integer healthInterval = 10;
   private Integer healthTimeout = 5;
   private Integer unhealthyThreshold = 2;
   private Integer healthyThreshold = 10;
+  private String application;
 
   public List<Listener> getListeners() {
     return listeners;
@@ -83,6 +85,22 @@ public class UpsertAmazonLoadBalancerClassicDescription extends UpsertAmazonLoad
   }
 
   private Boolean crossZoneBalancing = Boolean.TRUE;
+
+  public String getApplication() {
+    return application;
+  }
+
+  public void setApplication(String application) {
+    this.application = application;
+  }
+
+  public Integer getHealthCheckPort() {
+    return healthCheckPort;
+  }
+
+  public void setHealthCheckPort(Integer healthCheckPort) {
+    this.healthCheckPort = healthCheckPort;
+  }
 
   public static class Listener {
     public enum ListenerType {

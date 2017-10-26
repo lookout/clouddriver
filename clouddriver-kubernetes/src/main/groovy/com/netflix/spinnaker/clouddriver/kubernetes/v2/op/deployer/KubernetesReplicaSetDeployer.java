@@ -17,19 +17,66 @@
 
 package com.netflix.spinnaker.clouddriver.kubernetes.v2.op.deployer;
 
+import com.netflix.spinnaker.clouddriver.kubernetes.v2.description.KubernetesSpinnakerKindMap.SpinnakerKind;
+import com.netflix.spinnaker.clouddriver.kubernetes.v2.description.manifest.KubernetesApiVersion;
+import com.netflix.spinnaker.clouddriver.kubernetes.v2.description.manifest.KubernetesKind;
 import com.netflix.spinnaker.clouddriver.kubernetes.v2.security.KubernetesV2Credentials;
+import com.netflix.spinnaker.clouddriver.model.ServerGroup.Capacity;
+import io.kubernetes.client.models.V1DeleteOptions;
 import io.kubernetes.client.models.V1beta1ReplicaSet;
 import org.springframework.stereotype.Component;
 
 @Component
-public class KubernetesReplicaSetDeployer extends KubernetesDeployer<V1beta1ReplicaSet> {
+public class KubernetesReplicaSetDeployer extends KubernetesDeployer<V1beta1ReplicaSet> implements CanResize, CanDelete<V1DeleteOptions> {
   @Override
-  Class<V1beta1ReplicaSet> getDeployedClass() {
+  public KubernetesKind kind() {
+    return KubernetesKind.REPLICA_SET;
+  }
+
+  @Override
+  public KubernetesApiVersion apiVersion() {
+    return KubernetesApiVersion.EXTENSIONS_V1BETA1;
+  }
+
+  @Override
+  public Class<V1beta1ReplicaSet> getDeployedClass() {
     return V1beta1ReplicaSet.class;
   }
 
   @Override
+  public Class<V1DeleteOptions> getDeleteOptionsClass() {
+    return V1DeleteOptions.class;
+  }
+
+  @Override
   void deploy(KubernetesV2Credentials credentials, V1beta1ReplicaSet resource) {
-    credentials.deployReplicaSet(resource);
+    String namespace = resource.getMetadata().getNamespace();
+    String name = resource.getMetadata().getName();
+    V1beta1ReplicaSet current = credentials.readReplicaSet(namespace, name);
+    if (current != null) {
+      credentials.patchReplicaSet(current, resource);
+    } else {
+      credentials.createReplicaSet(resource);
+    }
+  }
+
+  @Override
+  public boolean versioned() {
+    return true;
+  }
+
+  @Override
+  public SpinnakerKind spinnakerKind() {
+    return SpinnakerKind.SERVER_GROUP;
+  }
+
+  @Override
+  public void resize(KubernetesV2Credentials credentials, String namespace, String name, Capacity capacity) {
+    credentials.resizeReplicaSet(namespace, name, capacity.getDesired());
+  }
+
+  @Override
+  public void delete(KubernetesV2Credentials credentials, String namespace, String name, V1DeleteOptions deleteOptions) {
+    credentials.deleteReplicaSet(namespace, name, deleteOptions);
   }
 }

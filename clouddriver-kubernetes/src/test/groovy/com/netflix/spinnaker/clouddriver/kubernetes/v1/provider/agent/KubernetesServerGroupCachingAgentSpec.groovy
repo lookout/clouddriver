@@ -19,9 +19,12 @@ package com.netflix.spinnaker.clouddriver.kubernetes.v1.provider.agent
 import com.fasterxml.jackson.databind.ObjectMapper
 import com.netflix.spectator.api.Registry
 import com.netflix.spinnaker.cats.provider.ProviderCache
-import com.netflix.spinnaker.clouddriver.kubernetes.api.KubernetesApiAdaptor
+import com.netflix.spinnaker.clouddriver.cache.OnDemandAgent
+import com.netflix.spinnaker.clouddriver.kubernetes.KubernetesCloudProvider
+import com.netflix.spinnaker.clouddriver.kubernetes.v1.api.KubernetesApiAdaptor
+import com.netflix.spinnaker.clouddriver.kubernetes.v1.deploy.KubernetesUtil
+import com.netflix.spinnaker.clouddriver.kubernetes.security.KubernetesNamedAccountCredentials
 import com.netflix.spinnaker.clouddriver.kubernetes.v1.caching.Keys
-import com.netflix.spinnaker.clouddriver.kubernetes.deploy.KubernetesUtil
 import com.netflix.spinnaker.clouddriver.kubernetes.v1.security.KubernetesV1Credentials
 import com.netflix.spinnaker.clouddriver.security.AccountCredentialsRepository
 import io.fabric8.kubernetes.api.model.ObjectMeta
@@ -30,6 +33,7 @@ import io.fabric8.kubernetes.api.model.ReplicationController
 import io.fabric8.kubernetes.api.model.ReplicationControllerList
 import io.fabric8.kubernetes.api.model.ReplicationControllerSpec
 import spock.lang.Specification
+import spock.lang.Unroll
 
 class KubernetesServerGroupCachingAgentSpec extends Specification {
   static final private String NAMESPACE = "default"
@@ -66,12 +70,16 @@ class KubernetesServerGroupCachingAgentSpec extends Specification {
 
     kubernetesCredentials = new KubernetesV1Credentials(apiMock, [], [], [], accountCredentialsRepositoryMock)
 
+    def namedCrededentialsMock = Mock(KubernetesNamedAccountCredentials)
+    namedCrededentialsMock.getCredentials() >> kubernetesCredentials
+    namedCrededentialsMock.getName() >> ACCOUNT_NAME
+
     applicationKey = Keys.getApplicationKey(APP)
     clusterKey = Keys.getClusterKey(ACCOUNT_NAME, APP, 'serverGroup', CLUSTER)
     serverGroupKey = Keys.getServerGroupKey(ACCOUNT_NAME, NAMESPACE, REPLICATION_CONTROLLER)
     instanceKey = Keys.getInstanceKey(ACCOUNT_NAME, NAMESPACE, POD)
 
-    cachingAgent = new KubernetesServerGroupCachingAgent(ACCOUNT_NAME, kubernetesCredentials, new ObjectMapper(), 0, 1, registryMock)
+    cachingAgent = new KubernetesServerGroupCachingAgent(namedCrededentialsMock, new ObjectMapper(), registryMock, 0, 1)
   }
 
   void "Should store a single replication controller object and relationships"() {
@@ -119,5 +127,20 @@ class KubernetesServerGroupCachingAgentSpec extends Specification {
       result.cacheResults.instances.relationships.clusters[0][0] == clusterKey
       result.cacheResults.instances.relationships.applications[0][0] == applicationKey
       result.cacheResults.instances.relationships.serverGroups[0][0] == serverGroupKey
+  }
+
+  @Unroll
+  void "correctly reports #type/#provider is handled by the server group caching agent (#result)"() {
+    expect:
+    cachingAgent.handles(type, provider) == result
+
+    where:
+    type                                     | provider                   || result
+    OnDemandAgent.OnDemandType.ServerGroup   | KubernetesCloudProvider.ID || true
+    OnDemandAgent.OnDemandType.LoadBalancer  | KubernetesCloudProvider.ID || false
+    OnDemandAgent.OnDemandType.SecurityGroup | KubernetesCloudProvider.ID || false
+    OnDemandAgent.OnDemandType.ServerGroup   | "google "                  || false
+    OnDemandAgent.OnDemandType.LoadBalancer  | ""                         || false
+    null                                     | ""                         || false
   }
 }

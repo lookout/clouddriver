@@ -17,9 +17,13 @@
 package com.netflix.spinnaker.clouddriver.kubernetes.security;
 
 import com.netflix.spectator.api.Registry;
+import com.netflix.spinnaker.clouddriver.kubernetes.KubernetesCloudProvider;
 import com.netflix.spinnaker.clouddriver.kubernetes.config.LinkedDockerRegistryConfiguration;
 import com.netflix.spinnaker.clouddriver.kubernetes.v1.security.KubernetesV1Credentials;
+import com.netflix.spinnaker.clouddriver.kubernetes.v2.description.manifest.KubernetesManifest;
+import com.netflix.spinnaker.clouddriver.kubernetes.v2.names.KubernetesManifestNamer;
 import com.netflix.spinnaker.clouddriver.kubernetes.v2.security.KubernetesV2Credentials;
+import com.netflix.spinnaker.clouddriver.names.NamerRegistry;
 import com.netflix.spinnaker.clouddriver.security.AccountCredentials;
 import com.netflix.spinnaker.clouddriver.security.AccountCredentialsRepository;
 import com.netflix.spinnaker.clouddriver.security.ProviderVersion;
@@ -36,7 +40,7 @@ import static com.netflix.spinnaker.clouddriver.security.ProviderVersion.v1;
 public class KubernetesNamedAccountCredentials<C extends KubernetesCredentials> implements AccountCredentials<C> {
   final private String cloudProvider = "kubernetes";
   final private String name;
-  final private ProviderVersion version;
+  final private ProviderVersion providerVersion;
   final private String environment;
   final private String accountType;
   final private String context;
@@ -56,7 +60,7 @@ public class KubernetesNamedAccountCredentials<C extends KubernetesCredentials> 
   private final AccountCredentialsRepository accountCredentialsRepository;
 
   KubernetesNamedAccountCredentials(String name,
-                                    ProviderVersion version,
+                                    ProviderVersion providerVersion,
                                     AccountCredentialsRepository accountCredentialsRepository,
                                     String userAgent,
                                     String environment,
@@ -75,7 +79,7 @@ public class KubernetesNamedAccountCredentials<C extends KubernetesCredentials> 
                                     Registry spectatorRegistry,
                                     C credentials) {
     this.name = name;
-    this.version = version;
+    this.providerVersion = providerVersion;
     this.environment = environment;
     this.accountType = accountType;
     this.context = context;
@@ -96,7 +100,7 @@ public class KubernetesNamedAccountCredentials<C extends KubernetesCredentials> 
   }
 
   public List<String> getNamespaces() {
-    return credentials.getNamespaces();
+    return credentials.getDeclaredNamespaces();
   }
 
   @Override
@@ -105,8 +109,8 @@ public class KubernetesNamedAccountCredentials<C extends KubernetesCredentials> 
   }
 
   @Override
-  public ProviderVersion getVersion() {
-    return version;
+  public ProviderVersion getProviderVersion() {
+    return providerVersion;
   }
 
   @Override
@@ -133,6 +137,14 @@ public class KubernetesNamedAccountCredentials<C extends KubernetesCredentials> 
     return cacheThreads;
   }
 
+  public List<LinkedDockerRegistryConfiguration> getDockerRegistries() {
+    return dockerRegistries;
+  }
+
+  public Permissions getPermissions() {
+    return permissions;
+  }
+
   @Override
   public List<String> getRequiredGroupMembership() {
     return requiredGroupMembership;
@@ -140,7 +152,7 @@ public class KubernetesNamedAccountCredentials<C extends KubernetesCredentials> 
 
   static class Builder<C extends KubernetesCredentials> {
     String name;
-    ProviderVersion version;
+    ProviderVersion providerVersion;
     String environment;
     String accountType;
     String context;
@@ -158,14 +170,15 @@ public class KubernetesNamedAccountCredentials<C extends KubernetesCredentials> 
     List<LinkedDockerRegistryConfiguration> dockerRegistries;
     Registry spectatorRegistry;
     AccountCredentialsRepository accountCredentialsRepository;
+    boolean debug;
 
     Builder name(String name) {
       this.name = name;
       return this;
     }
 
-    Builder version(ProviderVersion version) {
-      this.version = version;
+    Builder providerVersion(ProviderVersion providerVersion) {
+      this.providerVersion = providerVersion;
       return this;
     }
 
@@ -257,8 +270,13 @@ public class KubernetesNamedAccountCredentials<C extends KubernetesCredentials> 
       return this;
     }
 
+    Builder debug(boolean debug) {
+      this.debug = debug;
+      return this;
+    }
+
     private C buildCredentials() {
-      switch (version) {
+      switch (providerVersion) {
         case v1:
           return (C) new KubernetesV1Credentials(
               name,
@@ -275,9 +293,22 @@ public class KubernetesNamedAccountCredentials<C extends KubernetesCredentials> 
               accountCredentialsRepository
           );
         case v2:
-          return (C) new KubernetesV2Credentials(spectatorRegistry);
+          NamerRegistry.lookup()
+              .withProvider(KubernetesCloudProvider.getID())
+              .withAccount(name)
+              .setNamer(KubernetesManifest.class, new KubernetesManifestNamer());
+          return (C) new KubernetesV2Credentials.Builder()
+              .accountName(name)
+              .kubeconfigFile(kubeconfigFile)
+              .context(context)
+              .userAgent(userAgent)
+              .namespaces(namespaces)
+              .omitNamespaces(omitNamespaces)
+              .registry(spectatorRegistry)
+              .debug(debug)
+              .build();
         default:
-          throw new IllegalArgumentException("Unknown provider type: " + version);
+          throw new IllegalArgumentException("Unknown provider type: " + providerVersion);
       }
     }
 
@@ -294,8 +325,8 @@ public class KubernetesNamedAccountCredentials<C extends KubernetesCredentials> 
         cacheThreads = 1;
       }
 
-      if (version == null) {
-        version = v1;
+      if (providerVersion == null) {
+        providerVersion = v1;
       }
 
       if (StringUtils.isEmpty(kubeconfigFile)) {
@@ -314,7 +345,7 @@ public class KubernetesNamedAccountCredentials<C extends KubernetesCredentials> 
 
       return new KubernetesNamedAccountCredentials(
           name,
-          version,
+          providerVersion,
           accountCredentialsRepository,
           userAgent,
           environment,
