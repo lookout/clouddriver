@@ -18,8 +18,10 @@ package com.netflix.spinnaker.clouddriver.ecs.deploy.description;
 
 import com.netflix.spinnaker.clouddriver.model.ServerGroup;
 import lombok.Data;
+import lombok.EqualsAndHashCode;
 
 @Data
+@EqualsAndHashCode(callSuper = false)
 public class ResizeServiceDescription extends AbstractECSDescription {
   String serverGroupName;
 

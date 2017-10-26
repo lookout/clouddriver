@@ -18,11 +18,13 @@ package com.netflix.spinnaker.clouddriver.ecs.deploy.description;
 
 import com.netflix.spinnaker.clouddriver.model.ServerGroup;
 import lombok.Data;
+import lombok.EqualsAndHashCode;
 
 import java.util.List;
 import java.util.Map;
 
 @Data
+@EqualsAndHashCode(callSuper = false)
 public class CreateServerGroupDescription extends AbstractECSDescription {
   String ecsClusterName;
   String iamRole;
