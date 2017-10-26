@@ -20,22 +20,15 @@ import com.amazonaws.auth.AWSCredentialsProvider;
 import com.amazonaws.services.ecs.AmazonECS;
 import com.amazonaws.services.ecs.model.ListClustersRequest;
 import com.amazonaws.services.ecs.model.ListClustersResult;
-import com.netflix.spectator.api.Registry;
-import com.netflix.spinnaker.cats.agent.AgentDataType;
 import com.netflix.spinnaker.cats.agent.CacheResult;
 import com.netflix.spinnaker.cats.agent.CachingAgent;
 import com.netflix.spinnaker.cats.cache.CacheData;
 import com.netflix.spinnaker.cats.provider.ProviderCache;
 import com.netflix.spinnaker.clouddriver.aws.security.AmazonClientProvider;
-import com.netflix.spinnaker.clouddriver.cache.OnDemandAgent;
-import com.netflix.spinnaker.clouddriver.cache.OnDemandMetricsSupport;
-import com.netflix.spinnaker.clouddriver.ecs.EcsCloudProvider;
 import com.netflix.spinnaker.clouddriver.ecs.provider.EcsProvider;
-import groovy.lang.Closure;
 
 import java.util.Collection;
 import java.util.HashSet;
-import java.util.LinkedList;
 import java.util.List;
 import java.util.Map;
 import java.util.Set;
@@ -58,6 +51,7 @@ public abstract class AbstractEcsCachingAgent<T> implements CachingAgent {
 
   /**
    * Fetches items to be stored from the AWS API
+   *
    * @param ecs
    * @param providerCache
    * @return
@@ -66,6 +60,7 @@ public abstract class AbstractEcsCachingAgent<T> implements CachingAgent {
 
   /**
    * Transforms raw cached objects as cache-storeable objects
+   *
    * @param items
    * @param providerCache
    * @return
