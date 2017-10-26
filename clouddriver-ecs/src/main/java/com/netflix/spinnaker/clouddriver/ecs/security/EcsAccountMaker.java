@@ -37,7 +37,6 @@ public class EcsAccountMaker {
     account.setBastionEnabled(netflixAmazonCredentials.getBastionEnabled());
     account.setBastionHost(netflixAmazonCredentials.getBastionHost());
     account.setEdda(account.getEdda());
-    netflixAmazonCredentials.getCredentials();
 
     account.setDiscoveryEnabled(netflixAmazonCredentials.getDiscoveryEnabled());
     account.setDiscovery(netflixAmazonCredentials.getDiscovery());
