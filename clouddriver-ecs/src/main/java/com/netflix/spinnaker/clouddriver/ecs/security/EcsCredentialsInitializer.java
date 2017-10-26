@@ -33,6 +33,7 @@ import org.springframework.context.annotation.Configuration;
 import org.springframework.context.annotation.DependsOn;
 import org.springframework.context.annotation.Scope;
 
+import java.util.Collections;
 import java.util.LinkedList;
 import java.util.List;
 
@@ -73,68 +74,10 @@ public class EcsCredentialsInitializer implements CredentialsInitializerSynchron
             NetflixAmazonCredentials netflixAmazonCredentials = (NetflixAmazonCredentials) accountCredentials;
 
             // TODO: accountCredentials should be serializable or somehow cloneable.
-            CredentialsConfig.Account account = new CredentialsConfig.Account();
-            account.setName(ecsAccount.getName());
-            account.setAccountType("ecs");
-            account.setAccountId(accountCredentials.getAccountId());
-            account.setAllowPrivateThirdPartyImages(netflixAmazonCredentials.getAllowPrivateThirdPartyImages());
-            account.setBastionEnabled(netflixAmazonCredentials.getBastionEnabled());
-            account.setBastionHost(netflixAmazonCredentials.getBastionHost());
-            account.setEdda(account.getEdda());
-            accountCredentials.getCredentials();
-
-            account.setDiscoveryEnabled(netflixAmazonCredentials.getDiscoveryEnabled());
-            account.setDiscovery(netflixAmazonCredentials.getDiscovery());
-            account.setDefaultKeyPair(netflixAmazonCredentials.getDefaultKeyPair());
-            account.setDefaultSecurityGroups(netflixAmazonCredentials.getDefaultSecurityGroups());
-            account.setEddaEnabled(netflixAmazonCredentials.getEddaEnabled());
-            account.setEnvironment(accountCredentials.getEnvironment());
-            account.setFront50(netflixAmazonCredentials.getFront50());
-            account.setFront50Enabled(netflixAmazonCredentials.getFront50Enabled());
-            account.setRequiredGroupMembership(accountCredentials.getRequiredGroupMembership());
-
-            //TODO - The lines below should be conditional on having an AssumeRole
-            account.setSessionName(((NetflixAssumeRoleAmazonCredentials) accountCredentials).getSessionName());
-            account.setAssumeRole(((NetflixAssumeRoleAmazonCredentials) accountCredentials).getAssumeRole());
-
-            List<CredentialsConfig.Region> regions = new LinkedList<>();
-            for (AmazonCredentials.AWSRegion awsRegion : ((NetflixAssumeRoleAmazonCredentials) accountCredentials).getRegions()) {
-              CredentialsConfig.Region region = new CredentialsConfig.Region();
-              region.setAvailabilityZones((List<String>) awsRegion.getAvailabilityZones());
-              region.setDeprecated(awsRegion.getDeprecated());
-              region.setName(awsRegion.getName());
-              region.setPreferredZones((List<String>) awsRegion.getPreferredZones());
-              regions.add(region);
-            }
-            account.setRegions(regions);
-
-            List<CredentialsConfig.LifecycleHook> hooks = new LinkedList<>();
-            for (AmazonCredentials.LifecycleHook awsHook : ((NetflixAssumeRoleAmazonCredentials) accountCredentials).getLifecycleHooks()) {
-              CredentialsConfig.LifecycleHook hook = new CredentialsConfig.LifecycleHook();
-              hook.setDefaultResult(awsHook.getDefaultResult());
-              hook.setHeartbeatTimeout(awsHook.getHeartbeatTimeout());
-              hook.setLifecycleTransition(awsHook.getLifecycleTransition());
-              hook.setNotificationTargetARN(awsHook.getNotificationTargetARN());
-              hook.setRoleARN(awsHook.getRoleARN());
-            }
-            account.setLifecycleHooks(hooks);
-
-            Permissions permissions = ((NetflixAssumeRoleAmazonCredentials) accountCredentials).getPermissions();
-            Permissions.Builder permBuilder = new Permissions.Builder();
-            for (String group : permissions.allGroups()) {
-              List<String> roles = new LinkedList<>();
-              roles.add(group);
-              for (Authorization auth : permissions.getAuthorizations(roles)) {
-                permBuilder.add(auth, group);
-              }
-            }
-            account.setPermissions(permBuilder);
-
-            List<CredentialsConfig.Account> accounts = new LinkedList<>();
-            accounts.add(account);
+            CredentialsConfig.Account account = makeAccount(netflixAmazonCredentials, ecsAccount.getName(), "ecs");
 
             CredentialsConfig ecsCopy = new CredentialsConfig();
-            ecsCopy.setAccounts(accounts);
+            ecsCopy.setAccounts(Collections.singletonList(account));
 
             NetflixAmazonCredentials clone = credentialsLoader.load(ecsCopy).get(0);
             clone.CLOUD_PROVIDER = "ecs";
@@ -142,12 +85,76 @@ public class EcsCredentialsInitializer implements CredentialsInitializerSynchron
 
             accountCredentialsRepository.save(ecsAccount.getName(), clone);
             break;
+
           }
         }
       }
     }
 
     return credentials;
+  }
+
+  private CredentialsConfig.Account makeAccount(NetflixAmazonCredentials netflixAmazonCredentials, String accountName, String accountType) {
+    CredentialsConfig.Account account = new CredentialsConfig.Account();
+    account.setName(accountName);
+    account.setAccountType(accountType);
+    account.setAccountId(netflixAmazonCredentials.getAccountId());
+    account.setAllowPrivateThirdPartyImages(netflixAmazonCredentials.getAllowPrivateThirdPartyImages());
+    account.setBastionEnabled(netflixAmazonCredentials.getBastionEnabled());
+    account.setBastionHost(netflixAmazonCredentials.getBastionHost());
+    account.setEdda(account.getEdda());
+    netflixAmazonCredentials.getCredentials();
+
+    account.setDiscoveryEnabled(netflixAmazonCredentials.getDiscoveryEnabled());
+    account.setDiscovery(netflixAmazonCredentials.getDiscovery());
+    account.setDefaultKeyPair(netflixAmazonCredentials.getDefaultKeyPair());
+    account.setDefaultSecurityGroups(netflixAmazonCredentials.getDefaultSecurityGroups());
+    account.setEddaEnabled(netflixAmazonCredentials.getEddaEnabled());
+    account.setEnvironment(netflixAmazonCredentials.getEnvironment());
+    account.setFront50(netflixAmazonCredentials.getFront50());
+    account.setFront50Enabled(netflixAmazonCredentials.getFront50Enabled());
+    account.setRequiredGroupMembership(netflixAmazonCredentials.getRequiredGroupMembership());
+
+    //TODO - The lines below should be conditional on having an AssumeRole
+    if (netflixAmazonCredentials instanceof NetflixAssumeRoleAmazonCredentials &&
+      ((NetflixAssumeRoleAmazonCredentials) netflixAmazonCredentials).getAssumeRole() != null) {
+      account.setSessionName(((NetflixAssumeRoleAmazonCredentials) netflixAmazonCredentials).getSessionName());
+      account.setAssumeRole(((NetflixAssumeRoleAmazonCredentials) netflixAmazonCredentials).getAssumeRole());
+    }
+
+    List<CredentialsConfig.Region> regions = new LinkedList<>();
+    for (AmazonCredentials.AWSRegion awsRegion : netflixAmazonCredentials.getRegions()) {
+      CredentialsConfig.Region region = new CredentialsConfig.Region();
+      region.setAvailabilityZones((List<String>) awsRegion.getAvailabilityZones());
+      region.setDeprecated(awsRegion.getDeprecated());
+      region.setName(awsRegion.getName());
+      region.setPreferredZones((List<String>) awsRegion.getPreferredZones());
+      regions.add(region);
+    }
+    account.setRegions(regions);
+
+    List<CredentialsConfig.LifecycleHook> hooks = new LinkedList<>();
+    for (AmazonCredentials.LifecycleHook awsHook : netflixAmazonCredentials.getLifecycleHooks()) {
+      CredentialsConfig.LifecycleHook hook = new CredentialsConfig.LifecycleHook();
+      hook.setDefaultResult(awsHook.getDefaultResult());
+      hook.setHeartbeatTimeout(awsHook.getHeartbeatTimeout());
+      hook.setLifecycleTransition(awsHook.getLifecycleTransition());
+      hook.setNotificationTargetARN(awsHook.getNotificationTargetARN());
+      hook.setRoleARN(awsHook.getRoleARN());
+    }
+    account.setLifecycleHooks(hooks);
+
+    Permissions.Builder permBuilder = new Permissions.Builder();
+    for (String group : netflixAmazonCredentials.getPermissions().allGroups()) {
+      List<String> roles = new LinkedList<>();
+      roles.add(group);
+      for (Authorization auth : netflixAmazonCredentials.getPermissions().getAuthorizations(roles)) {
+        permBuilder.add(auth, group);
+      }
+    }
+    account.setPermissions(permBuilder);
+
+    return account;
   }
 
   @Override
