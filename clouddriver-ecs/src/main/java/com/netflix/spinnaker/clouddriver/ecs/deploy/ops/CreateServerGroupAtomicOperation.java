@@ -223,12 +223,12 @@ public class CreateServerGroupAtomicOperation implements AtomicOperation<Deploym
     loadBalancer.setContainerName(versionString);
     loadBalancer.setContainerPort(description.getContainerPort());
 
-    if (description.getTargetGroups().size() == 1) {
+    if (description.getTargetGroup() != null) {
       AmazonElasticLoadBalancing loadBalancingV2 = amazonClientProvider.getAmazonElasticLoadBalancingV2(
         description.getCredentialAccount(),
         credentials.getCredentialsProvider(),
         region);
-      String targetGroupName = description.getTargetGroups().get(0);  // TODO - make target group a single value field in Deck instead of an array here
+      String targetGroupName = description.getTargetGroup();
       DescribeTargetGroupsRequest request = new DescribeTargetGroupsRequest().withNames(targetGroupName);
       DescribeTargetGroupsResult describeTargetGroupsResult = loadBalancingV2.describeTargetGroups(request);
       loadBalancer.setTargetGroupArn(describeTargetGroupsResult.getTargetGroups().get(0).getTargetGroupArn());
