@@ -17,8 +17,10 @@
 package com.netflix.spinnaker.clouddriver.ecs.deploy.description;
 
 import lombok.Data;
+import lombok.EqualsAndHashCode;
 
 @Data
+@EqualsAndHashCode(callSuper = false)
 public class DestroyServiceDescription extends AbstractECSDescription {
   String serverGroupName;
   String cluster;

@@ -129,9 +129,9 @@ class OperationsController {
       String accountName = operation.credentials ?: operation.accountName ?: operation.account
       if (accountName) {
         def credentials = accountCredentialsRepository.getOne(accountName)
-        providerVersion = credentials.getVersion()
+        providerVersion = credentials.getProviderVersion()
       } else {
-        log.warn "Unable to get account name from operation: $inputs"
+        log.warn "Unable to get account name from operation: $operation"
       }
     } catch (Exception e) {
       log.warn "Unable to determine account version", e

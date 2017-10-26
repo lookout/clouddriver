@@ -40,6 +40,16 @@ public class Keys implements KeyParser {
     return parse(key);
   }
 
+  @Override
+  public Boolean canParseType(String type) {
+    for (Namespace key : Namespace.values()) {
+      if (key.toString().equals(type)) {
+        return true;
+      }
+    }
+    return false;
+  }
+
   public static Map<String, String> parse(String key) {
     String[] parts = key.split(SEPARATOR);
 
@@ -85,12 +95,7 @@ public class Keys implements KeyParser {
   }
 
   @Override
-  public Boolean canParse(String type) {
-    for (Namespace key : Namespace.values()) {
-      if (key.toString().equals(type)) {
-        return true;
-      }
-    }
+  public Boolean canParseField(String type) {
     return false;
   }
 

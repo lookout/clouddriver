@@ -77,7 +77,7 @@ class KubernetesNamedAccountCredentialsInitializer implements CredentialsInitial
           .accountCredentialsRepository(accountCredentialsRepository)
           .userAgent(clouddriverUserAgentApplicationName)
           .name(managedAccount.name)
-          .version(managedAccount.version)
+          .providerVersion(managedAccount.providerVersion)
           .environment(managedAccount.environment ?: managedAccount.name)
           .accountType(managedAccount.accountType ?: managedAccount.name)
           .context(managedAccount.context)
@@ -92,6 +92,7 @@ class KubernetesNamedAccountCredentialsInitializer implements CredentialsInitial
           .requiredGroupMembership(managedAccount.requiredGroupMembership)
           .permissions(managedAccount.permissions.build())
           .spectatorRegistry(spectatorRegistry)
+          .debug(managedAccount.debug)
           .build()
 
         accountCredentialsRepository.save(managedAccount.name, kubernetesAccount)
