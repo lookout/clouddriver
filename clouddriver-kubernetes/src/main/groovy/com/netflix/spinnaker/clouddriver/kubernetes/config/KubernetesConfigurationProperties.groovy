@@ -25,7 +25,7 @@ class KubernetesConfigurationProperties {
   @ToString(includeNames = true)
   static class ManagedAccount {
     String name
-    ProviderVersion version
+    ProviderVersion providerVersion
     String environment
     String accountType
     String context
@@ -39,6 +39,7 @@ class KubernetesConfigurationProperties {
     List<LinkedDockerRegistryConfiguration> dockerRegistries
     List<String> requiredGroupMembership
     Permissions.Builder permissions = new Permissions.Builder()
+    Boolean debug = false;
   }
 
   List<ManagedAccount> accounts = []

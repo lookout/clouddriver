@@ -17,20 +17,60 @@
 
 package com.netflix.spinnaker.clouddriver.kubernetes.v2.op.deployer;
 
+import com.netflix.spinnaker.clouddriver.kubernetes.v2.description.KubernetesSpinnakerKindMap.SpinnakerKind;
+import com.netflix.spinnaker.clouddriver.kubernetes.v2.description.manifest.KubernetesApiVersion;
+import com.netflix.spinnaker.clouddriver.kubernetes.v2.description.manifest.KubernetesKind;
 import com.netflix.spinnaker.clouddriver.kubernetes.v2.security.KubernetesV2Credentials;
+import io.kubernetes.client.models.V1DeleteOptions;
 import io.kubernetes.client.models.V1beta1Ingress;
-import io.kubernetes.client.models.V1beta1ReplicaSet;
 import org.springframework.stereotype.Component;
 
 @Component
-public class KubernetesIngressDeployer extends KubernetesDeployer<V1beta1Ingress> {
+public class KubernetesIngressDeployer extends KubernetesDeployer<V1beta1Ingress> implements CanDelete<V1DeleteOptions> {
   @Override
-  Class<V1beta1Ingress> getDeployedClass() {
+  public KubernetesKind kind() {
+    return KubernetesKind.INGRESS;
+  }
+
+  @Override
+  public KubernetesApiVersion apiVersion() {
+    return KubernetesApiVersion.EXTENSIONS_V1BETA1;
+  }
+
+  @Override
+  public Class<V1beta1Ingress> getDeployedClass() {
     return V1beta1Ingress.class;
   }
 
   @Override
   void deploy(KubernetesV2Credentials credentials, V1beta1Ingress resource) {
-    credentials.deployIngress(resource);
+    String namespace = resource.getMetadata().getNamespace();
+    String name = resource.getMetadata().getName();
+    V1beta1Ingress current = credentials.readIngress(namespace, name);
+    if (current != null) {
+      credentials.patchIngress(current, resource);
+    } else {
+      credentials.createIngress(resource);
+    }
+  }
+
+  @Override
+  public boolean versioned() {
+    return false;
+  }
+
+  @Override
+  public SpinnakerKind spinnakerKind() {
+    return SpinnakerKind.LOAD_BALANCER;
+  }
+
+  @Override
+  public Class<V1DeleteOptions> getDeleteOptionsClass() {
+    return V1DeleteOptions.class;
+  }
+
+  @Override
+  public void delete(KubernetesV2Credentials credentials, String namespace, String name, V1DeleteOptions deleteOptions) {
+    credentials.deleteIngress(namespace, name, deleteOptions);
   }
 }

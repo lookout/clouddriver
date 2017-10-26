@@ -18,32 +18,71 @@ package com.netflix.spinnaker.clouddriver.appengine.gcsClient
 
 import com.netflix.spinnaker.clouddriver.appengine.AppengineJobExecutor
 import com.netflix.spinnaker.clouddriver.appengine.model.AppengineRepositoryClient
-
+import com.netflix.spinnaker.clouddriver.appengine.storage.GcsStorageService
+import com.netflix.spinnaker.clouddriver.appengine.storage.StorageUtils
 import groovy.transform.TupleConstructor
+import groovy.util.logging.Slf4j
+import org.apache.commons.io.FileUtils
+import org.apache.commons.io.IOUtils
 
+@Slf4j
 @TupleConstructor
 class AppengineGcsRepositoryClient implements AppengineRepositoryClient {
   String repositoryUrl
-  String targetDirectory
+  String targetDirectoryPath
   String applicationDirectoryRoot
+  GcsStorageService storage
   AppengineJobExecutor jobExecutor
 
   void initializeLocalDirectory() {
-    rsync()
+    downloadFiles()
   }
 
   void updateLocalDirectoryWithVersion(String version) {
-    rsync()
+    downloadFiles()
   }
 
-  void rsync() {
-    def dest = targetDirectory + '/' + applicationDirectoryRoot
-    new File(dest).mkdirs()  // ensure target root exists
+  void downloadFiles() {
+    def gsPrefix = "gs://"
+    if (!repositoryUrl.startsWith(gsPrefix)) {
+      throw new IllegalArgumentException("Repository is not a GCS bucket: " + repositoryUrl)
+    }
 
-    def command  = ["gsutil", "-m", "rsync", "-d", "-r",
-                    repositoryUrl + '/' + applicationDirectoryRoot,
-                    dest]
-                    
-    jobExecutor.runCommand(command)
+    def dest = applicationDirectoryRoot ? targetDirectoryPath + File.separator + applicationDirectoryRoot : targetDirectoryPath
+
+    def fullPath = repositoryUrl.substring(gsPrefix.length())
+    if (applicationDirectoryRoot) {
+      fullPath += "/${applicationDirectoryRoot}"
+    }
+    def slash = fullPath.indexOf("/")
+    def bucketName = fullPath.substring(0, slash)
+    def bucketPath = fullPath.substring(slash + 1)
+
+    // Start with a clean directory for each deployment.
+    File targetDirectory = new File(targetDirectoryPath)
+    if (targetDirectory.exists() && targetDirectory.isDirectory()) {
+      FileUtils.forceDelete(targetDirectory)
+    } else if (targetDirectory.exists() && targetDirectory.isFile()) {
+      log.error("GAE staging directory resolved to a file: ${}, failing...")
+      throw new IllegalArgumentException("GAE staging directory resolved to a file: ${}, failing...")
+    }
+
+    if (fullPath.endsWith(".tar")) {
+      InputStream tas = storage.openObjectStream(bucketName, bucketPath)
+
+      // NOTE: We write the tar file out to an intermediate temp file because the tar input stream
+      // directly from openObjectStream() closes unexpectedly when accessed from untarStreamToPath()
+      // for some reason.
+      File tempFile = File.createTempFile("app", "tar")
+      FileOutputStream fos = new FileOutputStream(tempFile)
+      IOUtils.copy(tas, fos)
+      tas.close()
+      fos.close()
+
+      StorageUtils.untarStreamToPath(new FileInputStream(tempFile), dest)
+      tempFile.delete()
+    } else {
+      storage.visitObjects(bucketName, bucketPath, { obj -> storage.downloadStorageObject(obj, dest) })
+    }
   }
 }

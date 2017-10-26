@@ -101,6 +101,7 @@ class CredentialsController {
                                'cloudProvider',
                                'requiredGroupMembership',
                                'permissions',
+                               'providerVersion',
                                'accountId'])
     }
 
