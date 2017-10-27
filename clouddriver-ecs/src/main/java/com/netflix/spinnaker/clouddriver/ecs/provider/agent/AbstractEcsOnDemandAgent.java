@@ -43,9 +43,9 @@ import java.util.stream.Collectors;
 import static com.netflix.spinnaker.clouddriver.ecs.cache.Keys.Namespace.ECS_CLUSTERS;
 
 public abstract class AbstractEcsOnDemandAgent<T> extends  AbstractEcsCachingAgent<T> implements OnDemandAgent {
-  protected OnDemandMetricsSupport metricsSupport;
+  OnDemandMetricsSupport metricsSupport;
 
-  public AbstractEcsOnDemandAgent(String accountName, String region, AmazonClientProvider amazonClientProvider, AWSCredentialsProvider awsCredentialsProvider, Registry registry) {
+  AbstractEcsOnDemandAgent(String accountName, String region, AmazonClientProvider amazonClientProvider, AWSCredentialsProvider awsCredentialsProvider, Registry registry) {
     super(accountName, region, amazonClientProvider, awsCredentialsProvider);
     this.metricsSupport = new OnDemandMetricsSupport(registry, this, EcsCloudProvider.ID + ":" + EcsCloudProvider.ID + ":${OnDemandAgent.OnDemandType.ServerGroup}");
   }
@@ -88,7 +88,7 @@ public abstract class AbstractEcsOnDemandAgent<T> extends  AbstractEcsCachingAge
 
     CacheResult cacheResult = metricsSupport.transformData(new Closure<CacheResult>(this, this) {
       public CacheResult doCall() {
-        return buildCacheResult(items, providerCache);
+        return buildCacheResult(getAuthoritativeKeyName(), items, providerCache);
       }
     });
 

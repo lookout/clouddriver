@@ -24,8 +24,6 @@ import com.amazonaws.services.ecs.model.ListTaskDefinitionsResult;
 import com.amazonaws.services.ecs.model.TaskDefinition;
 import com.netflix.spectator.api.Registry;
 import com.netflix.spinnaker.cats.agent.AgentDataType;
-import com.netflix.spinnaker.cats.agent.CacheResult;
-import com.netflix.spinnaker.cats.agent.DefaultCacheResult;
 import com.netflix.spinnaker.cats.cache.CacheData;
 import com.netflix.spinnaker.cats.cache.DefaultCacheData;
 import com.netflix.spinnaker.cats.provider.ProviderCache;
@@ -41,14 +39,12 @@ import java.util.HashMap;
 import java.util.LinkedList;
 import java.util.List;
 import java.util.Map;
-import java.util.Set;
-import java.util.stream.Collectors;
 
 import static com.netflix.spinnaker.cats.agent.AgentDataType.Authority.AUTHORITATIVE;
 import static com.netflix.spinnaker.clouddriver.ecs.cache.Keys.Namespace.TASK_DEFINITIONS;
 
 public class TaskDefinitionCachingAgent extends AbstractEcsOnDemandAgent<TaskDefinition> {
-  static final Collection<AgentDataType> types = Collections.unmodifiableCollection(Arrays.asList(
+  private  static final Collection<AgentDataType> types = Collections.unmodifiableCollection(Arrays.asList(
     AUTHORITATIVE.forType(TASK_DEFINITIONS.toString())
   ));
   private final Logger log = LoggerFactory.getLogger(getClass());
@@ -91,20 +87,6 @@ public class TaskDefinitionCachingAgent extends AbstractEcsOnDemandAgent<TaskDef
     return taskDefinitionList;
   }
 
-  @Override
-  protected CacheResult buildCacheResult(List<TaskDefinition> taskDefinitions, ProviderCache providerCache) {
-    Map<String, Collection<CacheData>> dataMap = generateFreshData(taskDefinitions);
-    log.info("Caching " + dataMap.values().size() + " ECS task definitions  in " + getAgentType());
-
-
-    Set<String> oldKeys = providerCache.getAll(TASK_DEFINITIONS.toString()).stream()
-      .map(cache -> cache.getId()).collect(Collectors.toSet());
-
-    Map<String, Collection<String>> evictions = computeEvictableData(dataMap.get(TASK_DEFINITIONS.toString()), oldKeys);
-    log.info("Evicting " + evictions.size() + " ECS task definitions in " + getAgentType());
-
-    return new DefaultCacheResult(dataMap, evictions);
-  }
 
   @Override
   protected Map<String, Collection<CacheData>> generateFreshData(Collection<TaskDefinition> taskDefinitions) {
@@ -124,15 +106,5 @@ public class TaskDefinitionCachingAgent extends AbstractEcsOnDemandAgent<TaskDef
     dataMap.put(TASK_DEFINITIONS.toString(), dataPoints);
 
     return dataMap;
-  }
-
-  @Override
-  protected Map<String, Collection<String>> computeEvictableData(Collection<CacheData> newData, Collection<String> oldKeys) {
-    Set<String> newKeys = newData.stream().map(newKey -> newKey.getId()).collect(Collectors.toSet());
-    Set<String> evictedKeys = oldKeys.stream().filter(oldKey -> !newKeys.contains(oldKey)).collect(Collectors.toSet());
-
-    Map<String, Collection<String>> evictionsByKey = new HashMap<>();
-    evictionsByKey.put(TASK_DEFINITIONS.toString(), evictedKeys);
-    return evictionsByKey;
   }
 }

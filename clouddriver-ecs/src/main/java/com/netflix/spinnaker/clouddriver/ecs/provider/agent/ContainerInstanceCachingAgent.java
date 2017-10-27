@@ -48,7 +48,7 @@ import static com.netflix.spinnaker.cats.agent.AgentDataType.Authority.AUTHORITA
 import static com.netflix.spinnaker.clouddriver.ecs.cache.Keys.Namespace.CONTAINER_INSTANCES;
 
 public class ContainerInstanceCachingAgent extends AbstractEcsOnDemandAgent<ContainerInstance> {
-  static final Collection<AgentDataType> types = Collections.unmodifiableCollection(Arrays.asList(
+  private static final Collection<AgentDataType> types = Collections.unmodifiableCollection(Arrays.asList(
     AUTHORITATIVE.forType(CONTAINER_INSTANCES.toString())
   ));
   private final Logger log = LoggerFactory.getLogger(getClass());
@@ -97,21 +97,6 @@ public class ContainerInstanceCachingAgent extends AbstractEcsOnDemandAgent<Cont
   }
 
   @Override
-  protected CacheResult buildCacheResult(List<ContainerInstance> containerInstances, ProviderCache providerCache) {
-    Map<String, Collection<CacheData>> dataMap = generateFreshData(containerInstances);
-    log.info("Caching " + dataMap.values().size() + " ECS container instances in " + getAgentType());
-
-
-    Set<String> oldKeys = providerCache.getAll(CONTAINER_INSTANCES.toString()).stream()
-      .map(cache -> cache.getId()).collect(Collectors.toSet());
-
-    Map<String, Collection<String>> evictions = computeEvictableData(dataMap.get(CONTAINER_INSTANCES.toString()), oldKeys);
-    log.info("Evicting " + evictions.size() + " ECS container instances in " + getAgentType());
-
-    return new DefaultCacheResult(dataMap, evictions);
-  }
-
-  @Override
   protected Map<String, Collection<CacheData>> generateFreshData(Collection<ContainerInstance> containerInstances) {
     Collection<CacheData> dataPoints = new LinkedList<>();
 
@@ -131,13 +116,4 @@ public class ContainerInstanceCachingAgent extends AbstractEcsOnDemandAgent<Cont
     return dataMap;
   }
 
-  @Override
-  protected Map<String, Collection<String>> computeEvictableData(Collection<CacheData> newData, Collection<String> oldKeys) {
-    Set<String> newKeys = newData.stream().map(newKey -> newKey.getId()).collect(Collectors.toSet());
-    Set<String> evictedKeys = oldKeys.stream().filter(oldKey -> !newKeys.contains(oldKey)).collect(Collectors.toSet());
-
-    Map<String, Collection<String>> evictionsByKey = new HashMap<>();
-    evictionsByKey.put(CONTAINER_INSTANCES.toString(), evictedKeys);
-    return evictionsByKey;
-  }
 }

@@ -21,15 +21,11 @@ import com.amazonaws.services.ecs.AmazonECS;
 import com.amazonaws.services.ecs.model.ListClustersRequest;
 import com.amazonaws.services.ecs.model.ListClustersResult;
 import com.netflix.spinnaker.cats.agent.AgentDataType;
-import com.netflix.spinnaker.cats.agent.CacheResult;
-import com.netflix.spinnaker.cats.agent.CachingAgent;
-import com.netflix.spinnaker.cats.agent.DefaultCacheResult;
 import com.netflix.spinnaker.cats.cache.CacheData;
 import com.netflix.spinnaker.cats.cache.DefaultCacheData;
 import com.netflix.spinnaker.cats.provider.ProviderCache;
 import com.netflix.spinnaker.clouddriver.aws.security.AmazonClientProvider;
 import com.netflix.spinnaker.clouddriver.ecs.cache.Keys;
-import com.netflix.spinnaker.clouddriver.ecs.provider.EcsProvider;
 import org.apache.commons.lang.StringUtils;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
@@ -38,19 +34,15 @@ import java.util.Arrays;
 import java.util.Collection;
 import java.util.Collections;
 import java.util.HashMap;
-import java.util.HashSet;
 import java.util.LinkedList;
 import java.util.List;
 import java.util.Map;
-import java.util.Set;
-import java.util.stream.Collectors;
 
 import static com.netflix.spinnaker.cats.agent.AgentDataType.Authority.AUTHORITATIVE;
 import static com.netflix.spinnaker.clouddriver.ecs.cache.Keys.Namespace.ECS_CLUSTERS;
-import static com.netflix.spinnaker.clouddriver.ecs.cache.Keys.Namespace.IAM_ROLE;
 
 public class EcsClusterCachingAgent extends AbstractEcsCachingAgent<String> {
-  static final Collection<AgentDataType> types = Collections.unmodifiableCollection(Arrays.asList(
+  private static final Collection<AgentDataType> types = Collections.unmodifiableCollection(Arrays.asList(
     AUTHORITATIVE.forType(ECS_CLUSTERS.toString())
   ));
   private final Logger log = LoggerFactory.getLogger(getClass());
@@ -89,21 +81,6 @@ public class EcsClusterCachingAgent extends AbstractEcsCachingAgent<String> {
   }
 
   @Override
-  protected CacheResult buildCacheResult(List<String> clusterArns, ProviderCache providerCache) {
-    Map<String, Collection<CacheData>> dataMap = generateFreshData(clusterArns);
-    log.info("Caching " + dataMap.values().size() + " ECS clusters in " + getAgentType());
-
-
-    Set<String> oldKeys = providerCache.getAll(ECS_CLUSTERS.toString()).stream()
-      .map(cache -> cache.getId()).collect(Collectors.toSet());
-
-    Map<String, Collection<String>> evictions = computeEvictableData(dataMap.get(ECS_CLUSTERS.toString()), oldKeys);
-    log.info("Evicting " + evictions.size() + " ECS clusters in " + getAgentType());
-
-    return new DefaultCacheResult(dataMap, evictions);
-  }
-
-  @Override
   protected Map<String, Collection<CacheData>> generateFreshData(Collection<String> clusterArns) {
     Collection<CacheData> dataPoints = new LinkedList<>();
     for (String clusterArn : clusterArns) {
@@ -124,15 +101,5 @@ public class EcsClusterCachingAgent extends AbstractEcsCachingAgent<String> {
     dataMap.put(ECS_CLUSTERS.toString(), dataPoints);
 
     return dataMap;
-  }
-
-  @Override
-  protected Map<String, Collection<String>> computeEvictableData(Collection<CacheData> newData, Collection<String> oldKeys) {
-    Set<String> newKeys = newData.stream().map(newKey -> newKey.getId()).collect(Collectors.toSet());
-    Set<String> evictedKeys = oldKeys.stream().filter(oldKey -> !newKeys.contains(oldKey)).collect(Collectors.toSet());
-
-    Map<String, Collection<String>> evictionsByKey = new HashMap<>();
-    evictionsByKey.put(ECS_CLUSTERS.toString(), evictedKeys);
-    return evictionsByKey;
   }
 }
