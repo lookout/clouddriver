@@ -25,13 +25,11 @@ import com.amazonaws.services.ecs.model.ListContainerInstancesResult;
 import com.netflix.spectator.api.Registry;
 import com.netflix.spinnaker.cats.agent.AgentDataType;
 import com.netflix.spinnaker.cats.agent.CacheResult;
-import com.netflix.spinnaker.cats.agent.CachingAgent;
 import com.netflix.spinnaker.cats.agent.DefaultCacheResult;
 import com.netflix.spinnaker.cats.cache.CacheData;
 import com.netflix.spinnaker.cats.cache.DefaultCacheData;
 import com.netflix.spinnaker.cats.provider.ProviderCache;
 import com.netflix.spinnaker.clouddriver.aws.security.AmazonClientProvider;
-import com.netflix.spinnaker.clouddriver.cache.OnDemandAgent;
 import com.netflix.spinnaker.clouddriver.ecs.cache.Keys;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
@@ -100,9 +98,22 @@ public class ContainerInstanceCachingAgent extends AbstractEcsOnDemandAgent<Cont
 
   @Override
   protected CacheResult buildCacheResult(List<ContainerInstance> containerInstances, ProviderCache providerCache) {
-    Collection<CacheData> dataPoints = new LinkedList<>();
-    Set<String> evictingContainerInstanceKeys = providerCache.getAll(CONTAINER_INSTANCES.toString()).stream()
+    Map<String, Collection<CacheData>> dataMap = generateFreshData(containerInstances);
+    log.info("Caching " + dataMap.values().size() + " ECS container instances in " + getAgentType());
+
+
+    Set<String> oldKeys = providerCache.getAll(CONTAINER_INSTANCES.toString()).stream()
       .map(cache -> cache.getId()).collect(Collectors.toSet());
+
+    Map<String, Collection<String>> evictions = computeEvictableData(dataMap.get(CONTAINER_INSTANCES.toString()), oldKeys);
+    log.info("Evicting " + evictions.size() + " ECS container instances in " + getAgentType());
+
+    return new DefaultCacheResult(dataMap, evictions);
+  }
+
+  @Override
+  protected Map<String, Collection<CacheData>> generateFreshData(Collection<ContainerInstance> containerInstances) {
+    Collection<CacheData> dataPoints = new LinkedList<>();
 
     for (ContainerInstance containerInstance : containerInstances) {
       Map<String, Object> attributes = new HashMap<>();
@@ -111,19 +122,22 @@ public class ContainerInstanceCachingAgent extends AbstractEcsOnDemandAgent<Cont
 
       String key = Keys.getContainerInstanceKey(accountName, region, containerInstance.getContainerInstanceArn());
       dataPoints.add(new DefaultCacheData(key, attributes, Collections.emptyMap()));
-      evictingContainerInstanceKeys.remove(key);
     }
 
     log.info("Caching " + dataPoints.size() + " container instances in " + getAgentType());
     Map<String, Collection<CacheData>> dataMap = new HashMap<>();
     dataMap.put(CONTAINER_INSTANCES.toString(), dataPoints);
 
-    Map<String, Collection<String>> evictions = new HashMap<>();
-    if (!evictingContainerInstanceKeys.isEmpty() && !containerInstances.isEmpty()) {
-      evictions.put(CONTAINER_INSTANCES.toString(), evictingContainerInstanceKeys);
-    }
-    log.info("Evicting " + evictions.size() + " container instances in " + getAgentType());
+    return dataMap;
+  }
 
-    return new DefaultCacheResult(dataMap, evictions);
+  @Override
+  protected Map<String, Collection<String>> computeEvictableData(Collection<CacheData> newData, Collection<String> oldKeys) {
+    Set<String> newKeys = newData.stream().map(newKey -> newKey.getId()).collect(Collectors.toSet());
+    Set<String> evictedKeys = oldKeys.stream().filter(oldKey -> !newKeys.contains(oldKey)).collect(Collectors.toSet());
+
+    Map<String, Collection<String>> evictionsByKey = new HashMap<>();
+    evictionsByKey.put(CONTAINER_INSTANCES.toString(), evictedKeys);
+    return evictionsByKey;
   }
 }

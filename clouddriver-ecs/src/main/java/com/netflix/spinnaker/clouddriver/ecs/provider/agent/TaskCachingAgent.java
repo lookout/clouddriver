@@ -53,6 +53,7 @@ import static com.netflix.spinnaker.clouddriver.core.provider.agent.Namespace.ON
 import static com.netflix.spinnaker.clouddriver.ecs.cache.Keys.Namespace.ECS_CLUSTERS;
 import static com.netflix.spinnaker.clouddriver.ecs.cache.Keys.Namespace.SERVICES;
 import static com.netflix.spinnaker.clouddriver.ecs.cache.Keys.Namespace.TASKS;
+import static com.netflix.spinnaker.clouddriver.ecs.cache.Keys.Namespace.TASK_DEFINITIONS;
 
 public class TaskCachingAgent extends AbstractEcsOnDemandAgent<Task> {
   static final Collection<AgentDataType> types = Collections.unmodifiableCollection(Arrays.asList(
@@ -102,51 +103,15 @@ public class TaskCachingAgent extends AbstractEcsOnDemandAgent<Task> {
 
   @Override
   protected CacheResult buildCacheResult(List<Task> tasks, ProviderCache providerCache) {
-    Collection<CacheData> dataPoints = new LinkedList<>();
-    Map<String, CacheData> clusterDataPoints = new HashMap<>();
-    Set<String> evictingTaskKeys = providerCache.getAll(TASKS.toString()).stream()
+    Map<String, Collection<CacheData>> dataMap = generateFreshData(tasks);
+    log.info("Caching " + dataMap.values().size() + " ECS tasks  in " + getAgentType());
+
+
+    Set<String> oldKeys = providerCache.getAll(TASKS.toString()).stream()
       .map(cache -> cache.getId()).collect(Collectors.toSet());
 
-    for (Task task : tasks) {
-      String taskId = StringUtils.substringAfterLast(task.getTaskArn(), "/");
-      Map<String, Object> attributes = new HashMap<>();
-      attributes.put("taskId", taskId);
-      attributes.put("taskArn", task.getTaskArn());
-      attributes.put("clusterArn", task.getClusterArn());
-      attributes.put("containerInstanceArn", task.getContainerInstanceArn());
-      attributes.put("group", task.getGroup());
-      //TODO: consider making containers a flat structure, if it cannot be deserialized.
-      attributes.put("containers", task.getContainers());
-      attributes.put("lastStatus", task.getLastStatus());
-      attributes.put("desiredStatus", task.getDesiredStatus());
-      attributes.put("startedAt", task.getStartedAt());
-
-      String key = Keys.getTaskKey(accountName, region, taskId);
-      dataPoints.add(new DefaultCacheData(key, attributes, Collections.emptyMap()));
-      evictingTaskKeys.remove(key);
-
-      String clusterName = StringUtils.substringAfterLast(task.getClusterArn(), "/");
-      Map<String, Object> clusterAttributes = new HashMap<>();
-      attributes.put("account", accountName);
-      attributes.put("region", region);
-      attributes.put("clusterName", clusterName);
-      attributes.put("clusterArn", task.getClusterArn());
-      key = Keys.getClusterKey(accountName, region, clusterName);
-      clusterDataPoints.put(key, new DefaultCacheData(key, clusterAttributes, Collections.emptyMap()));
-    }
-
-    log.info("Caching " + dataPoints.size() + " tasks in " + getAgentType());
-    Map<String, Collection<CacheData>> dataMap = new HashMap<>();
-    dataMap.put(TASKS.toString(), dataPoints);
-
-    log.info("Caching " + clusterDataPoints.size() + " ECS clusters in " + getAgentType());
-    dataMap.put(ECS_CLUSTERS.toString(), clusterDataPoints.values());
-
-    Map<String, Collection<String>> evictions = new HashMap<>();
-    if (!evictingTaskKeys.isEmpty() && !tasks.isEmpty()) {
-      evictions.put(TASKS.toString(), evictingTaskKeys);
-    }
-    log.info("Evicting " + evictions.size() + " tasks in " + getAgentType());
+    Map<String, Collection<String>> evictions = computeEvictableData(dataMap.get(TASKS.toString()), oldKeys);
+    log.info("Evicting " + evictions.size() + " ECS tasks in " + getAgentType());
 
     return new DefaultCacheResult(dataMap, evictions);
   }
@@ -189,5 +154,57 @@ public class TaskCachingAgent extends AbstractEcsOnDemandAgent<Task> {
         providerCache.putCacheData(ON_DEMAND.toString(), cacheData);
       }
     });
+  }
+
+  @Override
+  protected Map<String, Collection<CacheData>> generateFreshData(Collection<Task> tasks) {
+    Collection<CacheData> dataPoints = new LinkedList<>();
+    Map<String, CacheData> clusterDataPoints = new HashMap<>();
+
+    for (Task task : tasks) {
+      String taskId = StringUtils.substringAfterLast(task.getTaskArn(), "/");
+      Map<String, Object> attributes = new HashMap<>();
+      attributes.put("taskId", taskId);
+      attributes.put("taskArn", task.getTaskArn());
+      attributes.put("clusterArn", task.getClusterArn());
+      attributes.put("containerInstanceArn", task.getContainerInstanceArn());
+      attributes.put("group", task.getGroup());
+      //TODO: consider making containers a flat structure, if it cannot be deserialized.
+      attributes.put("containers", task.getContainers());
+      attributes.put("lastStatus", task.getLastStatus());
+      attributes.put("desiredStatus", task.getDesiredStatus());
+      attributes.put("startedAt", task.getStartedAt());
+
+      String key = Keys.getTaskKey(accountName, region, taskId);
+      dataPoints.add(new DefaultCacheData(key, attributes, Collections.emptyMap()));
+
+      String clusterName = StringUtils.substringAfterLast(task.getClusterArn(), "/");
+      Map<String, Object> clusterAttributes = new HashMap<>();
+      attributes.put("account", accountName);
+      attributes.put("region", region);
+      attributes.put("clusterName", clusterName);
+      attributes.put("clusterArn", task.getClusterArn());
+      key = Keys.getClusterKey(accountName, region, clusterName);
+      clusterDataPoints.put(key, new DefaultCacheData(key, clusterAttributes, Collections.emptyMap()));
+    }
+
+    log.info("Caching " + dataPoints.size() + " tasks in " + getAgentType());
+    Map<String, Collection<CacheData>> dataMap = new HashMap<>();
+    dataMap.put(TASKS.toString(), dataPoints);
+
+    log.info("Caching " + clusterDataPoints.size() + " ECS clusters in " + getAgentType());
+    dataMap.put(ECS_CLUSTERS.toString(), clusterDataPoints.values());
+
+    return dataMap;
+  }
+
+  @Override
+  protected Map<String, Collection<String>> computeEvictableData(Collection<CacheData> newData, Collection<String> oldKeys) {
+    Set<String> newKeys = newData.stream().map(newKey -> newKey.getId()).collect(Collectors.toSet());
+    Set<String> evictedKeys = oldKeys.stream().filter(oldKey -> !newKeys.contains(oldKey)).collect(Collectors.toSet());
+
+    Map<String, Collection<String>> evictionsByKey = new HashMap<>();
+    evictionsByKey.put(TASKS.toString(), evictedKeys);
+    return evictionsByKey;
   }
 }

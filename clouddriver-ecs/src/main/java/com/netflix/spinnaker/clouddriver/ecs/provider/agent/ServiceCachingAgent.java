@@ -100,10 +100,23 @@ public class ServiceCachingAgent extends AbstractEcsOnDemandAgent<Service> {
 
   @Override
   protected CacheResult buildCacheResult(List<Service> services, ProviderCache providerCache) {
+    Map<String, Collection<CacheData>> dataMap = generateFreshData(services);
+    log.info("Caching " + dataMap.values().size() + " ECS services in " + getAgentType());
+
+
+    Set<String> oldKeys = providerCache.getAll(SERVICES.toString()).stream()
+      .map(cache -> cache.getId()).collect(Collectors.toSet());
+
+    Map<String, Collection<String>> evictions = computeEvictableData(dataMap.get(SERVICES.toString()), oldKeys);
+    log.info("Evicting " + evictions.size() + " ECS services in " + getAgentType());
+
+    return new DefaultCacheResult(dataMap, evictions);
+  }
+
+  @Override
+  protected Map<String, Collection<CacheData>> generateFreshData(Collection<Service> services) {
     Collection<CacheData> dataPoints = new LinkedList<>();
     Map<String, CacheData> clusterDataPoints = new HashMap<>();
-    Set<String> evictingServiceKeys = providerCache.getAll(SERVICES.toString()).stream()
-      .map(cache -> cache.getId()).collect(Collectors.toSet());
 
     for (Service service : services) {
       Map<String, Object> attributes = new HashMap<>();
@@ -126,7 +139,6 @@ public class ServiceCachingAgent extends AbstractEcsOnDemandAgent<Service> {
 
       String key = Keys.getServiceKey(accountName, region, service.getServiceName());
       dataPoints.add(new DefaultCacheData(key, attributes, Collections.emptyMap()));
-      evictingServiceKeys.remove(key);
 
       Map<String, Object> clusterAttributes = new HashMap<>();
       attributes.put("account", accountName);
@@ -144,13 +156,16 @@ public class ServiceCachingAgent extends AbstractEcsOnDemandAgent<Service> {
     log.info("Caching " + clusterDataPoints.size() + " ECS clusters in " + getAgentType());
     dataMap.put(ECS_CLUSTERS.toString(), clusterDataPoints.values());
 
-    Map<String, Collection<String>> evictions = new HashMap<>();
-    if (!evictingServiceKeys.isEmpty() && !services.isEmpty()) {
-      evictions.put(SERVICES.toString(), evictingServiceKeys);
-    }
-    log.info("Evicting " + evictions.size() + " services in " + getAgentType());
-
-    return new DefaultCacheResult(dataMap, evictions);
+    return dataMap;
   }
 
+  @Override
+  protected Map<String, Collection<String>> computeEvictableData(Collection<CacheData> newData, Collection<String> oldKeys) {
+    Set<String> newKeys = newData.stream().map(newKey -> newKey.getId()).collect(Collectors.toSet());
+    Set<String> evictedKeys = oldKeys.stream().filter(oldKey -> !newKeys.contains(oldKey)).collect(Collectors.toSet());
+
+    Map<String, Collection<String>> evictionsByKey = new HashMap<>();
+    evictionsByKey.put(SERVICES.toString(), evictedKeys);
+    return evictionsByKey;
+  }
 }

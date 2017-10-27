@@ -93,9 +93,22 @@ public class TaskDefinitionCachingAgent extends AbstractEcsOnDemandAgent<TaskDef
 
   @Override
   protected CacheResult buildCacheResult(List<TaskDefinition> taskDefinitions, ProviderCache providerCache) {
-    Collection<CacheData> dataPoints = new LinkedList<>();
-    Set<String> evictingTaskDefKeys = providerCache.getAll(TASK_DEFINITIONS.toString()).stream()
+    Map<String, Collection<CacheData>> dataMap = generateFreshData(taskDefinitions);
+    log.info("Caching " + dataMap.values().size() + " ECS task definitions  in " + getAgentType());
+
+
+    Set<String> oldKeys = providerCache.getAll(TASK_DEFINITIONS.toString()).stream()
       .map(cache -> cache.getId()).collect(Collectors.toSet());
+
+    Map<String, Collection<String>> evictions = computeEvictableData(dataMap.get(TASK_DEFINITIONS.toString()), oldKeys);
+    log.info("Evicting " + evictions.size() + " ECS task definitions in " + getAgentType());
+
+    return new DefaultCacheResult(dataMap, evictions);
+  }
+
+  @Override
+  protected Map<String, Collection<CacheData>> generateFreshData(Collection<TaskDefinition> taskDefinitions) {
+    Collection<CacheData> dataPoints = new LinkedList<>();
 
     for (TaskDefinition taskDefinition : taskDefinitions) {
       Map<String, Object> attributes = new HashMap<>();
@@ -104,20 +117,22 @@ public class TaskDefinitionCachingAgent extends AbstractEcsOnDemandAgent<TaskDef
 
       String key = Keys.getTaskDefinitionKey(accountName, region, taskDefinition.getTaskDefinitionArn());
       dataPoints.add(new DefaultCacheData(key, attributes, Collections.emptyMap()));
-      evictingTaskDefKeys.remove(key);
     }
 
     log.info("Caching " + dataPoints.size() + " task definitions in " + getAgentType());
     Map<String, Collection<CacheData>> dataMap = new HashMap<>();
     dataMap.put(TASK_DEFINITIONS.toString(), dataPoints);
 
-    Map<String, Collection<String>> evictions = new HashMap<>();
-    if (!evictingTaskDefKeys.isEmpty() && !taskDefinitions.isEmpty()) {
-      evictions.put(TASK_DEFINITIONS.toString(), evictingTaskDefKeys);
-    }
-    log.info("Evicting " + evictions.size() + " task definitions in " + getAgentType());
-
-    return new DefaultCacheResult(dataMap, evictions);
+    return dataMap;
   }
 
+  @Override
+  protected Map<String, Collection<String>> computeEvictableData(Collection<CacheData> newData, Collection<String> oldKeys) {
+    Set<String> newKeys = newData.stream().map(newKey -> newKey.getId()).collect(Collectors.toSet());
+    Set<String> evictedKeys = oldKeys.stream().filter(oldKey -> !newKeys.contains(oldKey)).collect(Collectors.toSet());
+
+    Map<String, Collection<String>> evictionsByKey = new HashMap<>();
+    evictionsByKey.put(TASK_DEFINITIONS.toString(), evictedKeys);
+    return evictionsByKey;
+  }
 }
