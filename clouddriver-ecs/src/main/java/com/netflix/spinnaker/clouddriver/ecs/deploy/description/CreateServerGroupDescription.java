@@ -29,7 +29,7 @@ public class CreateServerGroupDescription extends AbstractECSDescription {
   String ecsClusterName;
   String iamRole;
   Integer containerPort;
-  List<String> targetGroups;
+  String targetGroup;
   List<String> securityGroups;
 
   String serverGroupVersion;
