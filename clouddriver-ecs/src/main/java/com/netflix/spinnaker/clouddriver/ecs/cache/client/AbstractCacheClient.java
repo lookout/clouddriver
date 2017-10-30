@@ -48,10 +48,11 @@ public abstract class AbstractCacheClient<T> {
    * @return
    */
   private Collection<CacheData> fetchFromCache(String account, String region) {
-    String accountFilter = account != null ? account + Keys.SEPARATOR : "";
-    String regionFilter = region != null ? region + Keys.SEPARATOR : "";
+    String accountFilter = account != null ? account + Keys.SEPARATOR : "*" + Keys.SEPARATOR;
+    String regionFilter = region != null ? region + Keys.SEPARATOR : "*" + Keys.SEPARATOR;
     Set<String> keys = new HashSet<>();
-    Collection<String> nameMatches = cacheView.filterIdentifiers(keyNamespace, "*" + Keys.SEPARATOR + accountFilter + regionFilter + "*");
+    String pattern = "ecs" + Keys.SEPARATOR + keyNamespace + Keys.SEPARATOR + accountFilter + regionFilter + "*";
+    Collection<String> nameMatches = cacheView.filterIdentifiers(keyNamespace, pattern);
 
     keys.addAll(nameMatches);
 

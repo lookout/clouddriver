@@ -19,8 +19,8 @@
 package com.netflix.spinnaker.clouddriver.ecs.provider.view;
 
 import com.netflix.spinnaker.cats.cache.Cache;
-import com.netflix.spinnaker.cats.cache.CacheData;
-import com.netflix.spinnaker.clouddriver.ecs.cache.Keys;
+import com.netflix.spinnaker.clouddriver.ecs.cache.client.EcsClusterCacheClient;
+import com.netflix.spinnaker.clouddriver.ecs.cache.model.EcsCluster;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.stereotype.Component;
 
@@ -29,29 +29,25 @@ import java.util.Collections;
 import java.util.List;
 import java.util.stream.Collectors;
 
-import static com.netflix.spinnaker.clouddriver.ecs.cache.Keys.Namespace.ECS_CLUSTERS;
-import static com.netflix.spinnaker.clouddriver.ecs.cache.Keys.SEPARATOR;
-
 @Component
 public class EcsClusterProvider {
 
-  private Cache cacheView;
+  private EcsClusterCacheClient ecsClusterCacheClient;
 
   @Autowired
   public EcsClusterProvider(Cache cacheView) {
-    this.cacheView = cacheView;
+    this.ecsClusterCacheClient = new EcsClusterCacheClient(cacheView);
   }
 
   public List<String> getEcsClusters(String account, String region) {
-    Collection<String> ecsClustersCache = cacheView.filterIdentifiers(ECS_CLUSTERS.toString(),
-      "ecs" + SEPARATOR + ECS_CLUSTERS + SEPARATOR + account + SEPARATOR + region + SEPARATOR + "*");
+    Collection<EcsCluster> ecsClusters = ecsClusterCacheClient.getAll(account, region);
 
-    if (ecsClustersCache == null) {
+    if (ecsClusters == null) {
       return Collections.emptyList();
     }
 
-    return ecsClustersCache.stream()
-      .map(key -> Keys.parse(key).get("clusterName"))
+    return ecsClusters.stream()
+      .map(ecsCluster -> ecsCluster.getName())
       .collect(Collectors.toList());
   }
 
