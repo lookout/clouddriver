@@ -63,7 +63,7 @@ public class TaskDefinitionCachingAgentTest extends CommonCachingAgent {
     //Then
     assertTrue("Expected the list to contain 1 ECS task definition, but got " + returnedTaskDefs.size(), returnedTaskDefs.size() == 1);
     for (TaskDefinition taskDef : returnedTaskDefs) {
-      assertTrue("Expected the task definition to be in  " + taskDef + " list but it was not. The task definition is: " + task, returnedTaskDefs.contains(taskDef));
+      assertTrue("Expected the task definition to be in  " + taskDef + " list but it was not. The task definition is: " + taskDef, returnedTaskDefs.contains(taskDef));
     }
   }
 
@@ -91,9 +91,8 @@ public class TaskDefinitionCachingAgentTest extends CommonCachingAgent {
     Map<String, Collection<CacheData>> dataMap = agent.generateFreshData(tasks);
 
     //Then
-    assertTrue("Expected the data map to contain 2 namespaces, but it contains " + dataMap.keySet().size() + " namespaces.", dataMap.keySet().size() == 2);
+    assertTrue("Expected the data map to contain 1 namespaces, but it contains " + dataMap.keySet().size() + " namespaces.", dataMap.keySet().size() == 1);
     assertTrue("Expected the data map to contain " + TASK_DEFINITIONS.toString() + " namespace, but it contains " + dataMap.keySet() + " namespaces.", dataMap.containsKey(TASK_DEFINITIONS.toString()));
-    assertTrue("Expected the data map to contain " + ECS_CLUSTERS.toString() + " namespace, but it contains " + dataMap.keySet() + " namespaces.", dataMap.containsKey(ECS_CLUSTERS.toString()));
     assertTrue("Expected there to be 2 CacheData, instead there is  " + dataMap.get(TASK_DEFINITIONS.toString()).size(), dataMap.get(TASK_DEFINITIONS.toString()).size() == 2);
 
     for (CacheData cacheData : dataMap.get(TASK_DEFINITIONS.toString())) {

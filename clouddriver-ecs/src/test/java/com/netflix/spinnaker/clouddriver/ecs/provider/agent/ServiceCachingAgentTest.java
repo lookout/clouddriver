@@ -76,7 +76,7 @@ public class ServiceCachingAgentTest extends CommonCachingAgent {
     //Then
     assertTrue("Expected the list to contain 2 ECS services, but got " + returnedServices.size(), returnedServices.size() == 2);
     for (Service service : returnedServices) {
-      assertTrue("Expected the service to be in  " + services + " list but it was not. The container instance is: " + service, services.contains(service));
+      assertTrue("Expected the service to be in  " + services + " list but it was not. The service is: " + service, services.contains(service));
     }
   }
 

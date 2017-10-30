@@ -74,7 +74,7 @@ public class TaskCachingAgentTest extends CommonCachingAgent {
     //Then
     assertTrue("Expected the list to contain " + tasks.size() + " ECS tasks, but got " + returnedTasks.size(), returnedTasks.size() == tasks.size());
     for (Task task : returnedTasks) {
-      assertTrue("Expected the task to be in  " + tasks + " list but it was not. The container instance is: " + task, tasks.contains(task));
+      assertTrue("Expected the task to be in  " + tasks + " list but it was not. The task is: " + task, tasks.contains(task));
     }
   }
 
