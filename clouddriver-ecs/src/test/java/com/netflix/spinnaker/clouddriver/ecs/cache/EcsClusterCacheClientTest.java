@@ -11,6 +11,7 @@ import java.util.Collections;
 import java.util.HashMap;
 import java.util.Map;
 
+import static com.netflix.spinnaker.clouddriver.ecs.cache.Keys.Namespace.ECS_CLUSTERS;
 import static org.junit.Assert.assertTrue;
 import static org.mockito.Matchers.any;
 import static org.mockito.Mockito.mock;
@@ -38,7 +39,7 @@ public class EcsClusterCacheClientTest {
     attributes.put("clusterName", clusterName);
     attributes.put("clusterArn", clusterArn);
 
-    when(cacheView.get(any(), key)).thenReturn(new DefaultCacheData(key, attributes, Collections.emptyMap()));
+    when(cacheView.get(ECS_CLUSTERS.toString(), key)).thenReturn(new DefaultCacheData(key, attributes, Collections.emptyMap()));
 
     //When
     EcsCluster ecsCluster = client.get(key);
