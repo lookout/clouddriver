@@ -52,7 +52,7 @@ public class ServiceCachingAgentTest extends CommonCachingAgent {
   private ServiceCachingAgent agent = new ServiceCachingAgent(ACCOUNT, REGION, clientProvider, credentialsProvider, registry);
 
   @Test
-  public void shouldGetListOfContainerInstances() {
+  public void shouldGetListOfServices() {
     //Given
     String clusterArn = "arn:aws:ecs:" + REGION + ":012345678910:cluster/test-cluster";
     String serviceArn1 = "arn:aws:ecs:" + REGION + ":012345678910:service/service1";

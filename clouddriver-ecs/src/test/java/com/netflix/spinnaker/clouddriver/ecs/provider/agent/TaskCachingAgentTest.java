@@ -50,7 +50,7 @@ public class TaskCachingAgentTest extends CommonCachingAgent {
   private TaskCachingAgent agent = new TaskCachingAgent(ACCOUNT, REGION, clientProvider, credentialsProvider, registry);
 
   @Test
-  public void shouldGetListOfContainerInstances() {
+  public void shouldGetListOfTasks() {
     //Given
     String clusterArn = "arn:aws:ecs:" + REGION + ":012345678910:cluster/test-cluster";
     String taskArn1 = "arn:aws:ecs:" + REGION + ":012345678910:task/1dc5c17a-422b-4dc4-b493-371970c6c4d6";

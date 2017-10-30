@@ -47,7 +47,7 @@ public class TaskDefinitionCachingAgentTest extends CommonCachingAgent {
   private TaskDefinitionCachingAgent agent = new TaskDefinitionCachingAgent(ACCOUNT, REGION, clientProvider, credentialsProvider, registry);
 
   @Test
-  public void shouldGetListOfContainerInstances() {
+  public void shouldGetListOfTaskDefinitions() {
     //Given
     String taskDefinitionArn1 = "arn:aws:ecs:" + REGION + ":012345678910:task-definition/hello_world:10";
 
