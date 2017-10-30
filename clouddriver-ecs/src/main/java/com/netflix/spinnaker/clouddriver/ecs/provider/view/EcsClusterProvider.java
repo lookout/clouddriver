@@ -42,10 +42,6 @@ public class EcsClusterProvider {
   public List<String> getEcsClusters(String account, String region) {
     Collection<EcsCluster> ecsClusters = ecsClusterCacheClient.getAll(account, region);
 
-    if (ecsClusters == null) {
-      return Collections.emptyList();
-    }
-
     return ecsClusters.stream()
       .map(ecsCluster -> ecsCluster.getName())
       .collect(Collectors.toList());

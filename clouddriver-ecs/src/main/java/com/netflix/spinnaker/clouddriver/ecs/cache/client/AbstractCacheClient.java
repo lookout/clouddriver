@@ -5,6 +5,7 @@ import com.netflix.spinnaker.cats.cache.CacheData;
 import com.netflix.spinnaker.clouddriver.ecs.cache.Keys;
 
 import java.util.Collection;
+import java.util.Collections;
 import java.util.HashSet;
 import java.util.Set;
 
@@ -44,7 +45,7 @@ public abstract class AbstractCacheClient<T> {
 
   /**
    * @param account name of the AWS account, as defined in clouddriver.yml
-   * @param region  is not used in AWS as IAM is region-agnostic
+   * @param region  region of the AWS account, as defined in clouddriver.yml
    * @return
    */
   private Collection<CacheData> fetchFromCache(String account, String region) {
@@ -57,6 +58,10 @@ public abstract class AbstractCacheClient<T> {
     keys.addAll(nameMatches);
 
     Collection<CacheData> allData = cacheView.getAll(keyNamespace, keys);
+
+    if (allData == null){
+      return Collections.emptyList();
+    }
 
     return allData;
   }
