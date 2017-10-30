@@ -1,5 +1,5 @@
 /*
- * Copyright 2014 Netflix, Inc.
+ * * Copyright 2017 Lookout, Inc.
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -24,8 +24,6 @@ import com.amazonaws.services.ecs.model.ListServicesResult;
 import com.amazonaws.services.ecs.model.Service;
 import com.netflix.spectator.api.Registry;
 import com.netflix.spinnaker.cats.agent.AgentDataType;
-import com.netflix.spinnaker.cats.agent.CacheResult;
-import com.netflix.spinnaker.cats.agent.DefaultCacheResult;
 import com.netflix.spinnaker.cats.cache.CacheData;
 import com.netflix.spinnaker.cats.cache.DefaultCacheData;
 import com.netflix.spinnaker.cats.provider.ProviderCache;
@@ -43,15 +41,14 @@ import java.util.LinkedList;
 import java.util.List;
 import java.util.Map;
 import java.util.Set;
-import java.util.stream.Collectors;
 
 import static com.netflix.spinnaker.cats.agent.AgentDataType.Authority.AUTHORITATIVE;
 import static com.netflix.spinnaker.cats.agent.AgentDataType.Authority.INFORMATIVE;
 import static com.netflix.spinnaker.clouddriver.ecs.cache.Keys.Namespace.ECS_CLUSTERS;
 import static com.netflix.spinnaker.clouddriver.ecs.cache.Keys.Namespace.SERVICES;
 
-public class ServiceCachingAgent extends AbstractEcsCachingAgent<Service> {
-  static final Collection<AgentDataType> types = Collections.unmodifiableCollection(Arrays.asList(
+public class ServiceCachingAgent extends AbstractEcsOnDemandAgent<Service> {
+  private static final Collection<AgentDataType> types = Collections.unmodifiableCollection(Arrays.asList(
     AUTHORITATIVE.forType(SERVICES.toString()),
     INFORMATIVE.forType(ECS_CLUSTERS.toString())
   ));
@@ -99,11 +96,9 @@ public class ServiceCachingAgent extends AbstractEcsCachingAgent<Service> {
   }
 
   @Override
-  protected CacheResult buildCacheResult(List<Service> services, ProviderCache providerCache) {
+  protected Map<String, Collection<CacheData>> generateFreshData(Collection<Service> services) {
     Collection<CacheData> dataPoints = new LinkedList<>();
     Map<String, CacheData> clusterDataPoints = new HashMap<>();
-    Set<String> evictingServiceKeys = providerCache.getAll(SERVICES.toString()).stream()
-      .map(cache -> cache.getId()).collect(Collectors.toSet());
 
     for (Service service : services) {
       Map<String, Object> attributes = new HashMap<>();
@@ -126,7 +121,6 @@ public class ServiceCachingAgent extends AbstractEcsCachingAgent<Service> {
 
       String key = Keys.getServiceKey(accountName, region, service.getServiceName());
       dataPoints.add(new DefaultCacheData(key, attributes, Collections.emptyMap()));
-      evictingServiceKeys.remove(key);
 
       Map<String, Object> clusterAttributes = new HashMap<>();
       attributes.put("account", accountName);
@@ -144,13 +138,6 @@ public class ServiceCachingAgent extends AbstractEcsCachingAgent<Service> {
     log.info("Caching " + clusterDataPoints.size() + " ECS clusters in " + getAgentType());
     dataMap.put(ECS_CLUSTERS.toString(), clusterDataPoints.values());
 
-    Map<String, Collection<String>> evictions = new HashMap<>();
-    if (!evictingServiceKeys.isEmpty() && !services.isEmpty()) {
-      evictions.put(SERVICES.toString(), evictingServiceKeys);
-    }
-    log.info("Evicting " + evictions.size() + " services in " + getAgentType());
-
-    return new DefaultCacheResult(dataMap, evictions);
+    return dataMap;
   }
-
 }

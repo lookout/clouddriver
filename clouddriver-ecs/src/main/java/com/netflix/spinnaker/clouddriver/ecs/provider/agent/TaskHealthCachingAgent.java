@@ -1,5 +1,5 @@
 /*
- * Copyright 2014 Netflix, Inc.
+ * * Copyright 2017 Lookout, Inc.
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -52,7 +52,7 @@ import static com.netflix.spinnaker.clouddriver.ecs.cache.Keys.Namespace.TASKS;
 import static com.netflix.spinnaker.clouddriver.ecs.cache.Keys.Namespace.TASK_DEFINITIONS;
 
 public class TaskHealthCachingAgent implements CachingAgent, HealthProvidingCachingAgent {
-  static final Collection<AgentDataType> types = Collections.unmodifiableCollection(Arrays.asList(
+  private  static final Collection<AgentDataType> types = Collections.unmodifiableCollection(Arrays.asList(
     AUTHORITATIVE.forType(HEALTH.toString())
   ));
   private final static String HEALTH_ID = "ecs-task-instance-health";

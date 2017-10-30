@@ -1,5 +1,5 @@
 /*
- * Copyright 2014 Netflix, Inc.
+ * * Copyright 2017 Lookout, Inc.
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -25,13 +25,11 @@ import com.amazonaws.services.ecs.model.ListContainerInstancesResult;
 import com.netflix.spectator.api.Registry;
 import com.netflix.spinnaker.cats.agent.AgentDataType;
 import com.netflix.spinnaker.cats.agent.CacheResult;
-import com.netflix.spinnaker.cats.agent.CachingAgent;
 import com.netflix.spinnaker.cats.agent.DefaultCacheResult;
 import com.netflix.spinnaker.cats.cache.CacheData;
 import com.netflix.spinnaker.cats.cache.DefaultCacheData;
 import com.netflix.spinnaker.cats.provider.ProviderCache;
 import com.netflix.spinnaker.clouddriver.aws.security.AmazonClientProvider;
-import com.netflix.spinnaker.clouddriver.cache.OnDemandAgent;
 import com.netflix.spinnaker.clouddriver.ecs.cache.Keys;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
@@ -49,8 +47,8 @@ import java.util.stream.Collectors;
 import static com.netflix.spinnaker.cats.agent.AgentDataType.Authority.AUTHORITATIVE;
 import static com.netflix.spinnaker.clouddriver.ecs.cache.Keys.Namespace.CONTAINER_INSTANCES;
 
-public class ContainerInstanceCachingAgent extends AbstractEcsCachingAgent<ContainerInstance> implements CachingAgent, OnDemandAgent {
-  static final Collection<AgentDataType> types = Collections.unmodifiableCollection(Arrays.asList(
+public class ContainerInstanceCachingAgent extends AbstractEcsOnDemandAgent<ContainerInstance> {
+  private static final Collection<AgentDataType> types = Collections.unmodifiableCollection(Arrays.asList(
     AUTHORITATIVE.forType(CONTAINER_INSTANCES.toString())
   ));
   private final Logger log = LoggerFactory.getLogger(getClass());
@@ -99,10 +97,8 @@ public class ContainerInstanceCachingAgent extends AbstractEcsCachingAgent<Conta
   }
 
   @Override
-  protected CacheResult buildCacheResult(List<ContainerInstance> containerInstances, ProviderCache providerCache) {
+  protected Map<String, Collection<CacheData>> generateFreshData(Collection<ContainerInstance> containerInstances) {
     Collection<CacheData> dataPoints = new LinkedList<>();
-    Set<String> evictingContainerInstanceKeys = providerCache.getAll(CONTAINER_INSTANCES.toString()).stream()
-      .map(cache -> cache.getId()).collect(Collectors.toSet());
 
     for (ContainerInstance containerInstance : containerInstances) {
       Map<String, Object> attributes = new HashMap<>();
@@ -111,19 +107,13 @@ public class ContainerInstanceCachingAgent extends AbstractEcsCachingAgent<Conta
 
       String key = Keys.getContainerInstanceKey(accountName, region, containerInstance.getContainerInstanceArn());
       dataPoints.add(new DefaultCacheData(key, attributes, Collections.emptyMap()));
-      evictingContainerInstanceKeys.remove(key);
     }
 
     log.info("Caching " + dataPoints.size() + " container instances in " + getAgentType());
     Map<String, Collection<CacheData>> dataMap = new HashMap<>();
     dataMap.put(CONTAINER_INSTANCES.toString(), dataPoints);
 
-    Map<String, Collection<String>> evictions = new HashMap<>();
-    if (!evictingContainerInstanceKeys.isEmpty() && !containerInstances.isEmpty()) {
-      evictions.put(CONTAINER_INSTANCES.toString(), evictingContainerInstanceKeys);
-    }
-    log.info("Evicting " + evictions.size() + " container instances in " + getAgentType());
-
-    return new DefaultCacheResult(dataMap, evictions);
+    return dataMap;
   }
+
 }
