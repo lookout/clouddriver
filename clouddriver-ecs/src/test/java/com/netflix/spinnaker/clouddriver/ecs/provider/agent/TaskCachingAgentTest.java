@@ -56,8 +56,8 @@ public class TaskCachingAgentTest extends CommonCachingAgent {
     String taskArn1 = "arn:aws:ecs:" + REGION + ":012345678910:task/1dc5c17a-422b-4dc4-b493-371970c6c4d6";
     String taskArn2 = "arn:aws:ecs:" + REGION + ":012345678910:task/deadbeef-422b-4dc4-b493-371970c6c4d6";
 
-    ListTasksResult listServicesResult = new ListTasksResult().withTaskArns(taskArn1, taskArn2);
-    when(ecs.listTasks(any(ListTasksRequest.class))).thenReturn(listServicesResult);
+    ListTasksResult listTasksResult = new ListTasksResult().withTaskArns(taskArn1, taskArn2);
+    when(ecs.listTasks(any(ListTasksRequest.class))).thenReturn(listTasksResult);
 
     List<Task> tasks = new LinkedList<>();
     tasks.add(new Task().withTaskArn(taskArn1));
@@ -74,7 +74,7 @@ public class TaskCachingAgentTest extends CommonCachingAgent {
     //Then
     assertTrue("Expected the list to contain " + tasks.size() + " ECS tasks, but got " + returnedTasks.size(), returnedTasks.size() == tasks.size());
     for (Task task : returnedTasks) {
-      assertTrue("Expected the service to be in  " + tasks + " list but it was not. The container instance is: " + task, tasks.contains(task));
+      assertTrue("Expected the task to be in  " + tasks + " list but it was not. The container instance is: " + task, tasks.contains(task));
     }
   }
 
@@ -121,7 +121,7 @@ public class TaskCachingAgentTest extends CommonCachingAgent {
 
     for (CacheData cacheData : dataMap.get(TASKS.toString())) {
       assertTrue("Expected the key to be one of the following keys: " + keys.toString() + ". The key is: " + cacheData.getId() + ".", keys.contains(cacheData.getId()));
-      assertTrue("Expected the task ARN to be one of the following ARNs: " + taskArns.toString() + ". The service ARN is: " + cacheData.getAttributes().get("taskArn") + ".", taskArns.contains(cacheData.getAttributes().get("taskArn")));
+      assertTrue("Expected the task ARN to be one of the following ARNs: " + taskArns.toString() + ". The task ARN is: " + cacheData.getAttributes().get("taskArn") + ".", taskArns.contains(cacheData.getAttributes().get("taskArn")));
     }
   }
 
