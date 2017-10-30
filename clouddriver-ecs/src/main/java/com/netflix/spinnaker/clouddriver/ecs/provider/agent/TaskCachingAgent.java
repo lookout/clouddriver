@@ -24,8 +24,6 @@ import com.amazonaws.services.ecs.model.ListTasksResult;
 import com.amazonaws.services.ecs.model.Task;
 import com.netflix.spectator.api.Registry;
 import com.netflix.spinnaker.cats.agent.AgentDataType;
-import com.netflix.spinnaker.cats.agent.CacheResult;
-import com.netflix.spinnaker.cats.agent.DefaultCacheResult;
 import com.netflix.spinnaker.cats.cache.CacheData;
 import com.netflix.spinnaker.cats.cache.DefaultCacheData;
 import com.netflix.spinnaker.cats.provider.ProviderCache;
@@ -45,7 +43,6 @@ import java.util.LinkedList;
 import java.util.List;
 import java.util.Map;
 import java.util.Set;
-import java.util.stream.Collectors;
 
 import static com.netflix.spinnaker.cats.agent.AgentDataType.Authority.AUTHORITATIVE;
 import static com.netflix.spinnaker.cats.agent.AgentDataType.Authority.INFORMATIVE;
@@ -54,7 +51,7 @@ import static com.netflix.spinnaker.clouddriver.ecs.cache.Keys.Namespace.ECS_CLU
 import static com.netflix.spinnaker.clouddriver.ecs.cache.Keys.Namespace.SERVICES;
 import static com.netflix.spinnaker.clouddriver.ecs.cache.Keys.Namespace.TASKS;
 
-public class TaskCachingAgent extends AbstractEcsCachingAgent<Task> {
+public class TaskCachingAgent extends AbstractEcsOnDemandAgent<Task> {
   static final Collection<AgentDataType> types = Collections.unmodifiableCollection(Arrays.asList(
     AUTHORITATIVE.forType(TASKS.toString()),
     INFORMATIVE.forType(ECS_CLUSTERS.toString())
@@ -101,63 +98,12 @@ public class TaskCachingAgent extends AbstractEcsCachingAgent<Task> {
   }
 
   @Override
-  protected CacheResult buildCacheResult(List<Task> tasks, ProviderCache providerCache) {
-    Collection<CacheData> dataPoints = new LinkedList<>();
-    Map<String, CacheData> clusterDataPoints = new HashMap<>();
-    Set<String> evictingTaskKeys = providerCache.getAll(TASKS.toString()).stream()
-      .map(cache -> cache.getId()).collect(Collectors.toSet());
-
-    for (Task task : tasks) {
-      String taskId = StringUtils.substringAfterLast(task.getTaskArn(), "/");
-      Map<String, Object> attributes = new HashMap<>();
-      attributes.put("taskId", taskId);
-      attributes.put("taskArn", task.getTaskArn());
-      attributes.put("clusterArn", task.getClusterArn());
-      attributes.put("containerInstanceArn", task.getContainerInstanceArn());
-      attributes.put("group", task.getGroup());
-      //TODO: consider making containers a flat structure, if it cannot be deserialized.
-      attributes.put("containers", task.getContainers());
-      attributes.put("lastStatus", task.getLastStatus());
-      attributes.put("desiredStatus", task.getDesiredStatus());
-      attributes.put("startedAt", task.getStartedAt());
-
-      String key = Keys.getTaskKey(accountName, region, taskId);
-      dataPoints.add(new DefaultCacheData(key, attributes, Collections.emptyMap()));
-      evictingTaskKeys.remove(key);
-
-      String clusterName = StringUtils.substringAfterLast(task.getClusterArn(), "/");
-      Map<String, Object> clusterAttributes = new HashMap<>();
-      attributes.put("account", accountName);
-      attributes.put("region", region);
-      attributes.put("clusterName", clusterName);
-      attributes.put("clusterArn", task.getClusterArn());
-      key = Keys.getClusterKey(accountName, region, clusterName);
-      clusterDataPoints.put(key, new DefaultCacheData(key, clusterAttributes, Collections.emptyMap()));
-    }
-
-    log.info("Caching " + dataPoints.size() + " tasks in " + getAgentType());
-    Map<String, Collection<CacheData>> dataMap = new HashMap<>();
-    dataMap.put(TASKS.toString(), dataPoints);
-
-    log.info("Caching " + clusterDataPoints.size() + " ECS clusters in " + getAgentType());
-    dataMap.put(ECS_CLUSTERS.toString(), clusterDataPoints.values());
-
-    Map<String, Collection<String>> evictions = new HashMap<>();
-    if (!evictingTaskKeys.isEmpty() && !tasks.isEmpty()) {
-      evictions.put(TASKS.toString(), evictingTaskKeys);
-    }
-    log.info("Evicting " + evictions.size() + " tasks in " + getAgentType());
-
-    return new DefaultCacheResult(dataMap, evictions);
-  }
-
-  @Override
   public Collection<Map> pendingOnDemandRequests(ProviderCache providerCache) {
     Collection<CacheData> allOnDemand = providerCache.getAll(ON_DEMAND.toString());
     List<Map> returnResults = new LinkedList<>();
     for (CacheData onDemand : allOnDemand) {
       Map<String, String> parsedKey = Keys.parse(onDemand.getId());
-      if (parsedKey!=null && parsedKey.get("type") != null &&
+      if (parsedKey != null && parsedKey.get("type") != null &&
         (parsedKey.get("type").equals(SERVICES.toString()) || parsedKey.get("type").equals(TASKS.toString()))) {
 
         parsedKey.put("type", "serverGroup");
@@ -189,5 +135,47 @@ public class TaskCachingAgent extends AbstractEcsCachingAgent<Task> {
         providerCache.putCacheData(ON_DEMAND.toString(), cacheData);
       }
     });
+  }
+
+  @Override
+  protected Map<String, Collection<CacheData>> generateFreshData(Collection<Task> tasks) {
+    Collection<CacheData> dataPoints = new LinkedList<>();
+    Map<String, CacheData> clusterDataPoints = new HashMap<>();
+
+    for (Task task : tasks) {
+      String taskId = StringUtils.substringAfterLast(task.getTaskArn(), "/");
+      Map<String, Object> attributes = new HashMap<>();
+      attributes.put("taskId", taskId);
+      attributes.put("taskArn", task.getTaskArn());
+      attributes.put("clusterArn", task.getClusterArn());
+      attributes.put("containerInstanceArn", task.getContainerInstanceArn());
+      attributes.put("group", task.getGroup());
+      //TODO: consider making containers a flat structure, if it cannot be deserialized.
+      attributes.put("containers", task.getContainers());
+      attributes.put("lastStatus", task.getLastStatus());
+      attributes.put("desiredStatus", task.getDesiredStatus());
+      attributes.put("startedAt", task.getStartedAt());
+
+      String key = Keys.getTaskKey(accountName, region, taskId);
+      dataPoints.add(new DefaultCacheData(key, attributes, Collections.emptyMap()));
+
+      String clusterName = StringUtils.substringAfterLast(task.getClusterArn(), "/");
+      Map<String, Object> clusterAttributes = new HashMap<>();
+      attributes.put("account", accountName);
+      attributes.put("region", region);
+      attributes.put("clusterName", clusterName);
+      attributes.put("clusterArn", task.getClusterArn());
+      key = Keys.getClusterKey(accountName, region, clusterName);
+      clusterDataPoints.put(key, new DefaultCacheData(key, clusterAttributes, Collections.emptyMap()));
+    }
+
+    log.info("Caching " + dataPoints.size() + " tasks in " + getAgentType());
+    Map<String, Collection<CacheData>> dataMap = new HashMap<>();
+    dataMap.put(TASKS.toString(), dataPoints);
+
+    log.info("Caching " + clusterDataPoints.size() + " ECS clusters in " + getAgentType());
+    dataMap.put(ECS_CLUSTERS.toString(), clusterDataPoints.values());
+
+    return dataMap;
   }
 }

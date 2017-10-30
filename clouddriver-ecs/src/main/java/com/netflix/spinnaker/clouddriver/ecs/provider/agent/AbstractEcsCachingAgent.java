@@ -20,58 +20,54 @@ import com.amazonaws.auth.AWSCredentialsProvider;
 import com.amazonaws.services.ecs.AmazonECS;
 import com.amazonaws.services.ecs.model.ListClustersRequest;
 import com.amazonaws.services.ecs.model.ListClustersResult;
-import com.netflix.spectator.api.Registry;
+import com.google.common.base.CaseFormat;
 import com.netflix.spinnaker.cats.agent.AgentDataType;
 import com.netflix.spinnaker.cats.agent.CacheResult;
 import com.netflix.spinnaker.cats.agent.CachingAgent;
+import com.netflix.spinnaker.cats.agent.DefaultCacheResult;
+import com.netflix.spinnaker.cats.cache.CacheData;
 import com.netflix.spinnaker.cats.provider.ProviderCache;
 import com.netflix.spinnaker.clouddriver.aws.security.AmazonClientProvider;
-import com.netflix.spinnaker.clouddriver.cache.OnDemandAgent;
-import com.netflix.spinnaker.clouddriver.cache.OnDemandMetricsSupport;
-import com.netflix.spinnaker.clouddriver.ecs.EcsCloudProvider;
 import com.netflix.spinnaker.clouddriver.ecs.provider.EcsProvider;
-import groovy.lang.Closure;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
 
 import java.util.Collection;
+import java.util.HashMap;
 import java.util.HashSet;
-import java.util.LinkedList;
 import java.util.List;
 import java.util.Map;
 import java.util.Set;
 import java.util.stream.Collectors;
 
+import static com.netflix.spinnaker.cats.agent.AgentDataType.Authority.AUTHORITATIVE;
 import static com.netflix.spinnaker.clouddriver.ecs.cache.Keys.Namespace.ECS_CLUSTERS;
 
-public abstract class AbstractEcsCachingAgent<T> implements CachingAgent, OnDemandAgent {
+public abstract class AbstractEcsCachingAgent<T> implements CachingAgent {
+  private final Logger log = LoggerFactory.getLogger(getClass());
+
   protected AmazonClientProvider amazonClientProvider;
   protected AWSCredentialsProvider awsCredentialsProvider;
   protected String region;
   protected String accountName;
-  protected OnDemandMetricsSupport metricsSupport;
 
-  public AbstractEcsCachingAgent(String accountName, String region, AmazonClientProvider amazonClientProvider, AWSCredentialsProvider awsCredentialsProvider, Registry registry) {
+  AbstractEcsCachingAgent(String accountName, String region, AmazonClientProvider amazonClientProvider, AWSCredentialsProvider awsCredentialsProvider) {
     this.accountName = accountName;
     this.region = region;
     this.amazonClientProvider = amazonClientProvider;
     this.awsCredentialsProvider = awsCredentialsProvider;
-    this.metricsSupport = new OnDemandMetricsSupport(registry, this, EcsCloudProvider.ID + ":" + EcsCloudProvider.ID + ":${OnDemandAgent.OnDemandType.ServerGroup}");
   }
 
   /**
    * Fetches items to be stored from the AWS API
+   *
    * @param ecs
    * @param providerCache
    * @return
    */
   protected abstract List<T> getItems(AmazonECS ecs, ProviderCache providerCache);
 
-  /**
-   * Transforms raw cached objects as cache-storeable objects
-   * @param items
-   * @param providerCache
-   * @return
-   */
-  protected abstract CacheResult buildCacheResult(List<T> items, ProviderCache providerCache);
+  protected abstract Map<String, Collection<CacheData>> generateFreshData(Collection<T> cacheableItems);
 
   @Override
   public String getProviderName() {
@@ -79,66 +75,15 @@ public abstract class AbstractEcsCachingAgent<T> implements CachingAgent, OnDema
   }
 
   @Override
-  public String getOnDemandAgentType() {
-    return getAgentType();
-  }
-
-  @Override
-  public OnDemandMetricsSupport getMetricsSupport() {
-    return metricsSupport;
-  }
-
-  @Override
-  public Collection<Map> pendingOnDemandRequests(ProviderCache providerCache) {
-    return new LinkedList<>();
-  }
-
-  @Override
-  public boolean handles(OnDemandType type, String cloudProvider) {
-    return type.equals(OnDemandType.ServerGroup) && cloudProvider.equals(EcsCloudProvider.ID);
-  }
-
-  @Override
   public CacheResult loadData(ProviderCache providerCache) {
+    String authoritativeKeyName = getAuthoritativeKeyName();
+
     AmazonECS ecs = amazonClientProvider.getAmazonEcs(accountName, awsCredentialsProvider, region);
     List<T> items = getItems(ecs, providerCache);
-    return buildCacheResult(items, providerCache);
+    return buildCacheResult(authoritativeKeyName, items, providerCache);
   }
 
-  @Override
-  public OnDemandResult handle(ProviderCache providerCache, Map<String, ?> data) {
-    if (!data.get("account").equals(accountName) || !data.get("region").equals(region)) {
-      return null;
-    }
-
-    AmazonECS ecs = amazonClientProvider.getAmazonEcs(accountName, awsCredentialsProvider, region);
-
-    List<T> items = metricsSupport.readData(new Closure<List<T>>(this, this) {
-      public List<T> doCall() {
-        return getItems(ecs, providerCache);
-      }
-    });
-
-    storeOnDemand(providerCache, data);
-
-    CacheResult cacheResult = metricsSupport.transformData(new Closure<CacheResult>(this, this) {
-      public CacheResult doCall() {
-        return buildCacheResult(items, providerCache);
-      }
-    });
-
-
-    Collection<String> typeStrings = new LinkedList<>();
-    for (AgentDataType agentDataType : getProvidedDataTypes()) {
-      typeStrings.add(agentDataType.toString());
-    }
-
-    OnDemandResult result = new OnDemandResult(getAgentType(), cacheResult, null); // TODO(Bruno Carrier) - evictions should happen properly instead of having a null here
-
-    return result;
-  }
-
-  protected Set<String> getClusters(AmazonECS ecs, ProviderCache providerCache) {
+  Set<String> getClusters(AmazonECS ecs, ProviderCache providerCache) {
     Set<String> clusters = providerCache.getAll(ECS_CLUSTERS.toString()).stream()
       .map(cacheData -> (String) cacheData.getAttributes().get("clusterArn"))
       .collect(Collectors.toSet());
@@ -161,7 +106,38 @@ public abstract class AbstractEcsCachingAgent<T> implements CachingAgent, OnDema
     return clusters;
   }
 
-  protected void storeOnDemand(ProviderCache providerCache, Map<String, ?> data) {
-    // TODO: Overwrite if needed.
+  String getAuthoritativeKeyName() {
+    Collection<AgentDataType> authoritativeNamespaces = getProvidedDataTypes().stream()
+      .filter(agentDataType -> agentDataType.getAuthority().equals(AUTHORITATIVE))
+      .collect(Collectors.toSet());
+
+    if (authoritativeNamespaces.size() != 1) {
+      throw new RuntimeException("AbstractEcsCachingAgent supports only one authoritative key namespace.");
+    }
+
+    return authoritativeNamespaces.iterator().next().getTypeName();
+  }
+
+  CacheResult buildCacheResult(String authoritativeKeyName, List<T> items, ProviderCache providerCache) {
+    String prettyKeyName = CaseFormat.UPPER_UNDERSCORE.to(CaseFormat.LOWER_CAMEL, authoritativeKeyName);
+
+    Map<String, Collection<CacheData>> dataMap = generateFreshData(items);
+
+    Set<String> oldKeys = providerCache.getAll(authoritativeKeyName).stream()
+      .map(cache -> cache.getId()).collect(Collectors.toSet());
+
+    Map<String, Collection<String>> evictions = computeEvictableData(dataMap.get(authoritativeKeyName), oldKeys);
+    log.info("Evicting " + evictions.size() + " " + prettyKeyName + (evictions.size() > 1 ? "s" : "") + " in " + getAgentType());
+
+    return new DefaultCacheResult(dataMap, evictions);
+  }
+
+  private Map<String, Collection<String>> computeEvictableData(Collection<CacheData> newData, Collection<String> oldKeys) {
+    Set<String> newKeys = newData.stream().map(newKey -> newKey.getId()).collect(Collectors.toSet());
+    Set<String> evictedKeys = oldKeys.stream().filter(oldKey -> !newKeys.contains(oldKey)).collect(Collectors.toSet());
+
+    Map<String, Collection<String>> evictionsByKey = new HashMap<>();
+    evictionsByKey.put(getAuthoritativeKeyName(), evictedKeys);
+    return evictionsByKey;
   }
 }
