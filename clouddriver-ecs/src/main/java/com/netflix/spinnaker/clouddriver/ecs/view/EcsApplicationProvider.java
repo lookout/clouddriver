@@ -33,12 +33,10 @@ import org.springframework.stereotype.Component;
 import java.util.Collection;
 import java.util.HashMap;
 import java.util.HashSet;
-import java.util.List;
 import java.util.Map;
 import java.util.Set;
 import java.util.stream.Collectors;
 
-import static com.netflix.spinnaker.clouddriver.ecs.cache.Keys.Namespace.ECS_CLUSTERS;
 import static com.netflix.spinnaker.clouddriver.ecs.cache.Keys.Namespace.SERVICES;
 
 @Component
@@ -105,7 +103,7 @@ public class EcsApplicationProvider implements ApplicationProvider {
     Collection<CacheData> allServices = cacheView.getAll(SERVICES.toString());
     Collection<CacheData> validServices = allServices
       .stream()
-      .filter(cache ->{
+      .filter(cache -> {
         Map<String, String> keyAttributes = Keys.parse(cache.getId());
         return keyAttributes.get("account").equals(account) && keyAttributes.get("region").equals(region);
       })
