@@ -3,11 +3,11 @@ package com.netflix.spinnaker.clouddriver.ecs.cache;
 import com.netflix.spinnaker.cats.cache.DefaultCacheData;
 import com.netflix.spinnaker.clouddriver.ecs.cache.client.EcsClusterCacheClient;
 import com.netflix.spinnaker.clouddriver.ecs.cache.model.EcsCluster;
+import com.netflix.spinnaker.clouddriver.ecs.provider.agent.EcsClusterCachingAgent;
 import org.junit.Test;
 import spock.lang.Subject;
 
 import java.util.Collections;
-import java.util.HashMap;
 import java.util.Map;
 
 import static com.netflix.spinnaker.clouddriver.ecs.cache.Keys.Namespace.ECS_CLUSTERS;
@@ -25,11 +25,7 @@ public class EcsClusterCacheClientTest extends CommonCacheClient {
     String clusterArn = "arn:aws:ecs:" + REGION + ":012345678910:cluster/" + clusterName;
     String key = Keys.getClusterKey(ACCOUNT, REGION, clusterName);
 
-    Map<String, Object> attributes = new HashMap<>();
-    attributes.put("account", ACCOUNT);
-    attributes.put("region", REGION);
-    attributes.put("clusterName", clusterName);
-    attributes.put("clusterArn", clusterArn);
+    Map<String, Object> attributes = EcsClusterCachingAgent.convertClusterArnToAttributes(ACCOUNT, REGION, clusterArn);
 
     when(cacheView.get(ECS_CLUSTERS.toString(), key)).thenReturn(new DefaultCacheData(key, attributes, Collections.emptyMap()));
 

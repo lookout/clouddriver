@@ -20,6 +20,7 @@ import com.amazonaws.auth.AWSCredentialsProvider;
 import com.amazonaws.services.ecs.AmazonECS;
 import com.amazonaws.services.ecs.model.ListClustersRequest;
 import com.amazonaws.services.ecs.model.ListClustersResult;
+import com.amazonaws.services.ecs.model.Service;
 import com.netflix.spinnaker.cats.agent.AgentDataType;
 import com.netflix.spinnaker.cats.cache.CacheData;
 import com.netflix.spinnaker.cats.cache.DefaultCacheData;
@@ -86,11 +87,7 @@ public class EcsClusterCachingAgent extends AbstractEcsCachingAgent<String> {
     for (String clusterArn : clusterArns) {
       String clusterName = StringUtils.substringAfterLast(clusterArn, "/");
 
-      Map<String, Object> attributes = new HashMap<>();
-      attributes.put("account", accountName);
-      attributes.put("region", region);
-      attributes.put("clusterName", clusterName);
-      attributes.put("clusterArn", clusterArn);
+      Map<String, Object> attributes = convertClusterArnToAttributes(accountName, region, clusterArn);
 
       String key = Keys.getClusterKey(accountName, region, clusterName);
       dataPoints.add(new DefaultCacheData(key, attributes, Collections.emptyMap()));
@@ -101,5 +98,16 @@ public class EcsClusterCachingAgent extends AbstractEcsCachingAgent<String> {
     dataMap.put(ECS_CLUSTERS.toString(), dataPoints);
 
     return dataMap;
+  }
+  public static  Map<String, Object> convertClusterArnToAttributes(String accountName, String region, String clusterArn){
+    String clusterName = StringUtils.substringAfterLast(clusterArn, "/");
+
+    Map<String, Object> attributes = new HashMap<>();
+    attributes.put("account", accountName);
+    attributes.put("region", region);
+    attributes.put("clusterName", clusterName);
+    attributes.put("clusterArn", clusterArn);
+
+    return attributes;
   }
 }
