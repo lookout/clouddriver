@@ -127,38 +127,4 @@ public class ServiceCachingAgentTest extends CommonCachingAgent {
       assertTrue("Expected the service ARN to be one of the following ARNs: " + serviceArns.toString() + ". The service ARN is: " + cacheData.getAttributes().get("serviceArn") +".", serviceArns.contains(cacheData.getAttributes().get("serviceArn")));
     }
   }
-
-  @Test
-  public void shouldAddToCache() {
-    //Given
-    String serviceName = "1dc5c17a-422b-4dc4-b493-371970c6c4d6";
-    String key = Keys.getServiceKey(ACCOUNT, REGION, serviceName);
-    String clusterArn = "arn:aws:ecs:" + REGION + ":012345678910:cluster/test-cluster";
-    String serviceArn = "arn:aws:ecs:" + REGION + ":012345678910:service/" + serviceName;
-
-    Service service = new Service();
-    service.setServiceName(serviceName);
-    service.setServiceArn(serviceArn);
-    service.setClusterArn(clusterArn);
-    service.setTaskDefinition("arn:aws:ecs:" + REGION + ":012345678910:task-definition/test-task-def:1");
-    service.setRoleArn("arn:aws:ecs:" + REGION + ":012345678910:service/test-role");
-    service.setDeploymentConfiguration(new DeploymentConfiguration().withMinimumHealthyPercent(50).withMaximumPercent(100));
-    service.setLoadBalancers(Collections.emptyList());
-    service.setDesiredCount(1);
-    service.setCreatedAt(new Date());
-
-    when(ecs.listClusters(any(ListClustersRequest.class))).thenReturn(new ListClustersResult().withClusterArns(clusterArn));
-    when(ecs.listServices(any(ListServicesRequest.class))).thenReturn(new ListServicesResult().withServiceArns(serviceArn));
-    when(ecs.describeServices(any(DescribeServicesRequest.class))).thenReturn(new DescribeServicesResult().withServices(service));
-
-    //When
-    CacheResult cacheResult = agent.loadData(providerCache);
-
-    //Then
-    Collection<CacheData> cacheData = cacheResult.getCacheResults().get(Keys.Namespace.SERVICES.toString());
-    assertTrue("Expected CacheData to be returned but null is returned", cacheData != null);
-    assertTrue("Expected 1 CacheData but returned " + cacheData.size(), cacheData.size() == 1);
-    String retrievedKey = cacheData.iterator().next().getId();
-    assertTrue("Expected CacheData with ID " + key + " but retrieved ID " + retrievedKey, retrievedKey.equals(key));
-  }
 }
