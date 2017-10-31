@@ -22,6 +22,7 @@ import com.amazonaws.services.ecs.model.ContainerInstance;
 import com.amazonaws.services.ecs.model.DescribeContainerInstancesRequest;
 import com.amazonaws.services.ecs.model.ListContainerInstancesRequest;
 import com.amazonaws.services.ecs.model.ListContainerInstancesResult;
+import com.amazonaws.services.ecs.model.Service;
 import com.netflix.spectator.api.Registry;
 import com.netflix.spinnaker.cats.agent.AgentDataType;
 import com.netflix.spinnaker.cats.agent.CacheResult;
@@ -101,9 +102,7 @@ public class ContainerInstanceCachingAgent extends AbstractEcsOnDemandAgent<Cont
     Collection<CacheData> dataPoints = new LinkedList<>();
 
     for (ContainerInstance containerInstance : containerInstances) {
-      Map<String, Object> attributes = new HashMap<>();
-      attributes.put("containerInstanceArn", containerInstance.getContainerInstanceArn());
-      attributes.put("ec2InstanceId", containerInstance.getEc2InstanceId());
+      Map<String, Object> attributes = convertContainerInstanceToAttributes(accountName, region, containerInstance);
 
       String key = Keys.getContainerInstanceKey(accountName, region, containerInstance.getContainerInstanceArn());
       dataPoints.add(new DefaultCacheData(key, attributes, Collections.emptyMap()));
@@ -116,4 +115,10 @@ public class ContainerInstanceCachingAgent extends AbstractEcsOnDemandAgent<Cont
     return dataMap;
   }
 
+  public static  Map<String, Object> convertContainerInstanceToAttributes(String accountName, String region, ContainerInstance containerInstance){
+    Map<String, Object> attributes = new HashMap<>();
+    attributes.put("containerInstanceArn", containerInstance.getContainerInstanceArn());
+    attributes.put("ec2InstanceId", containerInstance.getEc2InstanceId());
+    return attributes;
+  }
 }
