@@ -23,9 +23,6 @@ public class ContainerInstanceCacheClient extends AbstractCacheClient<ContainerI
     containerInstance.setArn((String) attributes.get("containerInstanceArn"));
     containerInstance.setEc2InstanceId((String) attributes.get("ec2InstanceId"));
 
-    //service.setAccount((String) attributes.get("account"));
-    //service.setRegion((String) attributes.get("region"));
-
     return containerInstance;
   }
 }
