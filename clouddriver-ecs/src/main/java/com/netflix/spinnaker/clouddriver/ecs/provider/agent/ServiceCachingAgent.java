@@ -102,34 +102,17 @@ public class ServiceCachingAgent extends AbstractEcsOnDemandAgent<Service> {
     Map<String, CacheData> clusterDataPoints = new HashMap<>();
 
     for (Service service : services) {
-      Map<String, Object> attributes = new HashMap<>();
-      String applicationName = service.getServiceName().contains("-") ? StringUtils.substringBefore(service.getServiceName(), "-") : service.getServiceName();
-      String clusterName = StringUtils.substringAfterLast(service.getClusterArn(), "/");
-
-      attributes.put("account", accountName);
-      attributes.put("region", region);
-      attributes.put("applicationName", applicationName);
-      attributes.put("serviceName", service.getServiceName());
-      attributes.put("serviceArn", service.getServiceArn());
-      attributes.put("clusterName", clusterName);
-      attributes.put("clusterArn", service.getClusterArn());
-      attributes.put("roleArn", service.getRoleArn());
-      attributes.put("taskDefinition", service.getTaskDefinition());
-      attributes.put("desiredCount", service.getDesiredCount());
-      attributes.put("maximumPercent", service.getDeploymentConfiguration().getMaximumPercent());
-      attributes.put("minimumHealthyPercent", service.getDeploymentConfiguration().getMinimumHealthyPercent());
-      attributes.put("loadBalancers", service.getLoadBalancers());
-      attributes.put("createdAt", service.getCreatedAt().getTime());
-
+      Map<String, Object> attributes = convertServiceToAttributes(accountName, region, service);
 
       String key = Keys.getServiceKey(accountName, region, service.getServiceName());
       dataPoints.add(new DefaultCacheData(key, attributes, Collections.emptyMap()));
 
       Map<String, Object> clusterAttributes = new HashMap<>();
-      attributes.put("account", accountName);
-      attributes.put("region", region);
-      attributes.put("clusterName", clusterName);
-      attributes.put("clusterArn", service.getClusterArn());
+      String clusterName = StringUtils.substringAfterLast(service.getClusterArn(), "/");
+      clusterAttributes.put("account", accountName);
+      clusterAttributes.put("region", region);
+      clusterAttributes.put("clusterName", clusterName);
+      clusterAttributes.put("clusterArn", service.getClusterArn());
       key = Keys.getClusterKey(accountName, region, clusterName);
       clusterDataPoints.put(key, new DefaultCacheData(key, clusterAttributes, Collections.emptyMap()));
     }
@@ -142,5 +125,28 @@ public class ServiceCachingAgent extends AbstractEcsOnDemandAgent<Service> {
     dataMap.put(ECS_CLUSTERS.toString(), clusterDataPoints.values());
 
     return dataMap;
+  }
+
+  public static  Map<String, Object> convertServiceToAttributes(String accountName, String region, Service service){
+    Map<String, Object> attributes = new HashMap<>();
+    String applicationName = service.getServiceName().contains("-") ? StringUtils.substringBefore(service.getServiceName(), "-") : service.getServiceName();
+    String clusterName = StringUtils.substringAfterLast(service.getClusterArn(), "/");
+
+    attributes.put("account", accountName);
+    attributes.put("region", region);
+    attributes.put("applicationName", applicationName);
+    attributes.put("serviceName", service.getServiceName());
+    attributes.put("serviceArn", service.getServiceArn());
+    attributes.put("clusterName", clusterName);
+    attributes.put("clusterArn", service.getClusterArn());
+    attributes.put("roleArn", service.getRoleArn());
+    attributes.put("taskDefinition", service.getTaskDefinition());
+    attributes.put("desiredCount", service.getDesiredCount());
+    attributes.put("maximumPercent", service.getDeploymentConfiguration().getMaximumPercent());
+    attributes.put("minimumHealthyPercent", service.getDeploymentConfiguration().getMinimumHealthyPercent());
+    attributes.put("loadBalancers", service.getLoadBalancers());
+    attributes.put("createdAt", service.getCreatedAt().getTime());
+
+    return attributes;
   }
 }
