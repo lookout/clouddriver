@@ -107,12 +107,8 @@ public class ServiceCachingAgent extends AbstractEcsOnDemandAgent<Service> {
       String key = Keys.getServiceKey(accountName, region, service.getServiceName());
       dataPoints.add(new DefaultCacheData(key, attributes, Collections.emptyMap()));
 
-      Map<String, Object> clusterAttributes = new HashMap<>();
+      Map<String, Object> clusterAttributes = EcsClusterCachingAgent.convertClusterArnToAttributes(accountName, region, service.getClusterArn());
       String clusterName = StringUtils.substringAfterLast(service.getClusterArn(), "/");
-      clusterAttributes.put("account", accountName);
-      clusterAttributes.put("region", region);
-      clusterAttributes.put("clusterName", clusterName);
-      clusterAttributes.put("clusterArn", service.getClusterArn());
       key = Keys.getClusterKey(accountName, region, clusterName);
       clusterDataPoints.put(key, new DefaultCacheData(key, clusterAttributes, Collections.emptyMap()));
     }
