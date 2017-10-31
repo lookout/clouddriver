@@ -21,6 +21,7 @@ import com.amazonaws.services.ecs.AmazonECS;
 import com.amazonaws.services.ecs.model.DescribeServicesRequest;
 import com.amazonaws.services.ecs.model.ListServicesRequest;
 import com.amazonaws.services.ecs.model.ListServicesResult;
+import com.amazonaws.services.ecs.model.LoadBalancer;
 import com.amazonaws.services.ecs.model.Service;
 import com.netflix.spectator.api.Registry;
 import com.netflix.spinnaker.cats.agent.AgentDataType;
@@ -105,6 +106,8 @@ public class ServiceCachingAgent extends AbstractEcsOnDemandAgent<Service> {
       String applicationName = service.getServiceName().contains("-") ? StringUtils.substringBefore(service.getServiceName(), "-") : service.getServiceName();
       String clusterName = StringUtils.substringAfterLast(service.getClusterArn(), "/");
 
+      attributes.put("account", accountName);
+      attributes.put("region", region);
       attributes.put("applicationName", applicationName);
       attributes.put("serviceName", service.getServiceName());
       attributes.put("serviceArn", service.getServiceArn());
