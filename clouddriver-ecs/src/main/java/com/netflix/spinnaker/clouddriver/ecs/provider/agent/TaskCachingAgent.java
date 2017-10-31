@@ -161,10 +161,10 @@ public class TaskCachingAgent extends AbstractEcsOnDemandAgent<Task> {
 
       String clusterName = StringUtils.substringAfterLast(task.getClusterArn(), "/");
       Map<String, Object> clusterAttributes = new HashMap<>();
-      attributes.put("account", accountName);
-      attributes.put("region", region);
-      attributes.put("clusterName", clusterName);
-      attributes.put("clusterArn", task.getClusterArn());
+      clusterAttributes.put("account", accountName);
+      clusterAttributes.put("region", region);
+      clusterAttributes.put("clusterName", clusterName);
+      clusterAttributes.put("clusterArn", task.getClusterArn());
       key = Keys.getClusterKey(accountName, region, clusterName);
       clusterDataPoints.put(key, new DefaultCacheData(key, clusterAttributes, Collections.emptyMap()));
     }

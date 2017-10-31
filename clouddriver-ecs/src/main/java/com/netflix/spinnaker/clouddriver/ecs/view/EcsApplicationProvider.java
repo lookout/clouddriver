@@ -19,9 +19,9 @@ package com.netflix.spinnaker.clouddriver.ecs.view;
 
 import com.google.common.collect.Sets;
 import com.netflix.spinnaker.cats.cache.Cache;
-import com.netflix.spinnaker.cats.cache.CacheData;
 import com.netflix.spinnaker.clouddriver.aws.security.AmazonCredentials;
-import com.netflix.spinnaker.clouddriver.ecs.cache.Keys;
+import com.netflix.spinnaker.clouddriver.ecs.cache.client.ServiceCacheClient;
+import com.netflix.spinnaker.clouddriver.ecs.cache.model.Service;
 import com.netflix.spinnaker.clouddriver.ecs.model.EcsApplication;
 import com.netflix.spinnaker.clouddriver.model.Application;
 import com.netflix.spinnaker.clouddriver.model.ApplicationProvider;
@@ -37,18 +37,16 @@ import java.util.Map;
 import java.util.Set;
 import java.util.stream.Collectors;
 
-import static com.netflix.spinnaker.clouddriver.ecs.cache.Keys.Namespace.SERVICES;
-
 @Component
 public class EcsApplicationProvider implements ApplicationProvider {
 
-  private final Cache cacheView;
+  private final ServiceCacheClient serviceCacheClient;
   private AccountCredentialsProvider accountCredentialsProvider;
 
   @Autowired
   public EcsApplicationProvider(Cache cacheView, AccountCredentialsProvider accountCredentialsProvider) {
     this.accountCredentialsProvider = accountCredentialsProvider;
-    this.cacheView = cacheView;
+    this.serviceCacheClient = new ServiceCacheClient(cacheView);
   }
 
 
@@ -100,17 +98,10 @@ public class EcsApplicationProvider implements ApplicationProvider {
 
   private HashMap<String, Application> populateApplicationMap(String account, String region) {
     HashMap<String, Application> applicationHashMap = new HashMap<>();
-    Collection<CacheData> allServices = cacheView.getAll(SERVICES.toString());
-    Collection<CacheData> validServices = allServices
-      .stream()
-      .filter(cache -> {
-        Map<String, String> keyAttributes = Keys.parse(cache.getId());
-        return keyAttributes.get("account").equals(account) && keyAttributes.get("region").equals(region);
-      })
-      .collect(Collectors.toSet());
+    Collection<Service> services = serviceCacheClient.getAll(account, region);
 
-    for (CacheData serviceCache : validServices) {
-      applicationHashMap = inferApplicationFromServices(applicationHashMap, serviceCache);
+    for (Service service : services) {
+      applicationHashMap = inferApplicationFromServices(applicationHashMap, service);
     }
     return applicationHashMap;
   }
@@ -125,14 +116,14 @@ public class EcsApplicationProvider implements ApplicationProvider {
     return applications;
   }
 
-  private HashMap<String, Application> inferApplicationFromServices(HashMap<String, Application> applicationHashMap, CacheData serviceCache) {
+  private HashMap<String, Application> inferApplicationFromServices(HashMap<String, Application> applicationHashMap, Service service) {
 
     HashMap<String, String> attributes = new HashMap<>();  // After POC we'll figure exactly what info we want to put in here
-    String appName = (String) serviceCache.getAttributes().get("applicationName");
-    String serviceName = (String) serviceCache.getAttributes().get("serviceName");
-    attributes.put("iamRole", (String) serviceCache.getAttributes().get("roleArn"));
-    attributes.put("taskDefinition", (String) serviceCache.getAttributes().get("taskDefinition"));
-    attributes.put("desiredCount", String.valueOf(serviceCache.getAttributes().get("desiredCount")));
+    String appName = service.getApplicationName();
+    String serviceName = service.getServiceName();
+    attributes.put("iamRole", service.getRoleArn());
+    attributes.put("taskDefinition", service.getTaskDefinition());
+    attributes.put("desiredCount", String.valueOf(service.getDesiredCount()));
 
     HashMap<String, Set<String>> clusterNames = new HashMap<>();
     clusterNames.put(appName, Sets.newHashSet(serviceName));

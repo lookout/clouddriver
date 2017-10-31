@@ -32,7 +32,11 @@ public abstract class AbstractCacheClient<T> {
   }
 
   public T get(String key) {
-    return convert(cacheView.get(keyNamespace, key));
+    CacheData cacheData = cacheView.get(keyNamespace, key);
+    if (cacheData != null) {
+      return convert(cacheData);
+    }
+    return null;
   }
 
   private Collection<T> convertAll(Collection<CacheData> cacheData) {
@@ -59,7 +63,7 @@ public abstract class AbstractCacheClient<T> {
 
     Collection<CacheData> allData = cacheView.getAll(keyNamespace, keys);
 
-    if (allData == null){
+    if (allData == null) {
       return Collections.emptyList();
     }
 

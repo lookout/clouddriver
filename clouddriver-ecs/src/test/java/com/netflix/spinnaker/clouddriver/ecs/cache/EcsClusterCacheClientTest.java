@@ -1,6 +1,5 @@
 package com.netflix.spinnaker.clouddriver.ecs.cache;
 
-import com.netflix.spinnaker.cats.cache.Cache;
 import com.netflix.spinnaker.cats.cache.DefaultCacheData;
 import com.netflix.spinnaker.clouddriver.ecs.cache.client.EcsClusterCacheClient;
 import com.netflix.spinnaker.clouddriver.ecs.cache.model.EcsCluster;
@@ -13,16 +12,9 @@ import java.util.Map;
 
 import static com.netflix.spinnaker.clouddriver.ecs.cache.Keys.Namespace.ECS_CLUSTERS;
 import static org.junit.Assert.assertTrue;
-import static org.mockito.Matchers.any;
-import static org.mockito.Mockito.mock;
 import static org.mockito.Mockito.when;
 
-public class EcsClusterCacheClientTest {
-  protected static final String REGION = "us-west-2";
-  protected static final String ACCOUNT = "test-account";
-
-  private Cache cacheView = mock(Cache.class);
-
+public class EcsClusterCacheClientTest extends CommonCacheClient {
   @Subject
   private EcsClusterCacheClient client = new EcsClusterCacheClient(cacheView);
 
