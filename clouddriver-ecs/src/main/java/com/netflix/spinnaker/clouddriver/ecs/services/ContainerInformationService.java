@@ -28,7 +28,9 @@ import com.netflix.spinnaker.cats.cache.Cache;
 import com.netflix.spinnaker.cats.cache.CacheData;
 import com.netflix.spinnaker.clouddriver.aws.security.AmazonClientProvider;
 import com.netflix.spinnaker.clouddriver.ecs.cache.Keys;
+import com.netflix.spinnaker.clouddriver.ecs.cache.client.ContainerInstanceCacheClient;
 import com.netflix.spinnaker.clouddriver.ecs.cache.client.ServiceCacheClient;
+import com.netflix.spinnaker.clouddriver.ecs.cache.model.ContainerInstance;
 import com.netflix.spinnaker.clouddriver.ecs.cache.model.Service;
 import com.netflix.spinnaker.clouddriver.security.AccountCredentialsProvider;
 import org.apache.commons.lang3.StringUtils;
@@ -41,7 +43,6 @@ import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
 
-import static com.netflix.spinnaker.clouddriver.ecs.cache.Keys.Namespace.CONTAINER_INSTANCES;
 import static com.netflix.spinnaker.clouddriver.ecs.cache.Keys.Namespace.TASKS;
 
 @Component
@@ -54,6 +55,7 @@ public class ContainerInformationService {
   private Cache cacheView;
 
   private final ServiceCacheClient serviceCacheClient;
+  private final ContainerInstanceCacheClient containerInstanceCacheClient;
 
   @Autowired
   public ContainerInformationService(AccountCredentialsProvider accountCredentialsProvider,
@@ -63,6 +65,7 @@ public class ContainerInformationService {
     this.amazonClientProvider = amazonClientProvider;
     this.cacheView = cacheView;
     this.serviceCacheClient = new ServiceCacheClient(cacheView);
+    this.containerInstanceCacheClient = new ContainerInstanceCacheClient(cacheView);
   }
 
 
@@ -128,14 +131,13 @@ public class ContainerInformationService {
     }
 
     String containerInstanceCacheKey = Keys.getContainerInstanceKey(accountName, region, (String) taskCache.getAttributes().get("containerInstanceArn"));
-    CacheData containerInstanceCacheData = cacheView.get(CONTAINER_INSTANCES.toString(), containerInstanceCacheKey);
-    if (containerInstanceCacheData == null) {
+    ContainerInstance containerInstance = containerInstanceCacheClient.get(containerInstanceCacheKey);
+    if (containerInstance == null) {
       return "unknown";
     }
-    String hostEc2InstanceId = (String) containerInstanceCacheData.getAttributes().get("ec2InstanceId");
 
     //TODO: describeInstances should probably be cached.
-    DescribeInstancesResult describeInstancesResult = amazonEC2.describeInstances(new DescribeInstancesRequest().withInstanceIds(hostEc2InstanceId));
+    DescribeInstancesResult describeInstancesResult = amazonEC2.describeInstances(new DescribeInstancesRequest().withInstanceIds(containerInstance.getEc2InstanceId()));
     String hostPrivateIpAddress = describeInstancesResult.getReservations().get(0).getInstances().get(0).getPrivateIpAddress(); // TODO - lots of assumptions are made here and need to be relaxed.  get(0) are probably all no-no's
 
     return String.format("%s:%s", hostPrivateIpAddress, hostPort);
@@ -144,9 +146,9 @@ public class ContainerInformationService {
   //TODO: Delete this method once EcsServerClusterProvider has been reworked to use the cache.
   public String getEC2InstanceHostID(String accountName, String region, String containerArn) {
     String containerInstanceCacheKey = Keys.getContainerInstanceKey(accountName, region, containerArn);
-    CacheData containerInstanceCacheData = cacheView.get(CONTAINER_INSTANCES.toString(), containerInstanceCacheKey);
-    if (containerInstanceCacheData != null) {
-      return (String) containerInstanceCacheData.getAttributes().get("ec2InstanceId");
+    ContainerInstance containerInstance = containerInstanceCacheClient.get(containerInstanceCacheKey);
+    if (containerInstance != null) {
+      return containerInstance.getEc2InstanceId();
     }
     return null;
   }
