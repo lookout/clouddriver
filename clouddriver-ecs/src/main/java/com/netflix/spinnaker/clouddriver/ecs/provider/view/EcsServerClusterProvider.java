@@ -34,15 +34,14 @@ import com.amazonaws.services.elasticloadbalancingv2.model.DescribeLoadBalancers
 import com.amazonaws.services.elasticloadbalancingv2.model.LoadBalancer;
 import com.google.common.collect.Sets;
 import com.netflix.spinnaker.cats.cache.Cache;
-import com.netflix.spinnaker.cats.cache.CacheData;
 import com.netflix.spinnaker.clouddriver.aws.model.AmazonLoadBalancer;
 import com.netflix.spinnaker.clouddriver.aws.security.AmazonClientProvider;
 import com.netflix.spinnaker.clouddriver.aws.security.AmazonCredentials;
 import com.netflix.spinnaker.clouddriver.ecs.EcsCloudProvider;
 import com.netflix.spinnaker.clouddriver.ecs.cache.Keys;
 import com.netflix.spinnaker.clouddriver.ecs.cache.client.ServiceCacheClient;
-import com.netflix.spinnaker.clouddriver.ecs.cache.client.TaskDefinitionCacheClient;
 import com.netflix.spinnaker.clouddriver.ecs.cache.client.TaskCacheClient;
+import com.netflix.spinnaker.clouddriver.ecs.cache.client.TaskDefinitionCacheClient;
 import com.netflix.spinnaker.clouddriver.ecs.cache.model.Service;
 import com.netflix.spinnaker.clouddriver.ecs.cache.model.Task;
 import com.netflix.spinnaker.clouddriver.ecs.model.EcsServerCluster;
@@ -73,7 +72,6 @@ import java.util.stream.Collectors;
 @Component
 public class EcsServerClusterProvider implements ClusterProvider<EcsServerCluster> {
 
-  private final Cache cacheView;
   private final TaskCacheClient taskCacheClient;
   private final ServiceCacheClient serviceCacheClient;
   private final TaskDefinitionCacheClient taskDefinitionCacheClient;
@@ -83,7 +81,6 @@ public class EcsServerClusterProvider implements ClusterProvider<EcsServerCluste
 
   @Autowired
   public EcsServerClusterProvider(Cache cacheView, AccountCredentialsProvider accountCredentialsProvider, AmazonClientProvider amazonClientProvider, ContainerInformationService containerInformationService) {
-    this.cacheView = cacheView;
     this.accountCredentialsProvider = accountCredentialsProvider;
     this.amazonClientProvider = amazonClientProvider;
     this.containerInformationService = containerInformationService;
