@@ -144,17 +144,7 @@ public class TaskCachingAgent extends AbstractEcsOnDemandAgent<Task> {
 
     for (Task task : tasks) {
       String taskId = StringUtils.substringAfterLast(task.getTaskArn(), "/");
-      Map<String, Object> attributes = new HashMap<>();
-      attributes.put("taskId", taskId);
-      attributes.put("taskArn", task.getTaskArn());
-      attributes.put("clusterArn", task.getClusterArn());
-      attributes.put("containerInstanceArn", task.getContainerInstanceArn());
-      attributes.put("group", task.getGroup());
-      //TODO: consider making containers a flat structure, if it cannot be deserialized.
-      attributes.put("containers", task.getContainers());
-      attributes.put("lastStatus", task.getLastStatus());
-      attributes.put("desiredStatus", task.getDesiredStatus());
-      attributes.put("startedAt", task.getStartedAt());
+      Map<String, Object> attributes = convertTaskToAttributes(task);
 
       String key = Keys.getTaskKey(accountName, region, taskId);
       dataPoints.add(new DefaultCacheData(key, attributes, Collections.emptyMap()));
@@ -173,5 +163,23 @@ public class TaskCachingAgent extends AbstractEcsOnDemandAgent<Task> {
     dataMap.put(ECS_CLUSTERS.toString(), clusterDataPoints.values());
 
     return dataMap;
+  }
+
+  public static Map<String, Object> convertTaskToAttributes(Task task){
+    String taskId = StringUtils.substringAfterLast(task.getTaskArn(), "/");
+
+    Map<String, Object> attributes = new HashMap<>();
+    attributes.put("taskId", taskId);
+    attributes.put("taskArn", task.getTaskArn());
+    attributes.put("clusterArn", task.getClusterArn());
+    attributes.put("containerInstanceArn", task.getContainerInstanceArn());
+    attributes.put("group", task.getGroup());
+    //TODO: consider making containers a flat structure, if it cannot be deserialized.
+    attributes.put("containers", task.getContainers());
+    attributes.put("lastStatus", task.getLastStatus());
+    attributes.put("desiredStatus", task.getDesiredStatus());
+    attributes.put("startedAt", task.getStartedAt().getTime());
+
+    return attributes;
   }
 }

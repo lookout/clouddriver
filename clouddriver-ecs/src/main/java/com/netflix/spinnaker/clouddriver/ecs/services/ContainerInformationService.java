@@ -30,8 +30,10 @@ import com.netflix.spinnaker.clouddriver.aws.security.AmazonClientProvider;
 import com.netflix.spinnaker.clouddriver.ecs.cache.Keys;
 import com.netflix.spinnaker.clouddriver.ecs.cache.client.ContainerInstanceCacheClient;
 import com.netflix.spinnaker.clouddriver.ecs.cache.client.ServiceCacheClient;
+import com.netflix.spinnaker.clouddriver.ecs.cache.client.TaskCacheClient;
 import com.netflix.spinnaker.clouddriver.ecs.cache.model.ContainerInstance;
 import com.netflix.spinnaker.clouddriver.ecs.cache.model.Service;
+import com.netflix.spinnaker.clouddriver.ecs.cache.model.Task;
 import com.netflix.spinnaker.clouddriver.security.AccountCredentialsProvider;
 import org.apache.commons.lang3.StringUtils;
 import org.springframework.beans.factory.annotation.Autowired;
@@ -43,27 +45,24 @@ import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
 
-import static com.netflix.spinnaker.clouddriver.ecs.cache.Keys.Namespace.TASKS;
-
 @Component
 public class ContainerInformationService {
 
-  private AccountCredentialsProvider accountCredentialsProvider;
-
-  private AmazonClientProvider amazonClientProvider;
-
-  private Cache cacheView;
-
+  private final TaskCacheClient taskCacheClient;
   private final ServiceCacheClient serviceCacheClient;
   private final ContainerInstanceCacheClient containerInstanceCacheClient;
+  private AccountCredentialsProvider accountCredentialsProvider;
+  private AmazonClientProvider amazonClientProvider;
+  private Cache cacheView;
 
   @Autowired
   public ContainerInformationService(AccountCredentialsProvider accountCredentialsProvider,
                                      AmazonClientProvider amazonClientProvider,
-                                     Cache cacheView){
+                                     Cache cacheView) {
     this.accountCredentialsProvider = accountCredentialsProvider;
     this.amazonClientProvider = amazonClientProvider;
     this.cacheView = cacheView;
+    this.taskCacheClient = new TaskCacheClient(cacheView);
     this.serviceCacheClient = new ServiceCacheClient(cacheView);
     this.containerInstanceCacheClient = new ContainerInstanceCacheClient(cacheView);
   }
@@ -109,19 +108,19 @@ public class ContainerInformationService {
   }
 
   public String getClusterArn(String accountName, String region, String taskId) {
-    String taskCacheKey = Keys.getTaskKey(accountName, region, taskId);
-    CacheData taskCacheData = cacheView.get(TASKS.toString(), taskCacheKey);
-    if (taskCacheData != null) {
-      return (String) taskCacheData.getAttributes().get("clusterArn");
+    String key = Keys.getTaskKey(accountName, region, taskId);
+    Task task = taskCacheClient.get(key);
+    if (task != null) {
+      return task.getClusterArn();
     }
     return null;
   }
 
   //TODO: clean up after EcsServerClusterProvider has been changed. hostPort and containerArn may be replaced with a CacheData instead.
-  public String getTaskPrivateAddress(String accountName, String region, AmazonEC2 amazonEC2, CacheData taskCache) {
+  public String getTaskPrivateAddress(String accountName, String region, AmazonEC2 amazonEC2, Task task) {
     int hostPort;
     try {
-      hostPort = (Integer) ((List<Map<String, Object>>) ((List<Map<String, Object>>) taskCache.getAttributes().get("containers")).get(0).get("networkBindings")).get(0).get("hostPort");
+      hostPort = task.getContainers().get(0).getNetworkBindings().get(0).getHostPort();
     } catch (Exception e) {
       hostPort = -1;
     }
@@ -130,7 +129,7 @@ public class ContainerInformationService {
       return "unknown";
     }
 
-    String containerInstanceCacheKey = Keys.getContainerInstanceKey(accountName, region, (String) taskCache.getAttributes().get("containerInstanceArn"));
+    String containerInstanceCacheKey = Keys.getContainerInstanceKey(accountName, region, task.getContainerInstanceArn());
     ContainerInstance containerInstance = containerInstanceCacheClient.get(containerInstanceCacheKey);
     if (containerInstance == null) {
       return "unknown";
