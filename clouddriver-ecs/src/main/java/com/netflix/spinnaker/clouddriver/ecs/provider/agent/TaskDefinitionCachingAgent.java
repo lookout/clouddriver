@@ -93,10 +93,7 @@ public class TaskDefinitionCachingAgent extends AbstractEcsOnDemandAgent<TaskDef
     Collection<CacheData> dataPoints = new LinkedList<>();
 
     for (TaskDefinition taskDefinition : taskDefinitions) {
-      Map<String, Object> attributes = new HashMap<>();
-      attributes.put("taskDefinitionArn", taskDefinition.getTaskDefinitionArn());
-      attributes.put("containerDefinitions", taskDefinition.getContainerDefinitions());
-
+      Map<String, Object> attributes = convertTaskDefinitionToAttributes(taskDefinition);
       String key = Keys.getTaskDefinitionKey(accountName, region, taskDefinition.getTaskDefinitionArn());
       dataPoints.add(new DefaultCacheData(key, attributes, Collections.emptyMap()));
     }
@@ -106,5 +103,12 @@ public class TaskDefinitionCachingAgent extends AbstractEcsOnDemandAgent<TaskDef
     dataMap.put(TASK_DEFINITIONS.toString(), dataPoints);
 
     return dataMap;
+  }
+
+  public static Map<String, Object> convertTaskDefinitionToAttributes(TaskDefinition taskDefinition){
+    Map<String, Object> attributes = new HashMap<>();
+    attributes.put("taskDefinitionArn", taskDefinition.getTaskDefinitionArn());
+    attributes.put("containerDefinitions", taskDefinition.getContainerDefinitions());
+    return  attributes;
   }
 }
