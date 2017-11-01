@@ -17,7 +17,7 @@ import static org.mockito.Mockito.when;
 
 public class TaskCacheClientTest extends CommonCacheClient {
   @Subject
-  private TaskCacheClient client = new TaskCacheClient(cacheView);
+  private final TaskCacheClient client = new TaskCacheClient(cacheView);
 
   @Test
   public void shouldConvert() {

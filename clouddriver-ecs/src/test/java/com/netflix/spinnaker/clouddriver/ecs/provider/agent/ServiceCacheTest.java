@@ -7,7 +7,6 @@ import com.amazonaws.services.ecs.model.ListClustersRequest;
 import com.amazonaws.services.ecs.model.ListClustersResult;
 import com.amazonaws.services.ecs.model.ListServicesRequest;
 import com.amazonaws.services.ecs.model.ListServicesResult;
-import com.amazonaws.services.ecs.model.LoadBalancer;
 import com.amazonaws.services.ecs.model.Service;
 import com.netflix.spinnaker.cats.agent.CacheResult;
 import com.netflix.spinnaker.cats.cache.CacheData;
@@ -27,9 +26,9 @@ import static org.mockito.Matchers.any;
 import static org.mockito.Mockito.when;
 
 public class ServiceCacheTest extends CommonCachingAgent {
-  private ServiceCachingAgent agent = new ServiceCachingAgent(ACCOUNT, REGION, clientProvider, credentialsProvider, registry);
+  private final ServiceCachingAgent agent = new ServiceCachingAgent(ACCOUNT, REGION, clientProvider, credentialsProvider, registry);
   @Subject
-  private ServiceCacheClient client = new ServiceCacheClient(providerCache);
+  private final ServiceCacheClient client = new ServiceCacheClient(providerCache);
 
   @Test
   public void shouldRetrieveFromWrittenCache() {

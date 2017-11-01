@@ -23,7 +23,6 @@ import com.amazonaws.services.ecs.model.ListClustersResult;
 import com.amazonaws.services.ecs.model.ListTasksRequest;
 import com.amazonaws.services.ecs.model.ListTasksResult;
 import com.amazonaws.services.ecs.model.Task;
-import com.netflix.spinnaker.cats.agent.CacheResult;
 import com.netflix.spinnaker.cats.cache.CacheData;
 import com.netflix.spinnaker.clouddriver.ecs.cache.Keys;
 import org.junit.Test;
@@ -47,7 +46,7 @@ import static org.mockito.Mockito.when;
 
 public class TaskCachingAgentTest extends CommonCachingAgent {
   @Subject
-  private TaskCachingAgent agent = new TaskCachingAgent(ACCOUNT, REGION, clientProvider, credentialsProvider, registry);
+  private final TaskCachingAgent agent = new TaskCachingAgent(ACCOUNT, REGION, clientProvider, credentialsProvider, registry);
 
   @Test
   public void shouldGetListOfTasks() {

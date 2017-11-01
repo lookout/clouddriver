@@ -23,9 +23,7 @@ import com.amazonaws.services.ecs.model.ListClustersRequest;
 import com.amazonaws.services.ecs.model.ListClustersResult;
 import com.amazonaws.services.ecs.model.ListContainerInstancesRequest;
 import com.amazonaws.services.ecs.model.ListContainerInstancesResult;
-import com.netflix.spinnaker.cats.agent.CacheResult;
 import com.netflix.spinnaker.cats.cache.CacheData;
-import com.netflix.spinnaker.clouddriver.ecs.cache.Keys;
 import org.junit.Test;
 import spock.lang.Subject;
 
@@ -44,7 +42,7 @@ import static org.mockito.Mockito.when;
 
 public class ContainerInstanceCachingAgentTest extends CommonCachingAgent {
   @Subject
-  private ContainerInstanceCachingAgent agent = new ContainerInstanceCachingAgent(ACCOUNT, REGION, clientProvider, credentialsProvider, registry);
+  private final ContainerInstanceCachingAgent agent = new ContainerInstanceCachingAgent(ACCOUNT, REGION, clientProvider, credentialsProvider, registry);
 
   @Test
   public void shouldGetListOfContainerInstances() {

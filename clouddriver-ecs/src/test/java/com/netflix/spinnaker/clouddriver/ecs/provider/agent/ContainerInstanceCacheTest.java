@@ -31,11 +31,6 @@ import org.junit.Test;
 import spock.lang.Subject;
 
 import java.util.Collection;
-import java.util.HashSet;
-import java.util.LinkedList;
-import java.util.List;
-import java.util.Map;
-import java.util.Set;
 
 import static com.netflix.spinnaker.clouddriver.ecs.cache.Keys.Namespace.CONTAINER_INSTANCES;
 import static junit.framework.TestCase.assertTrue;
@@ -45,9 +40,9 @@ import static org.mockito.Mockito.when;
 
 public class ContainerInstanceCacheTest extends CommonCachingAgent {
   @Subject
-  private ContainerInstanceCachingAgent agent = new ContainerInstanceCachingAgent(ACCOUNT, REGION, clientProvider, credentialsProvider, registry);
+  private final ContainerInstanceCachingAgent agent = new ContainerInstanceCachingAgent(ACCOUNT, REGION, clientProvider, credentialsProvider, registry);
   @Subject
-  private ContainerInstanceCacheClient client = new ContainerInstanceCacheClient(providerCache);
+  private final ContainerInstanceCacheClient client = new ContainerInstanceCacheClient(providerCache);
 
   @Test
   public void shouldRetrieveFromWrittenCache() {

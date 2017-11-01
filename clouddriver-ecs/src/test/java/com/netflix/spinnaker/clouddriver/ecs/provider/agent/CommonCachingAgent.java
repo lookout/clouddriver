@@ -29,14 +29,14 @@ import static org.mockito.Mockito.mock;
 import static org.mockito.Mockito.when;
 
 public class CommonCachingAgent {
-  protected static final String REGION = "us-west-2";
-  protected static final String ACCOUNT = "test-account";
+  static final String REGION = "us-west-2";
+  static final String ACCOUNT = "test-account";
 
-  protected static AmazonECS ecs = mock(AmazonECS.class);
-  protected static AmazonClientProvider clientProvider = mock(AmazonClientProvider.class);
-  protected ProviderCache providerCache = mock(ProviderCache.class);
-  protected AWSCredentialsProvider credentialsProvider = mock(AWSCredentialsProvider.class);
-  protected Registry registry = mock(Registry.class);
+  static final AmazonECS ecs = mock(AmazonECS.class);
+  static final AmazonClientProvider clientProvider = mock(AmazonClientProvider.class);
+  final ProviderCache providerCache = mock(ProviderCache.class);
+  final AWSCredentialsProvider credentialsProvider = mock(AWSCredentialsProvider.class);
+  final Registry registry = mock(Registry.class);
 
   @BeforeClass
   public static void setUp() {

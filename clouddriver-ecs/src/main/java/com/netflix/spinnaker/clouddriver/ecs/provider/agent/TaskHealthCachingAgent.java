@@ -57,10 +57,10 @@ public class TaskHealthCachingAgent implements CachingAgent, HealthProvidingCach
   ));
   private final static String HEALTH_ID = "ecs-task-instance-health";
   private final Logger log = LoggerFactory.getLogger(getClass());
-  private AmazonClientProvider amazonClientProvider;
-  private AWSCredentialsProvider awsCredentialsProvider;
-  private String region;
-  private String accountName;
+  private final AmazonClientProvider amazonClientProvider;
+  private final AWSCredentialsProvider awsCredentialsProvider;
+  private final String region;
+  private final String accountName;
 
   public TaskHealthCachingAgent(String accountName, String region, AmazonClientProvider amazonClientProvider, AWSCredentialsProvider awsCredentialsProvider) {
     this.accountName = accountName;
@@ -134,7 +134,7 @@ public class TaskHealthCachingAgent implements CachingAgent, HealthProvidingCach
           }
 
           Map<String, Object> attributes = new HashMap<>();
-          attributes.put("instanceId", (String) taskCache.getAttributes().get("taskArn"));
+          attributes.put("instanceId", taskCache.getAttributes().get("taskArn"));
 
           String targetHealth = describeTargetHealthResult.getTargetHealthDescriptions().get(0).getTargetHealth().getState();
 

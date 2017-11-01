@@ -42,9 +42,9 @@ import static org.mockito.Mockito.when;
 
 public class TaskCacheTest extends CommonCachingAgent {
   @Subject
-  private TaskCachingAgent agent = new TaskCachingAgent(ACCOUNT, REGION, clientProvider, credentialsProvider, registry);
+  private final TaskCachingAgent agent = new TaskCachingAgent(ACCOUNT, REGION, clientProvider, credentialsProvider, registry);
   @Subject
-  private TaskCacheClient client = new TaskCacheClient(providerCache);
+  private final TaskCacheClient client = new TaskCacheClient(providerCache);
 
   @Test
   public void shouldRetrieveFromWrittenCache() {

@@ -49,7 +49,7 @@ import static org.mockito.Mockito.when;
 
 public class TaskHealthCachingAgentTest extends CommonCachingAgent {
   @Subject
-  private TaskHealthCachingAgent agent = new TaskHealthCachingAgent(ACCOUNT, REGION, clientProvider, credentialsProvider);
+  private final TaskHealthCachingAgent agent = new TaskHealthCachingAgent(ACCOUNT, REGION, clientProvider, credentialsProvider);
 
 
   @Test
