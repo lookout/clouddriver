@@ -124,37 +124,4 @@ public class TaskCachingAgentTest extends CommonCachingAgent {
       assertTrue("Expected the task ARN to be one of the following ARNs: " + taskArns.toString() + ". The task ARN is: " + cacheData.getAttributes().get("taskArn") + ".", taskArns.contains(cacheData.getAttributes().get("taskArn")));
     }
   }
-
-  @Test
-  public void shouldAddToCache() {
-    //Given
-    String taskId = "1dc5c17a-422b-4dc4-b493-371970c6c4d6";
-    String key = Keys.getTaskKey(ACCOUNT, REGION, taskId);
-    String clusterArn = "arn:aws:ecs:" + REGION + ":012345678910:cluster/test-cluster";
-    String taskArn = "arn:aws:ecs:" + REGION + ":012345678910:task/" + taskId;
-
-    Task task = new Task();
-    task.setTaskArn(taskArn);
-    task.setClusterArn(clusterArn);
-    task.setContainerInstanceArn("arn:aws:ecs:" + REGION + ":012345678910:container/e09064f7-7361-4c87-8ab9-8d073bbdbcb9");
-    task.setGroup("test-service");
-    task.setContainers(Collections.emptyList());
-    task.setLastStatus("RUNNING");
-    task.setDesiredStatus("RUNNING");
-    task.setStartedAt(new Date());
-
-    when(ecs.listClusters(any(ListClustersRequest.class))).thenReturn(new ListClustersResult().withClusterArns(clusterArn));
-    when(ecs.listTasks(any(ListTasksRequest.class))).thenReturn(new ListTasksResult().withTaskArns(taskArn));
-    when(ecs.describeTasks(any(DescribeTasksRequest.class))).thenReturn(new DescribeTasksResult().withTasks(task));
-
-    //When
-    CacheResult cacheResult = agent.loadData(providerCache);
-
-    //Then
-    Collection<CacheData> cacheData = cacheResult.getCacheResults().get(Keys.Namespace.TASKS.toString());
-    assertTrue("Expected CacheData to be returned but null is returned", cacheData != null);
-    assertTrue("Expected 1 CacheData but returned " + cacheData.size(), cacheData.size() == 1);
-    String retrievedKey = cacheData.iterator().next().getId();
-    assertTrue("Expected CacheData with ID " + key + " but retrieved ID " + retrievedKey, retrievedKey.equals(key));
-  }
 }
