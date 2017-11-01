@@ -40,7 +40,6 @@ import java.util.Map;
 @Component
 public class EcsInstanceProvider implements InstanceProvider<EcsTask> {
 
-  private final Cache cacheView;
   private final TaskCacheClient taskCacheClient;
   private AccountCredentialsProvider accountCredentialsProvider;
   private AmazonClientProvider amazonClientProvider;
@@ -49,7 +48,6 @@ public class EcsInstanceProvider implements InstanceProvider<EcsTask> {
   @Autowired
   public EcsInstanceProvider(Cache cacheView, AccountCredentialsProvider accountCredentialsProvider,
                              AmazonClientProvider amazonClientProvider, ContainerInformationService containerInformationService) {
-    this.cacheView = cacheView;
     this.accountCredentialsProvider = accountCredentialsProvider;
     this.amazonClientProvider = amazonClientProvider;
     this.containerInformationService = containerInformationService;
