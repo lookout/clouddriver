@@ -41,7 +41,9 @@ import com.netflix.spinnaker.clouddriver.aws.security.AmazonCredentials;
 import com.netflix.spinnaker.clouddriver.ecs.EcsCloudProvider;
 import com.netflix.spinnaker.clouddriver.ecs.cache.Keys;
 import com.netflix.spinnaker.clouddriver.ecs.cache.client.ServiceCacheClient;
+import com.netflix.spinnaker.clouddriver.ecs.cache.client.TaskCacheClient;
 import com.netflix.spinnaker.clouddriver.ecs.cache.model.Service;
+import com.netflix.spinnaker.clouddriver.ecs.cache.model.Task;
 import com.netflix.spinnaker.clouddriver.ecs.model.EcsServerCluster;
 import com.netflix.spinnaker.clouddriver.ecs.model.EcsServerGroup;
 import com.netflix.spinnaker.clouddriver.ecs.model.EcsTask;
@@ -67,7 +69,6 @@ import java.util.Map;
 import java.util.Set;
 import java.util.stream.Collectors;
 
-import static com.netflix.spinnaker.clouddriver.ecs.cache.Keys.Namespace.TASKS;
 import static com.netflix.spinnaker.clouddriver.ecs.cache.Keys.Namespace.TASK_DEFINITIONS;
 
 
@@ -75,6 +76,7 @@ import static com.netflix.spinnaker.clouddriver.ecs.cache.Keys.Namespace.TASK_DE
 public class EcsServerClusterProvider implements ClusterProvider<EcsServerCluster> {
 
   private final Cache cacheView;
+  private final TaskCacheClient taskCacheClient;
   private final ServiceCacheClient serviceCacheClient;
   private AccountCredentialsProvider accountCredentialsProvider;
   private AmazonClientProvider amazonClientProvider;
@@ -87,6 +89,7 @@ public class EcsServerClusterProvider implements ClusterProvider<EcsServerCluste
     this.amazonClientProvider = amazonClientProvider;
     this.containerInformationService = containerInformationService;
     this.serviceCacheClient = new ServiceCacheClient(cacheView);
+    this.taskCacheClient = new TaskCacheClient(cacheView);
   }
 
   @Override
@@ -120,7 +123,7 @@ public class EcsServerClusterProvider implements ClusterProvider<EcsServerCluste
                                                                    String application) {
 
     Collection<Service> services = serviceCacheClient.getAll(credentials.getName(), awsRegion.getName());
-    Collection<CacheData> allTasks = cacheView.getAll(TASKS.toString());
+    Collection<Task> allTasks = taskCacheClient.getAll();
 
     AmazonEC2 amazonEC2 = amazonClientProvider.getAmazonEC2(credentials.getName(),
       credentials.getCredentialsProvider(),
@@ -148,25 +151,24 @@ public class EcsServerClusterProvider implements ClusterProvider<EcsServerCluste
       DescribeLoadBalancersResult loadBalancersResult = amazonELB.describeLoadBalancers(new DescribeLoadBalancersRequest());
       Set<com.netflix.spinnaker.clouddriver.model.LoadBalancer> loadBalancers = extractLoadBalancersData(loadBalancersResult);
 
-      Collection<CacheData> serviceTasks = allTasks
+      Collection<Task> serviceTasks = allTasks
         .stream()
-        .filter(cache -> cache.getAttributes().get("group").equals("service:" + serviceName))
+        .filter(task -> task.getGroup().equals("service:" + serviceName))
         .collect(Collectors.toSet());
 
-      for (CacheData taskCache : serviceTasks) {
-        String containerArn = (String) taskCache.getAttributes().get("containerInstanceArn");
-        String taskId = (String) taskCache.getAttributes().get("taskId");
+      for (Task task : serviceTasks) {
+        String containerArn = task.getContainerInstanceArn();
+        String taskId = task.getTaskId();
 
         InstanceStatus ec2InstanceStatus = containerInformationService.getEC2InstanceStatus(
           amazonEC2, credentials.getName(), awsRegion.getName(), containerArn);
 
-        String address = containerInformationService.getTaskPrivateAddress(credentials.getName(), awsRegion.getName(), amazonEC2, taskCache);
+        String address = containerInformationService.getTaskPrivateAddress(credentials.getName(), awsRegion.getName(), amazonEC2, task);
 
         List<Map<String, String>> healthStatus = containerInformationService.getHealthStatus(taskId, serviceName, credentials.getName(), awsRegion.getName());
 
-        Long launchTime = (Long) taskCache.getAttributes().get("startedAt");
-        instances.add(new EcsTask(taskId, launchTime, (String) taskCache.getAttributes().get("lastStatus"),
-          (String) taskCache.getAttributes().get("desiredStatus"), ec2InstanceStatus.getAvailabilityZone(), healthStatus, address));
+        Long launchTime = task.getStartedAt();
+        instances.add(new EcsTask(taskId, launchTime, task.getLastStatus(), task.getDesiredStatus(), ec2InstanceStatus.getAvailabilityZone(), healthStatus, address));
 
         if (vpcId == null) {
           String es2HostId = containerInformationService.getEC2InstanceHostID(credentials.getName(), awsRegion.getName(), containerArn);
