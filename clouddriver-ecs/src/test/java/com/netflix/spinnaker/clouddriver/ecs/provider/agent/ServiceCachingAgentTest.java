@@ -24,7 +24,6 @@ import com.amazonaws.services.ecs.model.ListClustersResult;
 import com.amazonaws.services.ecs.model.ListServicesRequest;
 import com.amazonaws.services.ecs.model.ListServicesResult;
 import com.amazonaws.services.ecs.model.Service;
-import com.netflix.spinnaker.cats.agent.CacheResult;
 import com.netflix.spinnaker.cats.cache.CacheData;
 import com.netflix.spinnaker.clouddriver.ecs.cache.Keys;
 import org.junit.Test;
@@ -49,26 +48,22 @@ import static com.netflix.spinnaker.clouddriver.ecs.cache.Keys.Namespace.SERVICE
 
 public class ServiceCachingAgentTest extends CommonCachingAgent {
   @Subject
-  private ServiceCachingAgent agent = new ServiceCachingAgent(ACCOUNT, REGION, clientProvider, credentialsProvider, registry);
+  private final ServiceCachingAgent agent = new ServiceCachingAgent(ACCOUNT, REGION, clientProvider, credentialsProvider, registry);
 
   @Test
   public void shouldGetListOfServices() {
     //Given
-    String clusterArn = "arn:aws:ecs:" + REGION + ":012345678910:cluster/test-cluster";
-    String serviceArn1 = "arn:aws:ecs:" + REGION + ":012345678910:service/service1";
-    String serviceArn2 = "arn:aws:ecs:" + REGION + ":012345678910:service/service2";
-
-    ListServicesResult listServicesResult = new ListServicesResult().withServiceArns(serviceArn1, serviceArn2);
+    ListServicesResult listServicesResult = new ListServicesResult().withServiceArns(SERVICE_ARN_1, SERVICE_ARN_2);
     when(ecs.listServices(any(ListServicesRequest.class))).thenReturn(listServicesResult);
 
     List<Service> services = new LinkedList<>();
-    services.add(new Service().withServiceArn(serviceArn1));
-    services.add(new Service().withServiceArn(serviceArn2));
+    services.add(new Service().withServiceArn(SERVICE_ARN_1));
+    services.add(new Service().withServiceArn(SERVICE_ARN_2));
 
     DescribeServicesResult describeServicesResult = new DescribeServicesResult().withServices(services);
     when(ecs.describeServices(any(DescribeServicesRequest.class))).thenReturn(describeServicesResult);
 
-    when(ecs.listClusters(any(ListClustersRequest.class))).thenReturn(new ListClustersResult().withClusterArns(clusterArn));
+    when(ecs.listClusters(any(ListClustersRequest.class))).thenReturn(new ListClustersResult().withClusterArns(CLUSTER_ARN_1));
 
     //When
     List<Service> returnedServices = agent.getItems(ecs, providerCache);
@@ -83,30 +78,24 @@ public class ServiceCachingAgentTest extends CommonCachingAgent {
   @Test
   public void shouldGenerateFreshData() {
     //Given
-    String serviceName1 = "service-detail-stack-v1";
-    String serviceName2 = "service-detail-stack-v2";
     List<String> serviceNames = new LinkedList<>();
-    serviceNames.add(serviceName1);
-    serviceNames.add(serviceName2);
+    serviceNames.add(SERVICE_NAME_1);
+    serviceNames.add(SERVICE_NAME_2);
 
-    String clusterArn = "arn:aws:ecs:" + REGION + ":012345678910:cluster/test-cluster";
-
-    String serviceArn1 = "arn:aws:ecs:" + REGION + ":012345678910:service/" + serviceName1;
-    String serviceArn2 = "arn:aws:ecs:" + REGION + ":012345678910:service/" + serviceName2;
     List<String> serviceArns = new LinkedList<>();
-    serviceArns.add(serviceArn1);
-    serviceArns.add(serviceArn2);
+    serviceArns.add(SERVICE_ARN_1);
+    serviceArns.add(SERVICE_ARN_2);
 
     List<Service> services = new LinkedList<>();
     Set<String> keys = new HashSet<>();
     for (int x = 0; x < serviceArns.size(); x++) {
       keys.add(Keys.getServiceKey(ACCOUNT, REGION, serviceNames.get(x)));
 
-      services.add(new Service().withClusterArn(clusterArn)
+      services.add(new Service().withClusterArn(CLUSTER_ARN_1)
         .withServiceArn(serviceArns.get(x))
         .withServiceName(serviceNames.get(x))
-      .withTaskDefinition("arn:aws:ecs:" + REGION + ":012345678910:task-definition/test-task-def:1")
-      .withRoleArn("arn:aws:ecs:" + REGION + ":012345678910:service/test-role")
+      .withTaskDefinition(TASK_DEFINITION_ARN_1)
+      .withRoleArn(ROLE_ARN)
       .withDeploymentConfiguration(new DeploymentConfiguration().withMinimumHealthyPercent(50).withMaximumPercent(100))
       .withLoadBalancers(Collections.emptyList())
       .withDesiredCount(1)

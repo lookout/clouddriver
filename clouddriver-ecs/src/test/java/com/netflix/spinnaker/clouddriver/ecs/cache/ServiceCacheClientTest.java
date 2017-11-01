@@ -20,7 +20,7 @@ import static org.mockito.Mockito.when;
 
 public class ServiceCacheClientTest extends CommonCacheClient {
   @Subject
-  private ServiceCacheClient client = new ServiceCacheClient(cacheView);
+  private final ServiceCacheClient client = new ServiceCacheClient(cacheView);
 
   @Test
   public void shouldConvert() {

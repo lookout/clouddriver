@@ -52,7 +52,7 @@ import static com.netflix.spinnaker.clouddriver.ecs.cache.Keys.Namespace.SERVICE
 import static com.netflix.spinnaker.clouddriver.ecs.cache.Keys.Namespace.TASKS;
 
 public class TaskCachingAgent extends AbstractEcsOnDemandAgent<Task> {
-  static final Collection<AgentDataType> types = Collections.unmodifiableCollection(Arrays.asList(
+  private static final Collection<AgentDataType> types = Collections.unmodifiableCollection(Arrays.asList(
     AUTHORITATIVE.forType(TASKS.toString()),
     INFORMATIVE.forType(ECS_CLUSTERS.toString())
   ));
@@ -125,7 +125,7 @@ public class TaskCachingAgent extends AbstractEcsOnDemandAgent<Task> {
   }
 
   @Override
-  protected void storeOnDemand(ProviderCache providerCache, Map<String, ?> data) {
+  void storeOnDemand(ProviderCache providerCache, Map<String, ?> data) {
     metricsSupport.onDemandStore(new Closure<List<Task>>(this, this) {
       public void doCall() {
         String keyString = Keys.getServiceKey(accountName, region, (String) data.get("serverGroupName"));
@@ -174,7 +174,6 @@ public class TaskCachingAgent extends AbstractEcsOnDemandAgent<Task> {
     attributes.put("clusterArn", task.getClusterArn());
     attributes.put("containerInstanceArn", task.getContainerInstanceArn());
     attributes.put("group", task.getGroup());
-    //TODO: consider making containers a flat structure, if it cannot be deserialized.
     attributes.put("containers", task.getContainers());
     attributes.put("lastStatus", task.getLastStatus());
     attributes.put("desiredStatus", task.getDesiredStatus());

@@ -18,32 +18,22 @@ package com.netflix.spinnaker.clouddriver.ecs.provider.agent;
 
 import com.amazonaws.auth.AWSCredentialsProvider;
 import com.amazonaws.services.ecs.AmazonECS;
-import com.amazonaws.services.ecs.model.ListClustersRequest;
-import com.amazonaws.services.ecs.model.ListClustersResult;
 import com.netflix.spectator.api.Registry;
-import com.netflix.spinnaker.cats.agent.AgentDataType;
 import com.netflix.spinnaker.cats.agent.CacheResult;
-import com.netflix.spinnaker.cats.agent.CachingAgent;
 import com.netflix.spinnaker.cats.provider.ProviderCache;
 import com.netflix.spinnaker.clouddriver.aws.security.AmazonClientProvider;
 import com.netflix.spinnaker.clouddriver.cache.OnDemandAgent;
 import com.netflix.spinnaker.clouddriver.cache.OnDemandMetricsSupport;
 import com.netflix.spinnaker.clouddriver.ecs.EcsCloudProvider;
-import com.netflix.spinnaker.clouddriver.ecs.provider.EcsProvider;
 import groovy.lang.Closure;
 
 import java.util.Collection;
-import java.util.HashSet;
 import java.util.LinkedList;
 import java.util.List;
 import java.util.Map;
-import java.util.Set;
-import java.util.stream.Collectors;
 
-import static com.netflix.spinnaker.clouddriver.ecs.cache.Keys.Namespace.ECS_CLUSTERS;
-
-public abstract class AbstractEcsOnDemandAgent<T> extends  AbstractEcsCachingAgent<T> implements OnDemandAgent {
-  OnDemandMetricsSupport metricsSupport;
+abstract class AbstractEcsOnDemandAgent<T> extends  AbstractEcsCachingAgent<T> implements OnDemandAgent {
+  final OnDemandMetricsSupport metricsSupport;
 
   AbstractEcsOnDemandAgent(String accountName, String region, AmazonClientProvider amazonClientProvider, AWSCredentialsProvider awsCredentialsProvider, Registry registry) {
     super(accountName, region, amazonClientProvider, awsCredentialsProvider);
@@ -92,18 +82,10 @@ public abstract class AbstractEcsOnDemandAgent<T> extends  AbstractEcsCachingAge
       }
     });
 
-
-    Collection<String> typeStrings = new LinkedList<>();
-    for (AgentDataType agentDataType : getProvidedDataTypes()) {
-      typeStrings.add(agentDataType.toString());
-    }
-
-    OnDemandResult result = new OnDemandResult(getAgentType(), cacheResult, null); // TODO(Bruno Carrier) - evictions should happen properly instead of having a null here
-
-    return result;
+    return new OnDemandResult(getAgentType(), cacheResult, null); // TODO(Bruno Carrier) - evictions should happen properly instead of having a null here
   }
 
-  protected void storeOnDemand(ProviderCache providerCache, Map<String, ?> data) {
+  void storeOnDemand(ProviderCache providerCache, Map<String, ?> data) {
     // TODO: Overwrite if needed.
   }
 }

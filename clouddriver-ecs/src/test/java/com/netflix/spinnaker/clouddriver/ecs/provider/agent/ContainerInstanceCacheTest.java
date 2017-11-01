@@ -31,11 +31,6 @@ import org.junit.Test;
 import spock.lang.Subject;
 
 import java.util.Collection;
-import java.util.HashSet;
-import java.util.LinkedList;
-import java.util.List;
-import java.util.Map;
-import java.util.Set;
 
 import static com.netflix.spinnaker.clouddriver.ecs.cache.Keys.Namespace.CONTAINER_INSTANCES;
 import static junit.framework.TestCase.assertTrue;
@@ -45,23 +40,21 @@ import static org.mockito.Mockito.when;
 
 public class ContainerInstanceCacheTest extends CommonCachingAgent {
   @Subject
-  private ContainerInstanceCachingAgent agent = new ContainerInstanceCachingAgent(ACCOUNT, REGION, clientProvider, credentialsProvider, registry);
+  private final ContainerInstanceCachingAgent agent = new ContainerInstanceCachingAgent(ACCOUNT, REGION, clientProvider, credentialsProvider, registry);
   @Subject
-  private ContainerInstanceCacheClient client = new ContainerInstanceCacheClient(providerCache);
+  private final ContainerInstanceCacheClient client = new ContainerInstanceCacheClient(providerCache);
 
   @Test
   public void shouldRetrieveFromWrittenCache() {
     //Given
-    String clusterArn = "arn:aws:ecs:" + REGION + ":012345678910:cluster/test-cluster";
-    String containerInstanceArn = "arn:aws:ecs:" + REGION + ":012345678910:container-instance/14e8cce9-0b16-4af4-bfac-a85f7587aa98";
-    String key = Keys.getContainerInstanceKey(ACCOUNT, REGION, containerInstanceArn);
+    String key = Keys.getContainerInstanceKey(ACCOUNT, REGION, CONTAINER_INSTANCE_ARN_1);
 
     ContainerInstance containerInstance = new ContainerInstance();
-    containerInstance.setContainerInstanceArn(containerInstanceArn);
-    containerInstance.setEc2InstanceId("i-042f39dc");
+    containerInstance.setContainerInstanceArn(CONTAINER_INSTANCE_ARN_1);
+    containerInstance.setEc2InstanceId(EC2_INSTANCE_ID_1);
 
-    when(ecs.listClusters(any(ListClustersRequest.class))).thenReturn(new ListClustersResult().withClusterArns(clusterArn));
-    when(ecs.listContainerInstances(any(ListContainerInstancesRequest.class))).thenReturn(new ListContainerInstancesResult().withContainerInstanceArns(containerInstanceArn));
+    when(ecs.listClusters(any(ListClustersRequest.class))).thenReturn(new ListClustersResult().withClusterArns(CLUSTER_ARN_1));
+    when(ecs.listContainerInstances(any(ListContainerInstancesRequest.class))).thenReturn(new ListContainerInstancesResult().withContainerInstanceArns(CONTAINER_INSTANCE_ARN_1));
     when(ecs.describeContainerInstances(any(DescribeContainerInstancesRequest.class))).thenReturn(new DescribeContainerInstancesResult().withContainerInstances(containerInstance));
 
     //When

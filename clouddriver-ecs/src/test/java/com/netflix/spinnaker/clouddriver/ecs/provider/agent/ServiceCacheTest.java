@@ -7,7 +7,6 @@ import com.amazonaws.services.ecs.model.ListClustersRequest;
 import com.amazonaws.services.ecs.model.ListClustersResult;
 import com.amazonaws.services.ecs.model.ListServicesRequest;
 import com.amazonaws.services.ecs.model.ListServicesResult;
-import com.amazonaws.services.ecs.model.LoadBalancer;
 import com.amazonaws.services.ecs.model.Service;
 import com.netflix.spinnaker.cats.agent.CacheResult;
 import com.netflix.spinnaker.cats.cache.CacheData;
@@ -27,32 +26,28 @@ import static org.mockito.Matchers.any;
 import static org.mockito.Mockito.when;
 
 public class ServiceCacheTest extends CommonCachingAgent {
-  private ServiceCachingAgent agent = new ServiceCachingAgent(ACCOUNT, REGION, clientProvider, credentialsProvider, registry);
+  private final ServiceCachingAgent agent = new ServiceCachingAgent(ACCOUNT, REGION, clientProvider, credentialsProvider, registry);
   @Subject
-  private ServiceCacheClient client = new ServiceCacheClient(providerCache);
+  private final ServiceCacheClient client = new ServiceCacheClient(providerCache);
 
   @Test
   public void shouldRetrieveFromWrittenCache() {
     //Given
-    String applicationName = "test";
-    String serviceName = applicationName + "-stack-detail-v1";
-    String key = Keys.getServiceKey(ACCOUNT, REGION, serviceName);
-    String clusterArn = "arn:aws:ecs:" + REGION + ":012345678910:cluster/test-cluster";
-    String serviceArn = "arn:aws:ecs:" + REGION + ":012345678910:service/" + serviceName;
+    String key = Keys.getServiceKey(ACCOUNT, REGION, SERVICE_NAME_1);
 
     Service service = new Service();
-    service.setServiceName(serviceName);
-    service.setServiceArn(serviceArn);
-    service.setClusterArn(clusterArn);
-    service.setTaskDefinition("arn:aws:ecs:" + REGION + ":012345678910:task-definition/test-task-def:1");
-    service.setRoleArn("arn:aws:ecs:" + REGION + ":012345678910:service/test-role");
+    service.setServiceName(SERVICE_NAME_1);
+    service.setServiceArn(SERVICE_ARN_1);
+    service.setClusterArn(CLUSTER_ARN_1);
+    service.setTaskDefinition(TASK_DEFINITION_ARN_1);
+    service.setRoleArn(ROLE_ARN);
     service.setDeploymentConfiguration(new DeploymentConfiguration().withMinimumHealthyPercent(50).withMaximumPercent(100));
     service.setLoadBalancers(Collections.emptyList());
     service.setDesiredCount(1);
     service.setCreatedAt(new Date());
 
-    when(ecs.listClusters(any(ListClustersRequest.class))).thenReturn(new ListClustersResult().withClusterArns(clusterArn));
-    when(ecs.listServices(any(ListServicesRequest.class))).thenReturn(new ListServicesResult().withServiceArns(serviceArn));
+    when(ecs.listClusters(any(ListClustersRequest.class))).thenReturn(new ListClustersResult().withClusterArns(CLUSTER_ARN_1));
+    when(ecs.listServices(any(ListServicesRequest.class))).thenReturn(new ListServicesResult().withServiceArns(SERVICE_ARN_1));
     when(ecs.describeServices(any(DescribeServicesRequest.class))).thenReturn(new DescribeServicesResult().withServices(service));
 
     //When
@@ -68,16 +63,14 @@ public class ServiceCacheTest extends CommonCachingAgent {
     String retrievedKey = cacheData.iterator().next().getId();
     assertTrue("Expected CacheData with ID " + key + " but retrieved ID " + retrievedKey, retrievedKey.equals(key));
 
-    assertTrue("Expected the service application name to be " + applicationName + " but got " + ecsService.getApplicationName(),
-      applicationName.equals(ecsService.getApplicationName()));
-    assertTrue("Expected the service name to be " + serviceName + " but got " + ecsService.getServiceName(),
-      serviceName.equals(ecsService.getServiceName()));
-    assertTrue("Expected the service ARN to be " + serviceArn + " but got " + ecsService.getServiceArn(),
-      serviceArn.equals(ecsService.getServiceArn()));
-    assertTrue("Expected the service's cluster ARN to be " + clusterArn + " but got " + ecsService.getClusterArn(),
-      clusterArn.equals(ecsService.getClusterArn()));
-    assertTrue("Expected the service's cluster ARN to be " + clusterArn + " but got " + ecsService.getClusterArn(),
-      clusterArn.equals(ecsService.getClusterArn()));
+    assertTrue("Expected the service application name to be " + APP_NAME + " but got " + ecsService.getApplicationName(),
+      APP_NAME.equals(ecsService.getApplicationName()));
+    assertTrue("Expected the service name to be " + SERVICE_NAME_1 + " but got " + ecsService.getServiceName(),
+      SERVICE_NAME_1.equals(ecsService.getServiceName()));
+    assertTrue("Expected the service ARN to be " + SERVICE_ARN_1 + " but got " + ecsService.getServiceArn(),
+      SERVICE_ARN_1.equals(ecsService.getServiceArn()));
+    assertTrue("Expected the service's cluster ARN to be " + CLUSTER_ARN_1 + " but got " + ecsService.getClusterArn(),
+      CLUSTER_ARN_1.equals(ecsService.getClusterArn()));
     Assert.assertTrue("Expected the role ARN of the service to be " + service.getRoleArn() + " but got " + ecsService.getRoleArn(),
       service.getRoleArn().equals(ecsService.getRoleArn()));
     Assert.assertTrue("Expected the task definition of the service to be " + service.getTaskDefinition() + " but got " + ecsService.getTaskDefinition(), service.getTaskDefinition().equals(ecsService.getTaskDefinition()));

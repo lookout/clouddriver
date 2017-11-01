@@ -22,11 +22,8 @@ import com.amazonaws.services.ecs.model.ContainerInstance;
 import com.amazonaws.services.ecs.model.DescribeContainerInstancesRequest;
 import com.amazonaws.services.ecs.model.ListContainerInstancesRequest;
 import com.amazonaws.services.ecs.model.ListContainerInstancesResult;
-import com.amazonaws.services.ecs.model.Service;
 import com.netflix.spectator.api.Registry;
 import com.netflix.spinnaker.cats.agent.AgentDataType;
-import com.netflix.spinnaker.cats.agent.CacheResult;
-import com.netflix.spinnaker.cats.agent.DefaultCacheResult;
 import com.netflix.spinnaker.cats.cache.CacheData;
 import com.netflix.spinnaker.cats.cache.DefaultCacheData;
 import com.netflix.spinnaker.cats.provider.ProviderCache;
@@ -43,7 +40,6 @@ import java.util.LinkedList;
 import java.util.List;
 import java.util.Map;
 import java.util.Set;
-import java.util.stream.Collectors;
 
 import static com.netflix.spinnaker.cats.agent.AgentDataType.Authority.AUTHORITATIVE;
 import static com.netflix.spinnaker.clouddriver.ecs.cache.Keys.Namespace.CONTAINER_INSTANCES;
@@ -102,7 +98,7 @@ public class ContainerInstanceCachingAgent extends AbstractEcsOnDemandAgent<Cont
     Collection<CacheData> dataPoints = new LinkedList<>();
 
     for (ContainerInstance containerInstance : containerInstances) {
-      Map<String, Object> attributes = convertContainerInstanceToAttributes(accountName, region, containerInstance);
+      Map<String, Object> attributes = convertContainerInstanceToAttributes(containerInstance);
 
       String key = Keys.getContainerInstanceKey(accountName, region, containerInstance.getContainerInstanceArn());
       dataPoints.add(new DefaultCacheData(key, attributes, Collections.emptyMap()));
@@ -115,7 +111,7 @@ public class ContainerInstanceCachingAgent extends AbstractEcsOnDemandAgent<Cont
     return dataMap;
   }
 
-  public static  Map<String, Object> convertContainerInstanceToAttributes(String accountName, String region, ContainerInstance containerInstance){
+  public static  Map<String, Object> convertContainerInstanceToAttributes(ContainerInstance containerInstance){
     Map<String, Object> attributes = new HashMap<>();
     attributes.put("containerInstanceArn", containerInstance.getContainerInstanceArn());
     attributes.put("ec2InstanceId", containerInstance.getEc2InstanceId());
