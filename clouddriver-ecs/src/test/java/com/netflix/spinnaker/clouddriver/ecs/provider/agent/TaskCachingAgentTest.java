@@ -51,21 +51,17 @@ public class TaskCachingAgentTest extends CommonCachingAgent {
   @Test
   public void shouldGetListOfTasks() {
     //Given
-    String clusterArn = "arn:aws:ecs:" + REGION + ":012345678910:cluster/test-cluster";
-    String taskArn1 = "arn:aws:ecs:" + REGION + ":012345678910:task/1dc5c17a-422b-4dc4-b493-371970c6c4d6";
-    String taskArn2 = "arn:aws:ecs:" + REGION + ":012345678910:task/deadbeef-422b-4dc4-b493-371970c6c4d6";
-
-    ListTasksResult listTasksResult = new ListTasksResult().withTaskArns(taskArn1, taskArn2);
+    ListTasksResult listTasksResult = new ListTasksResult().withTaskArns(TASK_ARN_1, TASK_ARN_2);
     when(ecs.listTasks(any(ListTasksRequest.class))).thenReturn(listTasksResult);
 
     List<Task> tasks = new LinkedList<>();
-    tasks.add(new Task().withTaskArn(taskArn1));
-    tasks.add(new Task().withTaskArn(taskArn2));
+    tasks.add(new Task().withTaskArn(TASK_ARN_1));
+    tasks.add(new Task().withTaskArn(TASK_ARN_2));
 
     DescribeTasksResult describeResult = new DescribeTasksResult().withTasks(tasks);
     when(ecs.describeTasks(any(DescribeTasksRequest.class))).thenReturn(describeResult);
 
-    when(ecs.listClusters(any(ListClustersRequest.class))).thenReturn(new ListClustersResult().withClusterArns(clusterArn));
+    when(ecs.listClusters(any(ListClustersRequest.class))).thenReturn(new ListClustersResult().withClusterArns(CLUSTER_ARN_1));
 
     //When
     List<Task> returnedTasks = agent.getItems(ecs, providerCache);
@@ -80,32 +76,26 @@ public class TaskCachingAgentTest extends CommonCachingAgent {
   @Test
   public void shouldGenerateFreshData() {
     //Given
-    String taskId1 = "1dc5c17a-422b-4dc4-b493-371970c6c4d6";
-    String taskId2 = "deadbeef-422b-4dc4-b493-371970c6c4d6";
     List<String> taskIDs = new LinkedList<>();
-    taskIDs.add(taskId1);
-    taskIDs.add(taskId2);
+    taskIDs.add(TASK_ID_1);
+    taskIDs.add(TASK_ID_1);
 
-    String clusterArn = "arn:aws:ecs:" + REGION + ":012345678910:cluster/test-cluster";
-
-    String taskArn1 = "arn:aws:ecs:" + REGION + ":012345678910:task/" + taskId1;
-    String taskArn2 = "arn:aws:ecs:" + REGION + ":012345678910:task/" + taskId2;
     List<String> taskArns = new LinkedList<>();
-    taskArns.add(taskArn1);
-    taskArns.add(taskArn2);
+    taskArns.add(TASK_ARN_1);
+    taskArns.add(TASK_ARN_2);
 
     List<Task> tasks = new LinkedList<>();
     Set<String> keys = new HashSet<>();
     for (int x = 0; x < taskArns.size(); x++) {
       keys.add(Keys.getTaskKey(ACCOUNT, REGION, taskIDs.get(x)));
 
-      tasks.add(new Task().withClusterArn(clusterArn)
+      tasks.add(new Task().withClusterArn(CLUSTER_ARN_1)
         .withTaskArn(taskArns.get(x))
-        .withContainerInstanceArn("arn:aws:ecs:" + REGION + ":012345678910:container/e09064f7-7361-4c87-8ab9-8d073bbdbcb9")
-        .withGroup("test-service")
+        .withContainerInstanceArn(CONTAINER_INSTANCE_ARN_1)
+        .withGroup("group:"+SERVICE_NAME_1)
         .withContainers(Collections.emptyList())
-        .withLastStatus("RUNNING")
-        .withDesiredStatus("RUNNING")
+        .withLastStatus(STATUS)
+        .withDesiredStatus(STATUS)
         .withStartedAt(new Date()));
     }
 

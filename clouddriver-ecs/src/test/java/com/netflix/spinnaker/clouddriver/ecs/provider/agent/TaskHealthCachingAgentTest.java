@@ -58,27 +58,22 @@ public class TaskHealthCachingAgentTest extends CommonCachingAgent {
     AmazonElasticLoadBalancing amazonloadBalancing = mock(AmazonElasticLoadBalancing.class);
     when(clientProvider.getAmazonElasticLoadBalancingV2(anyString(), any(AWSCredentialsProvider.class), anyString())).thenReturn(amazonloadBalancing);
 
-    String taskId = "1dc5c17a-422b-4dc4-b493-371970c6c4d6";
-    String taskArn = "arn:aws:ecs:" + REGION + ":012345678910:task/" + taskId;
-    String serviceName = "test-service-v007";
     String targetGroupArn = "arn:aws:elasticloadbalancing:" + REGION + ":769716316905:targetgroup/test-target-group/9e8997b7cff00c62";
-    String taskDefinitionArn = "arn:aws:ecs:" + REGION + ":012345678910:service/";
-    String containerInstanceArn = "arn:aws:ecs:" + REGION + ":012345678910:container-instance/14e8cce9-0b16-4af4-bfac-a85f7587aa98";
 
-    String taskKey = Keys.getTaskKey(ACCOUNT, REGION, taskId);
-    String healthKey = Keys.getTaskHealthKey(ACCOUNT, REGION, taskId);
-    String serviceKey = Keys.getServiceKey(ACCOUNT, REGION, serviceName);
-    String containerInstanceKey = Keys.getContainerInstanceKey(ACCOUNT, REGION, containerInstanceArn);
+    String taskKey = Keys.getTaskKey(ACCOUNT, REGION, TASK_ID_1);
+    String healthKey = Keys.getTaskHealthKey(ACCOUNT, REGION, TASK_ID_1);
+    String serviceKey = Keys.getServiceKey(ACCOUNT, REGION, SERVICE_NAME_1);
+    String containerInstanceKey = Keys.getContainerInstanceKey(ACCOUNT, REGION, CONTAINER_INSTANCE_ARN_1);
 
     ObjectMapper mapper = new ObjectMapper();
     Map<String, Object> containerMap = mapper.convertValue(new Container().withNetworkBindings(new NetworkBinding().withHostPort(1337)), Map.class);
     Map<String, Object> loadbalancerMap = mapper.convertValue(new LoadBalancer().withTargetGroupArn(targetGroupArn), Map.class);
 
     Map<String, Object> taskAttributes = new HashMap<>();
-    taskAttributes.put("taskId", taskId);
-    taskAttributes.put("taskArn", taskArn);
-    taskAttributes.put("containerInstanceArn", containerInstanceArn);
-    taskAttributes.put("group", "service:" + serviceName);
+    taskAttributes.put("taskId", TASK_ID_1);
+    taskAttributes.put("taskArn", TASK_ARN_1);
+    taskAttributes.put("containerInstanceArn", CONTAINER_INSTANCE_ARN_1);
+    taskAttributes.put("group", "service:" + SERVICE_NAME_1);
     taskAttributes.put("containers", Collections.singletonList(containerMap));
     CacheData taskCacheData = new DefaultCacheData(taskKey, taskAttributes, Collections.emptyMap());
     when(providerCache.getAll(Keys.Namespace.TASKS.toString()))
@@ -86,13 +81,13 @@ public class TaskHealthCachingAgentTest extends CommonCachingAgent {
 
     Map<String, Object> serviceAttributes = new HashMap<>();
     serviceAttributes.put("loadBalancers", Collections.singletonList(loadbalancerMap));
-    serviceAttributes.put("taskDefinition", taskDefinitionArn);
+    serviceAttributes.put("taskDefinition", TASK_DEFINITION_ARN_1);
     CacheData serviceCacheData = new DefaultCacheData(serviceKey, serviceAttributes, Collections.emptyMap());
     when(providerCache.get(Keys.Namespace.SERVICES.toString(), serviceKey))
       .thenReturn(serviceCacheData);
 
     Map<String, Object> containerInstanceAttributes = new HashMap<>();
-    containerInstanceAttributes.put("ec2InstanceId", "i-deadbeef");
+    containerInstanceAttributes.put("ec2InstanceId", EC2_INSTANCE_ID_1);
     CacheData containerInstanceCache = new DefaultCacheData(containerInstanceKey, containerInstanceAttributes, Collections.emptyMap());
     when(providerCache.get(Keys.Namespace.CONTAINER_INSTANCES.toString(), containerInstanceKey))
       .thenReturn(containerInstanceCache);

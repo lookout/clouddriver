@@ -49,23 +49,20 @@ public class TaskCacheTest extends CommonCachingAgent {
   @Test
   public void shouldRetrieveFromWrittenCache() {
     //Given
-    String taskId = "1dc5c17a-422b-4dc4-b493-371970c6c4d6";
-    String key = Keys.getTaskKey(ACCOUNT, REGION, taskId);
-    String clusterArn = "arn:aws:ecs:" + REGION + ":012345678910:cluster/test-cluster";
-    String taskArn = "arn:aws:ecs:" + REGION + ":012345678910:task/" + taskId;
+    String key = Keys.getTaskKey(ACCOUNT, REGION, TASK_ID_1);
 
     Task task = new Task();
-    task.setTaskArn(taskArn);
-    task.setClusterArn(clusterArn);
-    task.setContainerInstanceArn("arn:aws:ecs:" + REGION + ":012345678910:container/e09064f7-7361-4c87-8ab9-8d073bbdbcb9");
-    task.setGroup("test-service");
+    task.setTaskArn(TASK_ARN_1);
+    task.setClusterArn(CLUSTER_ARN_1);
+    task.setContainerInstanceArn(CONTAINER_INSTANCE_ARN_1);
+    task.setGroup("group"+SERVICE_NAME_1);
     task.setContainers(Collections.emptyList());
-    task.setLastStatus("RUNNING");
-    task.setDesiredStatus("RUNNING");
+    task.setLastStatus(STATUS);
+    task.setDesiredStatus(STATUS);
     task.setStartedAt(new Date());
 
-    when(ecs.listClusters(any(ListClustersRequest.class))).thenReturn(new ListClustersResult().withClusterArns(clusterArn));
-    when(ecs.listTasks(any(ListTasksRequest.class))).thenReturn(new ListTasksResult().withTaskArns(taskArn));
+    when(ecs.listClusters(any(ListClustersRequest.class))).thenReturn(new ListClustersResult().withClusterArns(CLUSTER_ARN_1));
+    when(ecs.listTasks(any(ListTasksRequest.class))).thenReturn(new ListTasksResult().withTaskArns(TASK_ARN_1));
     when(ecs.describeTasks(any(DescribeTasksRequest.class))).thenReturn(new DescribeTasksResult().withTasks(task));
 
     //When
@@ -81,11 +78,11 @@ public class TaskCacheTest extends CommonCachingAgent {
     String retrievedKey = cacheData.iterator().next().getId();
     assertTrue("Expected CacheData with ID " + key + " but retrieved ID " + retrievedKey, retrievedKey.equals(key));
 
-    assertTrue("Expected the cluster ARN to be " + clusterArn + " but got " + ecsTask.getClusterArn(),
-      clusterArn.equals(ecsTask.getClusterArn()));
+    assertTrue("Expected the cluster ARN to be " + CLUSTER_ARN_1 + " but got " + ecsTask.getClusterArn(),
+      CLUSTER_ARN_1.equals(ecsTask.getClusterArn()));
 
-    assertTrue("Expected the task ARN to be " + taskArn + " but got " + ecsTask.getTaskArn(),
-      taskArn.equals(ecsTask.getTaskArn()));
+    assertTrue("Expected the task ARN to be " + TASK_ARN_1 + " but got " + ecsTask.getTaskArn(),
+      TASK_ARN_1.equals(ecsTask.getTaskArn()));
 
     assertTrue("Expected the container instance ARN name to be " + task.getContainerInstanceArn() + " but got " + ecsTask.getContainerInstanceArn(),
       task.getContainerInstanceArn().equals(ecsTask.getContainerInstanceArn()));

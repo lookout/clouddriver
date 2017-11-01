@@ -30,7 +30,34 @@ import static org.mockito.Mockito.when;
 
 public class CommonCachingAgent {
   static final String REGION = "us-west-2";
+  private static final String ECS_SERIVCE = "arn:aws:ecs:" + REGION + ":012345678910:";
   static final String ACCOUNT = "test-account";
+  static final String APP_NAME = "testapp";
+  static final String ROLE_ARN = ECS_SERIVCE + "service/test-role";
+  static final String STATUS = "RUNNING";
+
+  static final String SERVICE_NAME_1 = APP_NAME + "-stack-detail-v1";
+  static final String SERVICE_NAME_2 = APP_NAME + "-stack-detail-v1";
+  static final String SERVICE_ARN_1 = ECS_SERIVCE + "service/" + SERVICE_NAME_1;
+  static final String SERVICE_ARN_2 = ECS_SERIVCE + "service/" + SERVICE_NAME_2;
+
+  static final String CLUSTER_NAME_1 = "test-cluster-1";
+  static final String CLUSTER_NAME_2 = "test-cluster-2";
+  static final String CLUSTER_ARN_1 = ECS_SERIVCE + "cluster/" + CLUSTER_NAME_1;
+  static final String CLUSTER_ARN_2 = ECS_SERIVCE + "cluster/" + CLUSTER_NAME_2;
+
+  static final String TASK_ID_1 = "1dc5c17a-422b-4dc4-b493-371970c6c4d6";
+  static final String TASK_ID_2 = "1dc5c17a-422b-4dc4-b493-371970c6c4d6";
+  static final String TASK_ARN_1 = ECS_SERIVCE + "task/" + TASK_ID_1;
+  static final String TASK_ARN_2 = ECS_SERIVCE + "task/" + TASK_ID_2;
+
+  static final String CONTAINER_INSTANCE_ARN_1 = ECS_SERIVCE + "container-instance/14e8cce9-0b16-4af4-bfac-a85f7587aa98";
+  static final String CONTAINER_INSTANCE_ARN_2 = ECS_SERIVCE + "container-instance/deadbeef-0b16-4af4-bfac-a85f7587aa98";
+
+  static final String EC2_INSTANCE_ID_1 = "i-042f39dc";
+  static final String EC2_INSTANCE_ID_2 = "i-deadbeef";
+
+  static final String TASK_DEFINITION_ARN_1 = ECS_SERIVCE + "task-definition/hello_world:10";
 
   static final AmazonECS ecs = mock(AmazonECS.class);
   static final AmazonClientProvider clientProvider = mock(AmazonClientProvider.class);
