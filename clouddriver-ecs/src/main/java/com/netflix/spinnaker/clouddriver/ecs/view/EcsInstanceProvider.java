@@ -20,11 +20,12 @@ import com.amazonaws.auth.AWSCredentialsProvider;
 import com.amazonaws.services.ec2.AmazonEC2;
 import com.amazonaws.services.ec2.model.InstanceStatus;
 import com.netflix.spinnaker.cats.cache.Cache;
-import com.netflix.spinnaker.cats.cache.CacheData;
 import com.netflix.spinnaker.clouddriver.aws.security.AmazonClientProvider;
 import com.netflix.spinnaker.clouddriver.aws.security.NetflixAmazonCredentials;
 import com.netflix.spinnaker.clouddriver.ecs.EcsCloudProvider;
 import com.netflix.spinnaker.clouddriver.ecs.cache.Keys;
+import com.netflix.spinnaker.clouddriver.ecs.cache.client.TaskCacheClient;
+import com.netflix.spinnaker.clouddriver.ecs.cache.model.Task;
 import com.netflix.spinnaker.clouddriver.ecs.model.EcsTask;
 import com.netflix.spinnaker.clouddriver.ecs.services.ContainerInformationService;
 import com.netflix.spinnaker.clouddriver.model.InstanceProvider;
@@ -36,24 +37,21 @@ import org.springframework.stereotype.Component;
 import java.util.List;
 import java.util.Map;
 
-import static com.netflix.spinnaker.clouddriver.ecs.cache.Keys.Namespace.TASKS;
-
-
 @Component
 public class EcsInstanceProvider implements InstanceProvider<EcsTask> {
 
+  private final TaskCacheClient taskCacheClient;
   private AccountCredentialsProvider accountCredentialsProvider;
   private AmazonClientProvider amazonClientProvider;
   private ContainerInformationService containerInformationService;
-  private final Cache cacheView;
 
   @Autowired
   public EcsInstanceProvider(Cache cacheView, AccountCredentialsProvider accountCredentialsProvider,
                              AmazonClientProvider amazonClientProvider, ContainerInformationService containerInformationService) {
-    this.cacheView = cacheView;
     this.accountCredentialsProvider = accountCredentialsProvider;
     this.amazonClientProvider = amazonClientProvider;
     this.containerInformationService = containerInformationService;
+    this.taskCacheClient = new TaskCacheClient(cacheView);
   }
 
   @Override
@@ -74,22 +72,22 @@ public class EcsInstanceProvider implements InstanceProvider<EcsTask> {
     AmazonEC2 amazonEC2 = amazonClientProvider.getAmazonEC2(account, awsCredentialsProvider, region);
 
     String key = Keys.getTaskKey(account, region, id);
-    CacheData taskCache = cacheView.get(TASKS.toString(), key);
-    if (taskCache == null) {
+    Task task = taskCacheClient.get(key);
+    if (task == null) {
       return null;
     }
 
     //TODO: getEC2InstanceStatus is only being made to determine the availability zone of the instance.
-    InstanceStatus instanceStatus = containerInformationService.getEC2InstanceStatus(amazonEC2, account, region, (String) taskCache.getAttributes().get("containerInstanceArn"));
+    InstanceStatus instanceStatus = containerInformationService.getEC2InstanceStatus(amazonEC2, account, region, task.getContainerInstanceArn());
 
     if (instanceStatus != null) {
-      String serviceName = StringUtils.substringAfter((String) taskCache.getAttributes().get("group"), "service:");
-      Long launchTime = (Long) taskCache.getAttributes().get("startedAt");
+      String serviceName = StringUtils.substringAfter(task.getGroup(), "service:");
+      Long launchTime = task.getStartedAt();
 
       List<Map<String, String>> healthStatus = containerInformationService.getHealthStatus(id, serviceName, account, region);
-      String address = containerInformationService.getTaskPrivateAddress(account, region, amazonEC2, taskCache);
+      String address = containerInformationService.getTaskPrivateAddress(account, region, amazonEC2, task);
 
-      ecsInstance = new EcsTask(id, launchTime, (String) taskCache.getAttributes().get("lastStatus"), (String) taskCache.getAttributes().get("desiredStatus"), instanceStatus.getAvailabilityZone(), healthStatus, address);
+      ecsInstance = new EcsTask(id, launchTime, task.getLastStatus(), task.getDesiredStatus(), instanceStatus.getAvailabilityZone(), healthStatus, address);
     }
 
     return ecsInstance;
