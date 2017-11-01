@@ -114,30 +114,4 @@ public class ContainerInstanceCachingAgentTest extends CommonCachingAgent {
       assertTrue("Expected the EC2 instance ID to be in the " + ec2Ids + " list, but was not. The given arn is " + attributes.get("ec2InstanceId"), ec2Ids.contains(attributes.get("ec2InstanceId")));
     }
   }
-
-  @Test
-  public void shouldAddToCache() {
-    //Given
-    String clusterArn = "arn:aws:ecs:" + REGION + ":012345678910:cluster/test-cluster";
-    String containerInstanceArn = "arn:aws:ecs:" + REGION + ":012345678910:container-instance/14e8cce9-0b16-4af4-bfac-a85f7587aa98";
-    String key = Keys.getContainerInstanceKey(ACCOUNT, REGION, containerInstanceArn);
-
-    ContainerInstance containerInstance = new ContainerInstance();
-    containerInstance.setContainerInstanceArn(containerInstanceArn);
-    containerInstance.setEc2InstanceId("i-042f39dc");
-
-    when(ecs.listClusters(any(ListClustersRequest.class))).thenReturn(new ListClustersResult().withClusterArns(clusterArn));
-    when(ecs.listContainerInstances(any(ListContainerInstancesRequest.class))).thenReturn(new ListContainerInstancesResult().withContainerInstanceArns(containerInstanceArn));
-    when(ecs.describeContainerInstances(any(DescribeContainerInstancesRequest.class))).thenReturn(new DescribeContainerInstancesResult().withContainerInstances(containerInstance));
-
-    //When
-    CacheResult cacheResult = agent.loadData(providerCache);
-
-    //Then
-    Collection<CacheData> cacheData = cacheResult.getCacheResults().get(Keys.Namespace.CONTAINER_INSTANCES.toString());
-    assertTrue("Expected CacheData to be returned but null is returned", cacheData != null);
-    assertTrue("Expected 1 CacheData but returned " + cacheData.size(), cacheData.size() == 1);
-    String retrievedKey = cacheData.iterator().next().getId();
-    assertTrue("Expected CacheData with ID " + key + " but retrieved ID " + retrievedKey, retrievedKey.equals(key));
-  }
 }
