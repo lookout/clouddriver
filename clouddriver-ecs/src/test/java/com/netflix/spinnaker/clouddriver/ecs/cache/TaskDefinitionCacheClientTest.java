@@ -32,7 +32,7 @@ public class TaskDefinitionCacheClientTest extends CommonCacheClient {
     ContainerDefinition containerDefinition = new ContainerDefinition();
     containerDefinition.setCpu(256);
     containerDefinition.setMemory(512);
-    containerDefinition.setName("container-defintion-name");
+    containerDefinition.setName("container-definition-name");
 
     TaskDefinition taskDefinition = new TaskDefinition();
     taskDefinition.setTaskDefinitionArn(taskDefinitionArn);
