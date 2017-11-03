@@ -75,7 +75,7 @@ public class TaskHealthCachingAgent extends AbstractEcsCachingAgent<TaskHealth> 
     Map<String, Object> attributes = new HashMap<>();
     attributes.put("instanceId", taskHealth.getInstanceId());
 
-    attributes.put("state", taskHealth.getState());  // TODO - Return better values, and think of a better strategy at defining health
+    attributes.put("state", taskHealth.getState());
     attributes.put("type", taskHealth.getType());
     attributes.put("service", taskHealth.getServiceName());
     attributes.put("taskArn", taskHealth.getTaskArn());
