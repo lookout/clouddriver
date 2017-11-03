@@ -25,16 +25,15 @@ import com.amazonaws.services.ec2.model.DescribeInstancesResult;
 import com.amazonaws.services.ec2.model.InstanceStatus;
 import com.amazonaws.services.ecs.model.LoadBalancer;
 import com.netflix.spinnaker.cats.cache.Cache;
-import com.netflix.spinnaker.cats.cache.CacheData;
-import com.netflix.spinnaker.clouddriver.aws.security.AmazonClientProvider;
 import com.netflix.spinnaker.clouddriver.ecs.cache.Keys;
 import com.netflix.spinnaker.clouddriver.ecs.cache.client.ContainerInstanceCacheClient;
 import com.netflix.spinnaker.clouddriver.ecs.cache.client.ServiceCacheClient;
 import com.netflix.spinnaker.clouddriver.ecs.cache.client.TaskCacheClient;
+import com.netflix.spinnaker.clouddriver.ecs.cache.client.TaskHealthCacheClient;
 import com.netflix.spinnaker.clouddriver.ecs.cache.model.ContainerInstance;
 import com.netflix.spinnaker.clouddriver.ecs.cache.model.Service;
 import com.netflix.spinnaker.clouddriver.ecs.cache.model.Task;
-import com.netflix.spinnaker.clouddriver.security.AccountCredentialsProvider;
+import com.netflix.spinnaker.clouddriver.ecs.cache.model.TaskHealth;
 import org.apache.commons.lang3.StringUtils;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.stereotype.Component;
@@ -50,20 +49,14 @@ public class ContainerInformationService {
 
   private final TaskCacheClient taskCacheClient;
   private final ServiceCacheClient serviceCacheClient;
+  private final TaskHealthCacheClient taskHealthCacheClient;
   private final ContainerInstanceCacheClient containerInstanceCacheClient;
-  private AccountCredentialsProvider accountCredentialsProvider;
-  private AmazonClientProvider amazonClientProvider;
-  private Cache cacheView;
 
   @Autowired
-  public ContainerInformationService(AccountCredentialsProvider accountCredentialsProvider,
-                                     AmazonClientProvider amazonClientProvider,
-                                     Cache cacheView) {
-    this.accountCredentialsProvider = accountCredentialsProvider;
-    this.amazonClientProvider = amazonClientProvider;
-    this.cacheView = cacheView;
+  public ContainerInformationService(Cache cacheView) {
     this.taskCacheClient = new TaskCacheClient(cacheView);
     this.serviceCacheClient = new ServiceCacheClient(cacheView);
+    this.taskHealthCacheClient = new TaskHealthCacheClient(cacheView);
     this.containerInstanceCacheClient = new ContainerInstanceCacheClient(cacheView);
   }
 
@@ -72,11 +65,11 @@ public class ContainerInformationService {
     String serviceCacheKey = Keys.getServiceKey(accountName, region, serviceName);
     Service service = serviceCacheClient.get(serviceCacheKey);
 
-    String healthCacheKey = Keys.getTaskHealthKey(accountName, region, taskId);
-    CacheData healthCache = cacheView.get(com.netflix.spinnaker.clouddriver.core.provider.agent.Namespace.HEALTH.toString(), healthCacheKey);
+    String healthKey = Keys.getTaskHealthKey(accountName, region, taskId);
+    TaskHealth taskHealth = taskHealthCacheClient.get(healthKey);
 
     // A bit more of a graceful return, when the results haven't been cached yet - see the TO DO above.
-    if (service == null || healthCache == null) {
+    if (service == null || taskHealth == null) {
       List<Map<String, String>> healthMetrics = new ArrayList<>();
 
       Map<String, String> loadBalancerHealth = new HashMap<>();
@@ -95,8 +88,8 @@ public class ContainerInformationService {
       List<Map<String, String>> healthMetrics = new ArrayList<>();
       Map<String, String> loadBalancerHealth = new HashMap<>();
       loadBalancerHealth.put("instanceId", taskId);
-      loadBalancerHealth.put("state", (String) healthCache.getAttributes().get("state"));
-      loadBalancerHealth.put("type", (String) healthCache.getAttributes().get("type"));
+      loadBalancerHealth.put("state", taskHealth.getState());
+      loadBalancerHealth.put("type", taskHealth.getType());
 
       healthMetrics.add(loadBalancerHealth);
       return healthMetrics;
