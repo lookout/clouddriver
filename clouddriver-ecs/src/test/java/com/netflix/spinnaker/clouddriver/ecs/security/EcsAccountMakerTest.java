@@ -21,8 +21,6 @@ import com.netflix.spinnaker.clouddriver.aws.security.config.CredentialsConfig;
 import com.netflix.spinnaker.fiat.model.resources.Permissions;
 import org.junit.Test;
 
-import java.util.Collections;
-
 import static org.junit.Assert.assertTrue;
 import static org.mockito.Mockito.mock;
 import static org.mockito.Mockito.when;

@@ -40,21 +40,20 @@ import static org.mockito.Mockito.when;
 
 public class TaskDefinitionCacheTest extends CommonCachingAgent {
   @Subject
-  private TaskDefinitionCachingAgent agent = new TaskDefinitionCachingAgent(ACCOUNT, REGION, clientProvider, credentialsProvider, registry);
+  private final TaskDefinitionCachingAgent agent = new TaskDefinitionCachingAgent(ACCOUNT, REGION, clientProvider, credentialsProvider, registry);
   @Subject
-  private TaskDefinitionCacheClient client = new TaskDefinitionCacheClient(providerCache);
+  private final TaskDefinitionCacheClient client = new TaskDefinitionCacheClient(providerCache);
 
   @Test
   public void shouldRetrieveFromWrittenCache() {
     //Given
-    String taskDefinitionArn = "arn:aws:ecs:" + REGION + ":012345678910:task-definition/hello_world:10";
-    String key = Keys.getTaskDefinitionKey(ACCOUNT, REGION, taskDefinitionArn);
+    String key = Keys.getTaskDefinitionKey(ACCOUNT, REGION, TASK_DEFINITION_ARN_1);
 
     TaskDefinition taskDefinition = new TaskDefinition();
-    taskDefinition.setTaskDefinitionArn(taskDefinitionArn);
+    taskDefinition.setTaskDefinitionArn(TASK_DEFINITION_ARN_1);
     taskDefinition.setContainerDefinitions(Collections.emptyList());
 
-    when(ecs.listTaskDefinitions(any(ListTaskDefinitionsRequest.class))).thenReturn(new ListTaskDefinitionsResult().withTaskDefinitionArns(taskDefinitionArn));
+    when(ecs.listTaskDefinitions(any(ListTaskDefinitionsRequest.class))).thenReturn(new ListTaskDefinitionsResult().withTaskDefinitionArns(TASK_DEFINITION_ARN_1));
     when(ecs.describeTaskDefinition(any(DescribeTaskDefinitionRequest.class))).thenReturn(new DescribeTaskDefinitionResult().withTaskDefinition(taskDefinition));
 
     //When

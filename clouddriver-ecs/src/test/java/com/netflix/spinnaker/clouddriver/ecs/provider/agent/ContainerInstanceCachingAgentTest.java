@@ -23,9 +23,7 @@ import com.amazonaws.services.ecs.model.ListClustersRequest;
 import com.amazonaws.services.ecs.model.ListClustersResult;
 import com.amazonaws.services.ecs.model.ListContainerInstancesRequest;
 import com.amazonaws.services.ecs.model.ListContainerInstancesResult;
-import com.netflix.spinnaker.cats.agent.CacheResult;
 import com.netflix.spinnaker.cats.cache.CacheData;
-import com.netflix.spinnaker.clouddriver.ecs.cache.Keys;
 import org.junit.Test;
 import spock.lang.Subject;
 
@@ -44,22 +42,19 @@ import static org.mockito.Mockito.when;
 
 public class ContainerInstanceCachingAgentTest extends CommonCachingAgent {
   @Subject
-  private ContainerInstanceCachingAgent agent = new ContainerInstanceCachingAgent(ACCOUNT, REGION, clientProvider, credentialsProvider, registry);
+  private final ContainerInstanceCachingAgent agent = new ContainerInstanceCachingAgent(ACCOUNT, REGION, clientProvider, credentialsProvider, registry);
 
   @Test
   public void shouldGetListOfContainerInstances() {
     //Given
-    String clusterArn = "arn:aws:ecs:" + REGION + ":012345678910:cluster/test-cluster";
-    String containerInstanceArn1 = "arn:aws:ecs:" + REGION + ":012345678910:container-instance/14e8cce9-0b16-4af4-bfac-a85f7587aa98";
-    String containerInstanceArn2 = "arn:aws:ecs:" + REGION + ":012345678910:container-instance/deadbeef-0b16-4af4-bfac-a85f7587aa98";
 
     List<String> containerInstanceArns = new LinkedList<>();
-    containerInstanceArns.add(containerInstanceArn1);
-    containerInstanceArns.add(containerInstanceArn2);
+    containerInstanceArns.add(CONTAINER_INSTANCE_ARN_1);
+    containerInstanceArns.add(CONTAINER_INSTANCE_ARN_2);
 
     Collection<ContainerInstance> containerInstances = new LinkedList<>();
-    containerInstances.add(new ContainerInstance().withContainerInstanceArn(containerInstanceArn1));
-    containerInstances.add(new ContainerInstance().withContainerInstanceArn(containerInstanceArn2));
+    containerInstances.add(new ContainerInstance().withContainerInstanceArn(CONTAINER_INSTANCE_ARN_1));
+    containerInstances.add(new ContainerInstance().withContainerInstanceArn(CONTAINER_INSTANCE_ARN_2));
 
     ListContainerInstancesResult listContainerInstacesResult = new ListContainerInstancesResult().withContainerInstanceArns(containerInstanceArns);
     when(ecs.listContainerInstances(any(ListContainerInstancesRequest.class))).thenReturn(listContainerInstacesResult);
@@ -67,7 +62,7 @@ public class ContainerInstanceCachingAgentTest extends CommonCachingAgent {
     DescribeContainerInstancesResult describeContainerInstanceResult = new DescribeContainerInstancesResult().withContainerInstances(containerInstances);
     when(ecs.describeContainerInstances(any(DescribeContainerInstancesRequest.class))).thenReturn(describeContainerInstanceResult);
 
-    when(ecs.listClusters(any(ListClustersRequest.class))).thenReturn(new ListClustersResult().withClusterArns(clusterArn));
+    when(ecs.listClusters(any(ListClustersRequest.class))).thenReturn(new ListClustersResult().withClusterArns(CLUSTER_ARN_1));
 
     //When
     List<ContainerInstance> returnedContainerInstances = agent.getItems(ecs, providerCache);
@@ -83,22 +78,17 @@ public class ContainerInstanceCachingAgentTest extends CommonCachingAgent {
   @Test
   public void shouldGenerateFreshData() {
     //Given
-    String containerInstanceArn1 = "arn:aws:ecs:" + REGION + ":012345678910:container-instance/14e8cce9-0b16-4af4-bfac-a85f7587aa98";
-    String containerInstanceArn2 = "arn:aws:ecs:" + REGION + ":012345678910:container-instance/deadbeef-0b16-4af4-bfac-a85f7587aa98";
-    String ec2Id1 = "i-042f39dc";
-    String ec2Id2 = "i-deadbeef";
-
     Set<String> arns = new HashSet<>();
-    arns.add(containerInstanceArn1);
-    arns.add(containerInstanceArn2);
+    arns.add(CONTAINER_INSTANCE_ARN_1);
+    arns.add(CONTAINER_INSTANCE_ARN_2);
 
     Set<String> ec2Ids = new HashSet<>();
-    ec2Ids.add(ec2Id1);
-    ec2Ids.add(ec2Id2);
+    ec2Ids.add(EC2_INSTANCE_ID_1);
+    ec2Ids.add(EC2_INSTANCE_ID_2);
 
     Collection<ContainerInstance> containerInstances = new LinkedList<>();
-    containerInstances.add(new ContainerInstance().withContainerInstanceArn(containerInstanceArn1).withEc2InstanceId(ec2Id1));
-    containerInstances.add(new ContainerInstance().withContainerInstanceArn(containerInstanceArn2).withEc2InstanceId(ec2Id2));
+    containerInstances.add(new ContainerInstance().withContainerInstanceArn(CONTAINER_INSTANCE_ARN_1).withEc2InstanceId(EC2_INSTANCE_ID_1));
+    containerInstances.add(new ContainerInstance().withContainerInstanceArn(CONTAINER_INSTANCE_ARN_2).withEc2InstanceId(EC2_INSTANCE_ID_2));
 
     //When
     Map<String, Collection<CacheData>> dataMap = agent.generateFreshData(containerInstances);

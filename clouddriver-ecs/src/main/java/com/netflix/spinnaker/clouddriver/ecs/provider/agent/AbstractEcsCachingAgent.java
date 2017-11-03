@@ -43,13 +43,13 @@ import java.util.stream.Collectors;
 import static com.netflix.spinnaker.cats.agent.AgentDataType.Authority.AUTHORITATIVE;
 import static com.netflix.spinnaker.clouddriver.ecs.cache.Keys.Namespace.ECS_CLUSTERS;
 
-public abstract class AbstractEcsCachingAgent<T> implements CachingAgent {
+abstract class AbstractEcsCachingAgent<T> implements CachingAgent {
   private final Logger log = LoggerFactory.getLogger(getClass());
 
-  protected AmazonClientProvider amazonClientProvider;
-  protected AWSCredentialsProvider awsCredentialsProvider;
-  protected String region;
-  protected String accountName;
+  final AmazonClientProvider amazonClientProvider;
+  final AWSCredentialsProvider awsCredentialsProvider;
+  final String region;
+  final String accountName;
 
   AbstractEcsCachingAgent(String accountName, String region, AmazonClientProvider amazonClientProvider, AWSCredentialsProvider awsCredentialsProvider) {
     this.accountName = accountName;
@@ -59,14 +59,18 @@ public abstract class AbstractEcsCachingAgent<T> implements CachingAgent {
   }
 
   /**
-   * Fetches items to be stored from the AWS API
-   *
-   * @param ecs
-   * @param providerCache
-   * @return
+   * Fetches items from the ECS service.
+   * @param ecs The AmazonECS client that will be used to make the queries.
+   * @param providerCache A ProviderCache that is used to access already existing cache.
+   * @return A list of generic type objects.
    */
   protected abstract List<T> getItems(AmazonECS ecs, ProviderCache providerCache);
 
+  /**
+   * Generates a map of CacheData collections associated to a key namespace from a given collection of generic type objects.
+   * @param cacheableItems A collection of generic type objects.
+   * @return A map of CacheData collections belonging to a key namespace.
+   */
   protected abstract Map<String, Collection<CacheData>> generateFreshData(Collection<T> cacheableItems);
 
   @Override
@@ -83,6 +87,13 @@ public abstract class AbstractEcsCachingAgent<T> implements CachingAgent {
     return buildCacheResult(authoritativeKeyName, items, providerCache);
   }
 
+  /**
+   * Provides a set of ECS cluster ARNs.
+   * Either uses the cache, or queries the ECS service.
+   * @param ecs The AmazonECS client to use for querying.
+   * @param providerCache The ProviderCache to retrieve clusters from.
+   * @return A set of ECS cluster ARNs.
+   */
   Set<String> getClusters(AmazonECS ecs, ProviderCache providerCache) {
     Set<String> clusters = providerCache.getAll(ECS_CLUSTERS.toString()).stream()
       .map(cacheData -> (String) cacheData.getAttributes().get("clusterArn"))
@@ -106,6 +117,11 @@ public abstract class AbstractEcsCachingAgent<T> implements CachingAgent {
     return clusters;
   }
 
+  /**
+   * Provides the key namespace that the caching agent is authoritative of.
+   * Currently only supports the caching agent being authoritative over one key namespace.
+   * @return Key namespace.
+   */
   String getAuthoritativeKeyName() {
     Collection<AgentDataType> authoritativeNamespaces = getProvidedDataTypes().stream()
       .filter(agentDataType -> agentDataType.getAuthority().equals(AUTHORITATIVE))
@@ -132,6 +148,13 @@ public abstract class AbstractEcsCachingAgent<T> implements CachingAgent {
     return new DefaultCacheResult(dataMap, evictions);
   }
 
+  /**
+   * Evicts cache that does not belong to an entity on the ECS service.
+   * This is done by evicting old keys that are no longer found in the new keys provided by the new data.
+   * @param newData New data that contains new keys.
+   * @param oldKeys Old keys.
+   * @return Key collection associated to the key namespace the the caching agent is authoritative of.
+   */
   private Map<String, Collection<String>> computeEvictableData(Collection<CacheData> newData, Collection<String> oldKeys) {
     Set<String> newKeys = newData.stream().map(newKey -> newKey.getId()).collect(Collectors.toSet());
     Set<String> evictedKeys = oldKeys.stream().filter(oldKey -> !newKeys.contains(oldKey)).collect(Collectors.toSet());

@@ -38,15 +38,12 @@ import static org.mockito.Mockito.when;
 
 public class EcsClusterCachingAgentTest extends CommonCachingAgent {
   @Subject
-  private EcsClusterCachingAgent agent = new EcsClusterCachingAgent(ACCOUNT, REGION, clientProvider, credentialsProvider);
+  private final EcsClusterCachingAgent agent = new EcsClusterCachingAgent(ACCOUNT, REGION, clientProvider, credentialsProvider);
 
   @Test
   public void shouldGetListOfArns() {
     //Given
-    String clusterArn1 = "arn:aws:ecs:" + REGION + ":012345678910:cluster/test-cluster-1";
-    String clusterArn2 = "arn:aws:ecs:" + REGION + ":012345678910:cluster/test-cluster-2";
-
-    ListClustersResult listClustersResult = new ListClustersResult().withClusterArns(clusterArn1, clusterArn2);
+    ListClustersResult listClustersResult = new ListClustersResult().withClusterArns(CLUSTER_ARN_1, CLUSTER_ARN_2);
     when(ecs.listClusters(any(ListClustersRequest.class))).thenReturn(listClustersResult);
 
     //When
@@ -54,26 +51,20 @@ public class EcsClusterCachingAgentTest extends CommonCachingAgent {
 
     //Then
     assertTrue("Expected the list to contain 2 ECS cluster ARNs " + clusterArns.size(), clusterArns.size() == 2);
-    assertTrue("Expected the list to contain " + clusterArn1 + ", but it does not. It contains: " + clusterArns, clusterArns.contains(clusterArn1));
-    assertTrue("Expected the list to contain " + clusterArn2 + ", but it does not. It contains: " + clusterArns, clusterArns.contains(clusterArn2));
+    assertTrue("Expected the list to contain " + CLUSTER_ARN_1 + ", but it does not. It contains: " + clusterArns, clusterArns.contains(CLUSTER_ARN_1));
+    assertTrue("Expected the list to contain " + CLUSTER_ARN_2 + ", but it does not. It contains: " + clusterArns, clusterArns.contains(CLUSTER_ARN_2));
   }
 
   @Test
   public void shouldGenerateFreshData() {
     //Given
-    String clusterName1 = "test-cluster-1";
-    String clusterName2 = "test-cluster-2";
-
-    String clusterArn1 = "arn:aws:ecs:" + REGION + ":012345678910:cluster/" + clusterName1;
-    String clusterArn2 = "arn:aws:ecs:" + REGION + ":012345678910:cluster/" + clusterName2;
-
     Set<String> clusterArns = new HashSet<>();
-    clusterArns.add(clusterArn1);
-    clusterArns.add(clusterArn2);
+    clusterArns.add(CLUSTER_ARN_1);
+    clusterArns.add(CLUSTER_ARN_2);
 
     Set<String> keys = new HashSet<>();
-    keys.add(Keys.getClusterKey(ACCOUNT, REGION, clusterName1));
-    keys.add(Keys.getClusterKey(ACCOUNT, REGION, clusterName2));
+    keys.add(Keys.getClusterKey(ACCOUNT, REGION, CLUSTER_NAME_1));
+    keys.add(Keys.getClusterKey(ACCOUNT, REGION, CLUSTER_NAME_2));
 
     //When
     Map<String, Collection<CacheData>> dataMap = agent.generateFreshData(clusterArns);
@@ -92,9 +83,8 @@ public class EcsClusterCachingAgentTest extends CommonCachingAgent {
   @Test
   public void shouldAddToCache() {
     //Given
-    String clusterName = "test-cluster";
-    String key = Keys.getClusterKey(ACCOUNT, REGION, clusterName);
-    ListClustersResult listClustersResult = new ListClustersResult().withClusterArns("arn:aws:ecs:" + REGION + ":012345678910:cluster/" + clusterName);
+    String key = Keys.getClusterKey(ACCOUNT, REGION, CLUSTER_NAME_1);
+    ListClustersResult listClustersResult = new ListClustersResult().withClusterArns(CLUSTER_ARN_1);
     when(ecs.listClusters(any(ListClustersRequest.class))).thenReturn(listClustersResult);
 
     //When

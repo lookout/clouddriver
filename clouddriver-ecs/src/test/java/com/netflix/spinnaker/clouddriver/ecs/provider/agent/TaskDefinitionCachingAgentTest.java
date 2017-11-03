@@ -35,7 +35,6 @@ import java.util.List;
 import java.util.Map;
 import java.util.Set;
 
-import static com.netflix.spinnaker.clouddriver.ecs.cache.Keys.Namespace.ECS_CLUSTERS;
 import static com.netflix.spinnaker.clouddriver.ecs.cache.Keys.Namespace.TASK_DEFINITIONS;
 import static junit.framework.TestCase.assertTrue;
 import static org.mockito.Matchers.any;
@@ -44,17 +43,15 @@ import static org.mockito.Mockito.when;
 
 public class TaskDefinitionCachingAgentTest extends CommonCachingAgent {
   @Subject
-  private TaskDefinitionCachingAgent agent = new TaskDefinitionCachingAgent(ACCOUNT, REGION, clientProvider, credentialsProvider, registry);
+  private final TaskDefinitionCachingAgent agent = new TaskDefinitionCachingAgent(ACCOUNT, REGION, clientProvider, credentialsProvider, registry);
 
   @Test
   public void shouldGetListOfTaskDefinitions() {
     //Given
-    String taskDefinitionArn1 = "arn:aws:ecs:" + REGION + ":012345678910:task-definition/hello_world:10";
-
-    ListTaskDefinitionsResult listTaskDefinitionsResult = new ListTaskDefinitionsResult().withTaskDefinitionArns(taskDefinitionArn1);
+    ListTaskDefinitionsResult listTaskDefinitionsResult = new ListTaskDefinitionsResult().withTaskDefinitionArns(TASK_DEFINITION_ARN_1);
     when(ecs.listTaskDefinitions(any(ListTaskDefinitionsRequest.class))).thenReturn(listTaskDefinitionsResult);
 
-    DescribeTaskDefinitionResult describeTaskDefinitionResult = new DescribeTaskDefinitionResult().withTaskDefinition(new TaskDefinition().withTaskDefinitionArn(taskDefinitionArn1));
+    DescribeTaskDefinitionResult describeTaskDefinitionResult = new DescribeTaskDefinitionResult().withTaskDefinition(new TaskDefinition().withTaskDefinitionArn(TASK_DEFINITION_ARN_1));
     when(ecs.describeTaskDefinition(any(DescribeTaskDefinitionRequest.class))).thenReturn(describeTaskDefinitionResult);
 
     //When
@@ -70,13 +67,9 @@ public class TaskDefinitionCachingAgentTest extends CommonCachingAgent {
   @Test
   public void shouldGenerateFreshData() {
     //Given
-    String taskDefinitionArn1 = "arn:aws:ecs:" + REGION + ":012345678910:task-definition/hello_world:10";
-    String taskDefinitionArn2 = "arn:aws:ecs:" + REGION + ":012345678910:task-definition/hello_world:11";
-
-
     List<String> taskDefinitionArns = new LinkedList<>();
-    taskDefinitionArns.add(taskDefinitionArn1);
-    taskDefinitionArns.add(taskDefinitionArn2);
+    taskDefinitionArns.add(TASK_ARN_1);
+    taskDefinitionArns.add(TASK_ARN_2);
 
     List<TaskDefinition> tasks = new LinkedList<>();
     Set<String> keys = new HashSet<>();
@@ -99,29 +92,5 @@ public class TaskDefinitionCachingAgentTest extends CommonCachingAgent {
       assertTrue("Expected the key to be one of the following keys: " + keys.toString() + ". The key is: " + cacheData.getId() + ".", keys.contains(cacheData.getId()));
       assertTrue("Expected the task definition ARN to be one of the following ARNs: " + taskDefinitionArns.toString() + ". The task definition  ARN is: " + cacheData.getAttributes().get("taskDefinitionArn") + ".", taskDefinitionArns.contains(cacheData.getAttributes().get("taskDefinitionArn")));
     }
-  }
-
-  @Test
-  public void shouldAddToCache() {
-    //Given
-    String taskDefinitionArn = "arn:aws:ecs:" + REGION + ":012345678910:task-definition/hello_world:10";
-    String key = Keys.getTaskDefinitionKey(ACCOUNT, REGION, taskDefinitionArn);
-
-    TaskDefinition taskDefinition = new TaskDefinition();
-    taskDefinition.setTaskDefinitionArn(taskDefinitionArn);
-    taskDefinition.setContainerDefinitions(Collections.emptyList());
-
-    when(ecs.listTaskDefinitions(any(ListTaskDefinitionsRequest.class))).thenReturn(new ListTaskDefinitionsResult().withTaskDefinitionArns(taskDefinitionArn));
-    when(ecs.describeTaskDefinition(any(DescribeTaskDefinitionRequest.class))).thenReturn(new DescribeTaskDefinitionResult().withTaskDefinition(taskDefinition));
-
-    //When
-    CacheResult cacheResult = agent.loadData(providerCache);
-
-    //Then
-    Collection<CacheData> cacheData = cacheResult.getCacheResults().get(TASK_DEFINITIONS.toString());
-    assertTrue("Expected CacheData to be returned but null is returned", cacheData != null);
-    assertTrue("Expected 1 CacheData but returned " + cacheData.size(), cacheData.size() == 1);
-    String retrievedKey = cacheData.iterator().next().getId();
-    assertTrue("Expected CacheData with ID " + key + " but retrieved ID " + retrievedKey, retrievedKey.equals(key));
   }
 }

@@ -16,7 +16,7 @@ import static org.mockito.Mockito.when;
 
 public class EcsClusterCacheClientTest extends CommonCacheClient {
   @Subject
-  private EcsClusterCacheClient client = new EcsClusterCacheClient(cacheView);
+  private final EcsClusterCacheClient client = new EcsClusterCacheClient(cacheView);
 
   @Test
   public void shouldConvert() {

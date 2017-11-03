@@ -52,7 +52,6 @@ import java.util.concurrent.ConcurrentHashMap;
 import static com.netflix.spinnaker.clouddriver.aws.security.AmazonCredentials.AWSRegion;
 
 @Configuration
-@EnableConfigurationProperties(ReservationReportConfigurationProperties.class)
 public class EcsProviderConfig {
 
   @Bean

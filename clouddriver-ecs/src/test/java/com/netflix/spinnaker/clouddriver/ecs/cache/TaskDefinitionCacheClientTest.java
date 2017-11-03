@@ -5,7 +5,6 @@ import com.amazonaws.services.ecs.model.TaskDefinition;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import com.netflix.spinnaker.cats.cache.DefaultCacheData;
 import com.netflix.spinnaker.clouddriver.ecs.cache.client.TaskDefinitionCacheClient;
-import com.netflix.spinnaker.clouddriver.ecs.provider.agent.ContainerInstanceCachingAgent;
 import com.netflix.spinnaker.clouddriver.ecs.provider.agent.TaskDefinitionCachingAgent;
 import org.junit.Test;
 import spock.lang.Subject;
@@ -13,14 +12,13 @@ import spock.lang.Subject;
 import java.util.Collections;
 import java.util.Map;
 
-import static com.netflix.spinnaker.clouddriver.ecs.cache.Keys.Namespace.CONTAINER_INSTANCES;
 import static com.netflix.spinnaker.clouddriver.ecs.cache.Keys.Namespace.TASK_DEFINITIONS;
 import static org.junit.Assert.assertTrue;
 import static org.mockito.Mockito.when;
 
 public class TaskDefinitionCacheClientTest extends CommonCacheClient {
   @Subject
-  private TaskDefinitionCacheClient client = new TaskDefinitionCacheClient(cacheView);
+  private final TaskDefinitionCacheClient client = new TaskDefinitionCacheClient(cacheView);
 
   @Test
   public void shouldConvert() {
