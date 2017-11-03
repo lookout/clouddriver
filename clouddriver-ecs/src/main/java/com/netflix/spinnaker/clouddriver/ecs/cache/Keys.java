@@ -33,7 +33,7 @@ public class Keys implements KeyParser {
     CONTAINER_INSTANCES,
     TASK_DEFINITIONS;
 
-    final String ns;
+    public final String ns;
 
     Namespace() {
       ns = CaseFormat.UPPER_UNDERSCORE.to(CaseFormat.LOWER_CAMEL, this.name());

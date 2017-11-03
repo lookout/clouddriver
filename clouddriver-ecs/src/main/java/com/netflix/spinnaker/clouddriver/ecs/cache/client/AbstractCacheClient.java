@@ -12,7 +12,7 @@ import java.util.Set;
 abstract class AbstractCacheClient<T> {
 
   private final String keyNamespace;
-  private final Cache cacheView;
+  protected final Cache cacheView;
 
   /**
    * @param cacheView The Cache that the client will query.

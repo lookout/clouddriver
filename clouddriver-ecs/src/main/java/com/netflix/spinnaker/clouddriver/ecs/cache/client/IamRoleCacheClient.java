@@ -14,7 +14,7 @@
  * limitations under the License.
  */
 
-package com.netflix.spinnaker.clouddriver.ecs.cache;
+package com.netflix.spinnaker.clouddriver.ecs.cache.client;
 
 import com.netflix.spinnaker.cats.cache.Cache;
 import com.netflix.spinnaker.cats.cache.CacheData;
@@ -23,33 +23,38 @@ import com.netflix.spinnaker.clouddriver.ecs.provider.agent.IamTrustRelationship
 import org.springframework.beans.factory.annotation.Autowired;
 
 import java.util.Collection;
+import java.util.Collections;
 import java.util.HashSet;
 import java.util.List;
 import java.util.Map;
 import java.util.Set;
+import java.util.stream.Collectors;
 
 import static com.netflix.spinnaker.clouddriver.ecs.cache.Keys.Namespace.IAM_ROLE;
 
-public class IamRoleCacheClient {
-
-  private final Cache cache;
+public class IamRoleCacheClient extends AbstractCacheClient<IamRole>{
 
   @Autowired
-  public IamRoleCacheClient(Cache cache) {
-    this.cache = cache;
+  public IamRoleCacheClient(Cache cacheView) {
+    super(cacheView, IAM_ROLE.toString());
   }
 
+  @Override
+  public IamRole get(String key) {
+    CacheData allData = cacheView.get(IAM_ROLE.toString(), key);
+    return filterResultsForEcsTrustRelationship(Collections.singleton(allData)).iterator().next();
+  }
+
+  @Override
   public Collection<IamRole> getAll() {
-    Collection<CacheData> allData = cache.getAll(IAM_ROLE.toString());
+    Collection<CacheData> allData = cacheView.getAll(IAM_ROLE.toString());
     return filterResultsForEcsTrustRelationship(allData);
   }
 
+  @Override
   public Collection<IamRole> getAll(String account, String region) {
     Collection<CacheData> data = fetchFromCache(account, region);
-
-    Collection<IamRole> result = filterResultsForEcsTrustRelationship(data);
-
-    return result;
+    return filterResultsForEcsTrustRelationship(data);
   }
 
   private Collection<IamRole> filterResultsForEcsTrustRelationship(Collection<CacheData> allData) {
@@ -60,7 +65,7 @@ public class IamRoleCacheClient {
       for (Map<String, String> trustRelationship : trustRelationships) {
         if (trustRelationship.get("type").equals("Service") && trustRelationship.get("value").equals("ecs-tasks.amazonaws.com")) {
 
-          result.add(convertToRole(cacheData));
+          result.add(convert(cacheData));
           continue;
         }
       }
@@ -70,7 +75,8 @@ public class IamRoleCacheClient {
     return result;
   }
 
-  private IamRole convertToRole(CacheData cacheData) {
+  @Override
+  protected IamRole convert(CacheData cacheData) {
 
     List<Map<String, String>> trustRelationships = (List<Map<String, String>> ) cacheData.getAttributes().get("trustRelationships");
     Set<IamTrustRelationship> iamTrustRelationships = new HashSet<>();
@@ -100,13 +106,9 @@ public class IamRoleCacheClient {
    * @return
    */
   private Collection<CacheData> fetchFromCache(String account, String region) {
-    Set<String> keys = new HashSet<>();
-    Collection<String> nameMatches = cache.filterIdentifiers(IAM_ROLE.ns, "*:" + account + ":*");
-
-    keys.addAll(nameMatches);
-
-    Collection<CacheData> allData = cache.getAll(IAM_ROLE.ns, keys);
-
-    return allData;
+    Set<String> keys = cacheView.filterIdentifiers(IAM_ROLE.ns, "*:" + account + ":*").stream()
+      .distinct()
+      .collect(Collectors.toSet());
+    return cacheView.getAll(IAM_ROLE.ns, keys);
   }
 }
