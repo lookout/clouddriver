@@ -111,31 +111,25 @@ public class TaskHealthCachingAgent extends AbstractEcsCachingAgent<TaskHealth> 
           continue;
         }
 
-        int port;
-        try {
-          port = task.getContainers().get(0).getNetworkBindings().get(0).getHostPort();
-        } catch (Exception e) {
-          e.printStackTrace();
+        if (task.getContainers().size() == 0 ||
+          task.getContainers().get(0).getNetworkBindings() == null || task.getContainers().get(0).getNetworkBindings().size() == 0 ||
+          task.getContainers().get(0).getNetworkBindings().get(0) == null) {
           continue;
         }
 
-        List<LoadBalancer> loadBalancers;
-        try {
-          loadBalancers = service.getLoadBalancers();
-        } catch (Exception e) {
-          e.printStackTrace();
-          continue;
-        }
+        int port = task.getContainers().get(0).getNetworkBindings().get(0).getHostPort();
+
+        List<LoadBalancer> loadBalancers = service.getLoadBalancers();
 
         for (LoadBalancer loadBalancer : loadBalancers) {
-          DescribeTargetHealthResult describeTargetHealthResult;
-          try {
-            describeTargetHealthResult = amazonloadBalancing.describeTargetHealth(
-              new DescribeTargetHealthRequest().withTargetGroupArn(loadBalancer.getTargetGroupArn()).withTargets(
-                new TargetDescription().withId(containerInstance.getEc2InstanceId()).withPort(port)));
-          } catch (NullPointerException e) {
+          if (loadBalancer.getTargetGroupArn() == null || containerInstance.getEc2InstanceId() == null) {
             continue;
           }
+          
+          DescribeTargetHealthResult describeTargetHealthResult;
+          describeTargetHealthResult = amazonloadBalancing.describeTargetHealth(
+            new DescribeTargetHealthRequest().withTargetGroupArn(loadBalancer.getTargetGroupArn()).withTargets(
+              new TargetDescription().withId(containerInstance.getEc2InstanceId()).withPort(port)));
 
           if (describeTargetHealthResult.getTargetHealthDescriptions().size() == 0) {
             String serviceEvictionKey = Keys.getTaskDefinitionKey(accountName, region, service.getServiceName());
@@ -189,21 +183,21 @@ public class TaskHealthCachingAgent extends AbstractEcsCachingAgent<TaskHealth> 
 
   @Override
   protected Map<String, Collection<String>> addExtraEvictions(Map<String, Collection<String>> evictions) {
-    if(taskEvicitions.size()!=0) {
+    if (taskEvicitions.size() != 0) {
       if (evictions.containsKey(TASKS.toString())) {
         evictions.get(TASKS.toString()).addAll(taskEvicitions);
       } else {
         evictions.put(TASKS.toString(), taskEvicitions);
       }
     }
-    if(serviceEvicitions.size()!=0) {
+    if (serviceEvicitions.size() != 0) {
       if (evictions.containsKey(SERVICES.toString())) {
         evictions.get(SERVICES.toString()).addAll(serviceEvicitions);
       } else {
         evictions.put(SERVICES.toString(), serviceEvicitions);
       }
     }
-    if(taskDefEvicitions.size()!=0) {
+    if (taskDefEvicitions.size() != 0) {
       if (evictions.containsKey(TASK_DEFINITIONS.toString())) {
         evictions.get(TASK_DEFINITIONS.toString()).addAll(taskDefEvicitions);
       } else {
