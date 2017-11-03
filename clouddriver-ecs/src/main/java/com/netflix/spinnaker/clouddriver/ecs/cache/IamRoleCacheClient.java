@@ -78,6 +78,7 @@ public class IamRoleCacheClient {
     IamRole iamRole = new IamRole();
     iamRole.setId(cacheData.getAttributes().get("arn").toString());
     iamRole.setName(cacheData.getAttributes().get("name").toString());
+    iamRole.setAccoutName(cacheData.getAttributes().get("accountName").toString());
 
     for (Map<String, String> trustRelationship : trustRelationships) {
       IamTrustRelationship iamTrustRelationship = new IamTrustRelationship();
