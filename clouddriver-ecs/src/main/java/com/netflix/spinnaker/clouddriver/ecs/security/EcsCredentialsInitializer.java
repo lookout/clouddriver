@@ -75,11 +75,11 @@ public class EcsCredentialsInitializer implements CredentialsInitializerSynchron
             CredentialsConfig ecsCopy = new CredentialsConfig();
             ecsCopy.setAccounts(Collections.singletonList(account));
 
-            NetflixESCredentials esCredentials = new NetflixESCredentials(credentialsLoader.load(ecsCopy).get(0));
-            credentials.add(esCredentials);
+            NetflixAmazonCredentials clone = credentialsLoader.load(ecsCopy).get(0);
+            clone.CLOUD_PROVIDER = "ecs";
+            credentials.add(clone);
 
-
-            accountCredentialsRepository.save(ecsAccount.getName(), esCredentials);
+            accountCredentialsRepository.save(ecsAccount.getName(), clone);
             break;
 
           }
