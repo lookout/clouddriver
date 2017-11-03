@@ -125,7 +125,7 @@ public class TaskHealthCachingAgent extends AbstractEcsCachingAgent<TaskHealth> 
           if (loadBalancer.getTargetGroupArn() == null || containerInstance.getEc2InstanceId() == null) {
             continue;
           }
-          
+
           DescribeTargetHealthResult describeTargetHealthResult;
           describeTargetHealthResult = amazonloadBalancing.describeTargetHealth(
             new DescribeTargetHealthRequest().withTargetGroupArn(loadBalancer.getTargetGroupArn()).withTargets(
