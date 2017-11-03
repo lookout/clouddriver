@@ -78,7 +78,7 @@ public class IamRoleCachingAgent implements CachingAgent {
   public CacheResult loadData(ProviderCache providerCache) {
     AmazonIdentityManagement iam = amazonClientProvider.getIam(accountName, awsCredentialsProvider, DEFAULT_IAM_REGION);
 
-    Set<IamRole> cacheableRoles = fetchIamRoles(iam);
+    Set<IamRole> cacheableRoles = fetchIamRoles(iam, accountName);
     Map<String, Collection<CacheData>> newDataMap = generateFreshData(cacheableRoles);
     Collection<CacheData> newData = newDataMap.get(IAM_ROLE.toString());
 
@@ -131,6 +131,7 @@ public class IamRoleCachingAgent implements CachingAgent {
       String key = Keys.getIamRoleKey(accountName, iamRole.getName());
       Map<String, Object> attributes = new HashMap<>();
       attributes.put("name", iamRole.getName());
+      attributes.put("accountName", iamRole.getAccoutName());
       attributes.put("arn", iamRole.getId());
       attributes.put("trustRelationships", iamRole.getTrustRelationships());
 
@@ -142,7 +143,7 @@ public class IamRoleCachingAgent implements CachingAgent {
     return newDataMap;
   }
 
-  private Set<IamRole> fetchIamRoles(AmazonIdentityManagement iam) {
+  private Set<IamRole> fetchIamRoles(AmazonIdentityManagement iam, String accountName) {
     Set<IamRole> cacheableRoles = new HashSet();
     String marker = null;
     do {
@@ -153,11 +154,11 @@ public class IamRoleCachingAgent implements CachingAgent {
 
       ListRolesResult listRolesResult = iam.listRoles(request);
       List<Role> roles = listRolesResult.getRoles();
-
       for (Role role: roles) {
         cacheableRoles.add(
           new IamRole(role.getArn(),
             role.getRoleName(),
+            accountName,
             iamPolicyReader.getTrustedEntities(role.getAssumeRolePolicyDocument()))
         );
       }
