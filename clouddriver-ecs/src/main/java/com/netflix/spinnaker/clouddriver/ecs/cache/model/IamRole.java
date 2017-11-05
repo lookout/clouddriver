@@ -35,7 +35,7 @@ public class IamRole implements Role {
   String id;
 
   String name;
-  String accoutName;
+  String accountName;
   Set<? extends TrustRelationship> trustRelationships;
 
 }

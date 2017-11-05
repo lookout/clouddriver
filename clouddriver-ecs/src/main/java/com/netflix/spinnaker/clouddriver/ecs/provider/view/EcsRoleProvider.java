@@ -45,9 +45,4 @@ public class EcsRoleProvider implements RoleProvider {
   public Collection<IamRole> getAll() {
     return cacheClient.getAll();
   }
-
-  @Override
-  public Collection<? extends Role> getAll(String account, String region) {
-    return cacheClient.getAll(account, region);
-  }
 }
