@@ -17,22 +17,24 @@
 package com.netflix.spinnaker.clouddriver.ecs.provider.agent;
 
 import com.amazonaws.auth.AWSCredentialsProvider;
-import com.amazonaws.services.ecs.AmazonECS;
 import com.amazonaws.services.identitymanagement.AmazonIdentityManagement;
 import com.amazonaws.services.identitymanagement.model.ListRolesRequest;
 import com.amazonaws.services.identitymanagement.model.ListRolesResult;
 import com.amazonaws.services.identitymanagement.model.Role;
 import com.netflix.spinnaker.cats.agent.AgentDataType;
+import com.netflix.spinnaker.cats.agent.CacheResult;
+import com.netflix.spinnaker.cats.agent.CachingAgent;
+import com.netflix.spinnaker.cats.agent.DefaultCacheResult;
 import com.netflix.spinnaker.cats.cache.CacheData;
 import com.netflix.spinnaker.cats.cache.DefaultCacheData;
 import com.netflix.spinnaker.cats.provider.ProviderCache;
 import com.netflix.spinnaker.clouddriver.aws.security.AmazonClientProvider;
 import com.netflix.spinnaker.clouddriver.ecs.cache.Keys;
 import com.netflix.spinnaker.clouddriver.ecs.cache.model.IamRole;
+import com.netflix.spinnaker.clouddriver.ecs.provider.EcsProvider;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
-import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.Collection;
 import java.util.Collections;
@@ -41,11 +43,12 @@ import java.util.HashSet;
 import java.util.List;
 import java.util.Map;
 import java.util.Set;
+import java.util.stream.Collectors;
 
 import static com.netflix.spinnaker.cats.agent.AgentDataType.Authority.AUTHORITATIVE;
 import static com.netflix.spinnaker.clouddriver.ecs.cache.Keys.Namespace.IAM_ROLE;
 
-public class IamRoleCachingAgent extends AbstractEcsCachingAgent<IamRole> {
+public class IamRoleCachingAgent implements CachingAgent {
 
   public static final String DEFAULT_IAM_REGION = "us-east-1";
   static final Collection<AgentDataType> types = Collections.unmodifiableCollection(Arrays.asList(
@@ -62,7 +65,6 @@ public class IamRoleCachingAgent extends AbstractEcsCachingAgent<IamRole> {
                              AmazonClientProvider amazonClientProvider,
                              AWSCredentialsProvider awsCredentialsProvider,
                              IamPolicyReader iamPolicyReader) {
-    super(accountName, null, amazonClientProvider, awsCredentialsProvider);
     this.accountName = accountName;
     this.amazonClientProvider = amazonClientProvider;
     this.awsCredentialsProvider = awsCredentialsProvider;
@@ -79,7 +81,55 @@ public class IamRoleCachingAgent extends AbstractEcsCachingAgent<IamRole> {
   }
 
   @Override
-  protected Map<String, Collection<CacheData>> generateFreshData(Collection<IamRole> cacheableRoles) {
+  public CacheResult loadData(ProviderCache providerCache) {
+    AmazonIdentityManagement iam = amazonClientProvider.getIam(accountName, awsCredentialsProvider, DEFAULT_IAM_REGION);
+
+    Set<IamRole> cacheableRoles = fetchIamRoles(iam, accountName);
+    Map<String, Collection<CacheData>> newDataMap = generateFreshData(cacheableRoles);
+    Collection<CacheData> newData = newDataMap.get(IAM_ROLE.toString());
+
+    Set<String> oldKeys = providerCache.getAll(IAM_ROLE.toString()).stream()
+      .map(cache -> cache.getId()).collect(Collectors.toSet());
+    Map<String, Collection<String>> evictionsByKey = computeEvictableData(newData, oldKeys);
+
+    logUpcomingActions(newDataMap, evictionsByKey);
+
+    DefaultCacheResult cacheResult = new DefaultCacheResult(newDataMap, evictionsByKey);
+    return cacheResult;
+  }
+
+  private void logUpcomingActions(Map<String, Collection<CacheData>> newDataMap, Map<String, Collection<String>> evictionsByKey) {
+    log.info(String.format("Caching %s IAM roles in %s for account %s",
+      newDataMap.get(IAM_ROLE.toString()).size(),
+      getAgentType(),
+      accountName)
+    );
+
+    if (evictionsByKey.get(IAM_ROLE.toString()).size() > 0) {
+      log.info(String.format("Evicting %s IAM roles in %s for account %s",
+        evictionsByKey.get(IAM_ROLE.toString()).size(),
+        getAgentType(),
+        accountName)
+      );
+    }
+  }
+
+  private Map<String, Collection<String>> computeEvictableData(Collection<CacheData> newData, Collection<String> oldKeys) {
+
+    Set<String> newKeys = newData.stream().map(newKey -> newKey.getId()).collect(Collectors.toSet());
+
+    Set<String> evictedKeys = new HashSet<>();
+    for (String oldKey : oldKeys) {
+      if (!newKeys.contains(oldKey)) {
+        evictedKeys.add(oldKey);
+      }
+    }
+    Map<String, Collection<String>> evictionsByKey = new HashMap<>();
+    evictionsByKey.put(IAM_ROLE.toString(), evictedKeys);
+    return evictionsByKey;
+  }
+
+  Map<String, Collection<CacheData>> generateFreshData(Set<IamRole> cacheableRoles) {
     Collection<CacheData> dataPoints = new HashSet<>();
     Map<String, Collection<CacheData>> newDataMap = new HashMap<>();
 
@@ -90,23 +140,13 @@ public class IamRoleCachingAgent extends AbstractEcsCachingAgent<IamRole> {
       CacheData data = new DefaultCacheData(key, attributes, Collections.emptyMap());
       dataPoints.add(data);
     }
-    log.info(String.format("Caching %s IAM roles in %s for account %s",
-      dataPoints.size(),
-      getAgentType(),
-      accountName)
-    );
+
     newDataMap.put(IAM_ROLE.toString(), dataPoints);
     return newDataMap;
   }
 
-  @Override
-  protected List<IamRole> getItems(AmazonECS ecs, ProviderCache providerCache) {
-    AmazonIdentityManagement iam = amazonClientProvider.getIam(accountName, awsCredentialsProvider, DEFAULT_IAM_REGION);
-    return new ArrayList(fetchIamRoles(iam, accountName));
-  }
-
-  private Collection<IamRole> fetchIamRoles(AmazonIdentityManagement iam, String accountName) {
-    Set<IamRole> cacheableRoles = new HashSet<>();
+  Set<IamRole> fetchIamRoles(AmazonIdentityManagement iam, String accountName) {
+    Set<IamRole> cacheableRoles = new HashSet();
     String marker = null;
     do {
       ListRolesRequest request = new ListRolesRequest();
@@ -139,6 +179,11 @@ public class IamRoleCachingAgent extends AbstractEcsCachingAgent<IamRole> {
   @Override
   public String getAgentType() {
     return IamRoleCachingAgent.class.getSimpleName();
+  }
+
+  @Override
+  public String getProviderName() {
+    return EcsProvider.NAME;
   }
 
   @Override

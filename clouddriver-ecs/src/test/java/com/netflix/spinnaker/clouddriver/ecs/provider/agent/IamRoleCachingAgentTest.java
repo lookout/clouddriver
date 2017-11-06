@@ -77,7 +77,7 @@ public class IamRoleCachingAgentTest extends CommonCachingAgent {
     when(iamPolicyReader.getTrustedEntities(anyString())).thenReturn(Collections.singleton(iamTrustRelationship));
 
     //When
-    List<IamRole> returnedRoles = agent.getItems(ecs, providerCache);
+    Set<IamRole> returnedRoles = agent.fetchIamRoles(iam, ACCOUNT);
 
     //Then
     assertTrue("Expected the list to contain " + numberOfRoles + " ECS IAM roles, but got " + returnedRoles.size(), returnedRoles.size() == numberOfRoles);

@@ -82,10 +82,7 @@ abstract class AbstractEcsCachingAgent<T> implements CachingAgent {
   public CacheResult loadData(ProviderCache providerCache) {
     String authoritativeKeyName = getAuthoritativeKeyName();
 
-    AmazonECS ecs = null;
-    if(region!=null && region.length()!=0){
-      ecs = amazonClientProvider.getAmazonEcs(accountName, awsCredentialsProvider, region);
-    }
+    AmazonECS ecs = amazonClientProvider.getAmazonEcs(accountName, awsCredentialsProvider, region);
     List<T> items = getItems(ecs, providerCache);
     return buildCacheResult(authoritativeKeyName, items, providerCache);
   }
