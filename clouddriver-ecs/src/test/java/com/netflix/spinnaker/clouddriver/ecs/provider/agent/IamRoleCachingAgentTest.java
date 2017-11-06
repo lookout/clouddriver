@@ -65,7 +65,7 @@ public class IamRoleCachingAgentTest extends CommonCachingAgent {
       roles.add(new Role().withArn(arn).withRoleName(name));
 
       IamRole iamRole = new IamRole();
-      iamRole.setAccoutName(ACCOUNT);
+      iamRole.setAccountName(ACCOUNT);
       iamRole.setId(arn);
       iamRole.setName(name);
       iamRole.setTrustRelationships(Collections.singleton(iamTrustRelationship));
@@ -100,7 +100,7 @@ public class IamRoleCachingAgentTest extends CommonCachingAgent {
       String name = "iam-role-name-" + x;
 
       IamRole iamRole = new IamRole();
-      iamRole.setAccoutName(ACCOUNT);
+      iamRole.setAccountName(ACCOUNT);
       iamRole.setId("iam-role-arn-" + x);
       iamRole.setName(name);
       iamRole.setTrustRelationships(Collections.singleton(iamTrustRelationship));

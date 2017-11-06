@@ -35,7 +35,7 @@ public class IamRoleCacheClientTest extends CommonCacheClient {
     String key = Keys.getIamRoleKey(ACCOUNT, name);
 
     IamRole iamRole = new IamRole();
-    iamRole.setAccoutName("account-name");
+    iamRole.setAccountName("account-name");
     iamRole.setId("test-id");
     iamRole.setName(name);
     IamTrustRelationship iamTrustRelationship = new IamTrustRelationship();

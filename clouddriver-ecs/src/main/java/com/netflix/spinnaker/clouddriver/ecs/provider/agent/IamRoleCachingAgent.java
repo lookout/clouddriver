@@ -74,7 +74,7 @@ public class IamRoleCachingAgent implements CachingAgent {
   public static Map<String, Object> convertIamRoleToAttributes(IamRole iamRole) {
     Map<String, Object> attributes = new HashMap<>();
     attributes.put("name", iamRole.getName());
-    attributes.put("accountName", iamRole.getAccoutName());
+    attributes.put("accountName", iamRole.getAccountName());
     attributes.put("arn", iamRole.getId());
     attributes.put("trustRelationships", iamRole.getTrustRelationships());
     return attributes;

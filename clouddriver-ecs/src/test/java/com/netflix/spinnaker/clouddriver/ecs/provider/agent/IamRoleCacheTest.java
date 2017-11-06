@@ -60,7 +60,7 @@ public class IamRoleCacheTest extends CommonCachingAgent {
     String key = Keys.getIamRoleKey(ACCOUNT, name);
 
     IamRole iamRole = new IamRole();
-    iamRole.setAccoutName(ACCOUNT);
+    iamRole.setAccountName(ACCOUNT);
     iamRole.setId(roleArn);
     iamRole.setName(name);
     IamTrustRelationship iamTrustRelationship = new IamTrustRelationship();
