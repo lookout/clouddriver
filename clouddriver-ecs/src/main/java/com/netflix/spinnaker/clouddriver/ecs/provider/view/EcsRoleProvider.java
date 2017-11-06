@@ -17,7 +17,7 @@
 package com.netflix.spinnaker.clouddriver.ecs.provider.view;
 
 import com.netflix.spinnaker.clouddriver.ecs.EcsCloudProvider;
-import com.netflix.spinnaker.clouddriver.ecs.cache.IamRoleCacheClient;
+import com.netflix.spinnaker.clouddriver.ecs.cache.client.IamRoleCacheClient;
 import com.netflix.spinnaker.clouddriver.ecs.cache.model.IamRole;
 import com.netflix.spinnaker.clouddriver.model.Role;
 import com.netflix.spinnaker.clouddriver.model.RoleProvider;

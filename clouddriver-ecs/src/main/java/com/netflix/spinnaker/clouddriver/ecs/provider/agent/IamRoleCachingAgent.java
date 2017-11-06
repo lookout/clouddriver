@@ -50,12 +50,10 @@ import static com.netflix.spinnaker.clouddriver.ecs.cache.Keys.Namespace.IAM_ROL
 
 public class IamRoleCachingAgent implements CachingAgent {
 
+  public static final String DEFAULT_IAM_REGION = "us-east-1";
   static final Collection<AgentDataType> types = Collections.unmodifiableCollection(Arrays.asList(
     AUTHORITATIVE.forType(IAM_ROLE.toString())
   ));
-
-  public static final String DEFAULT_IAM_REGION = "us-east-1";
-
   private final Logger log = LoggerFactory.getLogger(getClass());
   private AmazonClientProvider amazonClientProvider;
   private AWSCredentialsProvider awsCredentialsProvider;
@@ -73,6 +71,14 @@ public class IamRoleCachingAgent implements CachingAgent {
     this.iamPolicyReader = iamPolicyReader;
   }
 
+  public static Map<String, Object> convertIamRoleToAttributes(IamRole iamRole) {
+    Map<String, Object> attributes = new HashMap<>();
+    attributes.put("name", iamRole.getName());
+    attributes.put("accountName", iamRole.getAccountName());
+    attributes.put("arn", iamRole.getId());
+    attributes.put("trustRelationships", iamRole.getTrustRelationships());
+    return attributes;
+  }
 
   @Override
   public CacheResult loadData(ProviderCache providerCache) {
@@ -113,7 +119,7 @@ public class IamRoleCachingAgent implements CachingAgent {
     Set<String> newKeys = newData.stream().map(newKey -> newKey.getId()).collect(Collectors.toSet());
 
     Set<String> evictedKeys = new HashSet<>();
-    for (String oldKey: oldKeys) {
+    for (String oldKey : oldKeys) {
       if (!newKeys.contains(oldKey)) {
         evictedKeys.add(oldKey);
       }
@@ -123,17 +129,13 @@ public class IamRoleCachingAgent implements CachingAgent {
     return evictionsByKey;
   }
 
-  private Map<String, Collection<CacheData>> generateFreshData(Set<IamRole> cacheableRoles) {
+  Map<String, Collection<CacheData>> generateFreshData(Set<IamRole> cacheableRoles) {
     Collection<CacheData> dataPoints = new HashSet<>();
     Map<String, Collection<CacheData>> newDataMap = new HashMap<>();
 
-    for (IamRole iamRole: cacheableRoles) {
+    for (IamRole iamRole : cacheableRoles) {
       String key = Keys.getIamRoleKey(accountName, iamRole.getName());
-      Map<String, Object> attributes = new HashMap<>();
-      attributes.put("name", iamRole.getName());
-      attributes.put("accountName", iamRole.getAccountName());
-      attributes.put("arn", iamRole.getId());
-      attributes.put("trustRelationships", iamRole.getTrustRelationships());
+      Map<String, Object> attributes = convertIamRoleToAttributes(iamRole);
 
       CacheData data = new DefaultCacheData(key, attributes, Collections.emptyMap());
       dataPoints.add(data);
@@ -143,7 +145,7 @@ public class IamRoleCachingAgent implements CachingAgent {
     return newDataMap;
   }
 
-  private Set<IamRole> fetchIamRoles(AmazonIdentityManagement iam, String accountName) {
+  Set<IamRole> fetchIamRoles(AmazonIdentityManagement iam, String accountName) {
     Set<IamRole> cacheableRoles = new HashSet();
     String marker = null;
     do {
@@ -154,7 +156,7 @@ public class IamRoleCachingAgent implements CachingAgent {
 
       ListRolesResult listRolesResult = iam.listRoles(request);
       List<Role> roles = listRolesResult.getRoles();
-      for (Role role: roles) {
+      for (Role role : roles) {
         cacheableRoles.add(
           new IamRole(role.getArn(),
             role.getRoleName(),

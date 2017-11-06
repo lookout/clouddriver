@@ -21,7 +21,6 @@ import com.amazonaws.services.ecs.model.DescribeTaskDefinitionResult;
 import com.amazonaws.services.ecs.model.ListTaskDefinitionsRequest;
 import com.amazonaws.services.ecs.model.ListTaskDefinitionsResult;
 import com.amazonaws.services.ecs.model.TaskDefinition;
-import com.netflix.spinnaker.cats.agent.CacheResult;
 import com.netflix.spinnaker.cats.cache.CacheData;
 import com.netflix.spinnaker.clouddriver.ecs.cache.Keys;
 import org.junit.Test;
@@ -68,8 +67,8 @@ public class TaskDefinitionCachingAgentTest extends CommonCachingAgent {
   public void shouldGenerateFreshData() {
     //Given
     List<String> taskDefinitionArns = new LinkedList<>();
-    taskDefinitionArns.add(TASK_ARN_1);
-    taskDefinitionArns.add(TASK_ARN_2);
+    taskDefinitionArns.add(TASK_DEFINITION_ARN_1);
+    taskDefinitionArns.add(TASK_DEFINITION_ARN_2);
 
     List<TaskDefinition> tasks = new LinkedList<>();
     Set<String> keys = new HashSet<>();

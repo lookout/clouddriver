@@ -16,10 +16,8 @@
 
 package com.netflix.spinnaker.clouddriver.ecs.provider.config;
 
-import com.fasterxml.jackson.databind.ObjectMapper;
 import com.netflix.spinnaker.cats.cache.Cache;
-import com.netflix.spinnaker.clouddriver.ecs.cache.IamRoleCacheClient;
-import com.netflix.spinnaker.clouddriver.ecs.provider.agent.IamPolicyReader;
+import com.netflix.spinnaker.clouddriver.ecs.cache.client.IamRoleCacheClient;
 import org.springframework.context.annotation.Bean;
 import org.springframework.context.annotation.Configuration;
 

@@ -22,6 +22,7 @@ import com.netflix.spinnaker.clouddriver.cache.KeyParser;
 import java.util.HashMap;
 import java.util.Map;
 
+import static com.netflix.spinnaker.clouddriver.core.provider.agent.Namespace.HEALTH;
 import static com.netflix.spinnaker.clouddriver.ecs.EcsCloudProvider.ID;
 
 public class Keys implements KeyParser {
@@ -33,7 +34,7 @@ public class Keys implements KeyParser {
     CONTAINER_INSTANCES,
     TASK_DEFINITIONS;
 
-    final String ns;
+    public final String ns;
 
     Namespace() {
       ns = CaseFormat.UPPER_UNDERSCORE.to(CaseFormat.LOWER_CAMEL, this.name());
@@ -128,7 +129,7 @@ public class Keys implements KeyParser {
   }
 
   public static String getTaskHealthKey(String account, String region, String taskId) {
-    return ID + SEPARATOR + com.netflix.spinnaker.clouddriver.core.provider.agent.Namespace.HEALTH + SEPARATOR + account + SEPARATOR + region + SEPARATOR + taskId;
+    return ID + SEPARATOR + HEALTH + SEPARATOR + account + SEPARATOR + region + SEPARATOR + taskId;
   }
 
   public static String getContainerInstanceKey(String account, String region, String containerInstanceArn) {
