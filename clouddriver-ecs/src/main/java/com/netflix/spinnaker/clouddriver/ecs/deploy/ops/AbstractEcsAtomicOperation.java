@@ -28,7 +28,7 @@ import com.netflix.spinnaker.clouddriver.orchestration.AtomicOperation;
 import com.netflix.spinnaker.clouddriver.security.AccountCredentialsProvider;
 import org.springframework.beans.factory.annotation.Autowired;
 
-abstract class AbstractECSAtomicOperation<T extends AbstractECSDescription> implements AtomicOperation<Void> {
+abstract class AbstractEcsAtomicOperation<T extends AbstractECSDescription, K> implements AtomicOperation<K> {
   @Autowired
   private AmazonClientProvider amazonClientProvider;
   @Autowired
@@ -40,7 +40,7 @@ abstract class AbstractECSAtomicOperation<T extends AbstractECSDescription> impl
 
   T description;
 
-  AbstractECSAtomicOperation(T description, String basePhase){
+  AbstractEcsAtomicOperation(T description, String basePhase){
     this.description = description;
     this.basePhase = basePhase;
 
