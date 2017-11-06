@@ -146,6 +146,7 @@ abstract class AbstractEcsCachingAgent<T> implements CachingAgent {
       .map(cache -> cache.getId()).collect(Collectors.toSet());
 
     Map<String, Collection<String>> evictions = computeEvictableData(dataMap.get(authoritativeKeyName), oldKeys);
+    evictions = addExtraEvictions(evictions);
     log.info("Evicting " + evictions.size() + " " + prettyKeyName + (evictions.size() > 1 ? "s" : "") + " in " + getAgentType());
 
     return new DefaultCacheResult(dataMap, evictions);
@@ -165,5 +166,14 @@ abstract class AbstractEcsCachingAgent<T> implements CachingAgent {
     Map<String, Collection<String>> evictionsByKey = new HashMap<>();
     evictionsByKey.put(getAuthoritativeKeyName(), evictedKeys);
     return evictionsByKey;
+  }
+
+  /**
+   * This method is to be overridden in order to add extra evictions.
+   * @param evictions The existing eviction map.
+   * @return Eviction map with addtional keys.
+   */
+  protected Map<String, Collection<String>> addExtraEvictions(Map<String, Collection<String>> evictions){
+    return evictions;
   }
 }
