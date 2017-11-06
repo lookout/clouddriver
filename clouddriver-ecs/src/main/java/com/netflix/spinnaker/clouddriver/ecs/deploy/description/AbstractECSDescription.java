@@ -22,7 +22,7 @@ import lombok.EqualsAndHashCode;
 
 @Data
 @EqualsAndHashCode(callSuper = false)
-abstract class AbstractECSDescription extends AbstractAmazonCredentialsDescription {
+public abstract class AbstractECSDescription extends AbstractAmazonCredentialsDescription {
   String application;
   String region;
   String stack;

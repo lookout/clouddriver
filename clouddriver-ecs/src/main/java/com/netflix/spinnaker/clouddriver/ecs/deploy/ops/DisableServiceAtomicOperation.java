@@ -32,24 +32,10 @@ import org.springframework.beans.factory.annotation.Autowired;
 import java.util.List;
 
 // TODO: DisableServiceAtomicOperation should not be resizing the service to 0 tasks. It should do something such as removing the instance from the target group.
-public class DisableServiceAtomicOperation implements AtomicOperation<Void> {
-  private static final String BASE_PHASE = "DISABLE_ECS_SERVER_GROUP";
-
-  @Autowired
-  AmazonClientProvider amazonClientProvider;
-  @Autowired
-  AccountCredentialsProvider accountCredentialsProvider;
-  @Autowired
-  ContainerInformationService containerInformationService;
-
-  DisableServiceDescription description;
+public class DisableServiceAtomicOperation extends AbstractECSAtomicOperation<DisableServiceDescription> {
 
   public DisableServiceAtomicOperation(DisableServiceDescription description) {
-    this.description = description;
-  }
-
-  private static Task getTask() {
-    return TaskRepository.threadLocalTask.get();
+    super(description, "DISABLE_ECS_SERVER_GROUP");
   }
 
   @Override
@@ -77,26 +63,5 @@ public class DisableServiceAtomicOperation implements AtomicOperation<Void> {
       .withDesiredCount(0);
     ecs.updateService(request);
     updateTaskStatus(String.format("Service %s disabled for %s.", service, account));
-  }
-
-  private String getCluster(String service, String account) {
-    String region = description.getRegion();
-    return containerInformationService.getClusterName(service, account, region);
-  }
-
-  private AmazonECS getAmazonEcsClient() {
-    AWSCredentialsProvider credentialsProvider = getCredentials().getCredentialsProvider();
-    String region = description.getRegion();
-    String credentialAccount = description.getCredentialAccount();
-
-    return amazonClientProvider.getAmazonEcs(credentialAccount, credentialsProvider, region);
-  }
-
-  private AmazonCredentials getCredentials() {
-    return (AmazonCredentials) accountCredentialsProvider.getCredentials(description.getCredentialAccount());
-  }
-
-  private void updateTaskStatus(String status) {
-    getTask().updateStatus(BASE_PHASE, status);
   }
 }
