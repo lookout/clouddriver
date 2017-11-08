@@ -33,7 +33,15 @@ import com.netflix.spinnaker.clouddriver.ecs.cache.client.TaskDefinitionCacheCli
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
-import java.util.*;
+import java.util.Arrays;
+import java.util.Collection;
+import java.util.Collections;
+import java.util.HashMap;
+import java.util.HashSet;
+import java.util.LinkedList;
+import java.util.List;
+import java.util.Map;
+import java.util.Set;
 import java.util.stream.Collectors;
 
 import static com.netflix.spinnaker.cats.agent.AgentDataType.Authority.AUTHORITATIVE;
@@ -47,6 +55,13 @@ public class TaskDefinitionCachingAgent extends AbstractEcsOnDemandAgent<TaskDef
 
   public TaskDefinitionCachingAgent(String accountName, String region, AmazonClientProvider amazonClientProvider, AWSCredentialsProvider awsCredentialsProvider, Registry registry) {
     super(accountName, region, amazonClientProvider, awsCredentialsProvider, registry);
+  }
+
+  public static Map<String, Object> convertTaskDefinitionToAttributes(TaskDefinition taskDefinition) {
+    Map<String, Object> attributes = new HashMap<>();
+    attributes.put("taskDefinitionArn", taskDefinition.getTaskDefinitionArn());
+    attributes.put("containerDefinitions", taskDefinition.getContainerDefinitions());
+    return attributes;
   }
 
   @Override
@@ -104,7 +119,6 @@ public class TaskDefinitionCachingAgent extends AbstractEcsOnDemandAgent<TaskDef
     return taskDefinitionList;
   }
 
-
   private Set<TaskDefinition> retrieveFromCache(Set<String> taskDefArns, ProviderCache providerCache) {
     Set<TaskDefinition> taskDefs = new HashSet<>();
     TaskDefinitionCacheClient taskDefinitionCacheClient = new TaskDefinitionCacheClient(providerCache);
@@ -133,12 +147,5 @@ public class TaskDefinitionCachingAgent extends AbstractEcsOnDemandAgent<TaskDef
     dataMap.put(TASK_DEFINITIONS.toString(), dataPoints);
 
     return dataMap;
-  }
-
-  public static Map<String, Object> convertTaskDefinitionToAttributes(TaskDefinition taskDefinition) {
-    Map<String, Object> attributes = new HashMap<>();
-    attributes.put("taskDefinitionArn", taskDefinition.getTaskDefinitionArn());
-    attributes.put("containerDefinitions", taskDefinition.getContainerDefinitions());
-    return attributes;
   }
 }
