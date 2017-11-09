@@ -28,51 +28,94 @@ class KeysSpec extends Specification {
     return ID + SEPARATOR + namespace + SEPARATOR + account + SEPARATOR + region + SEPARATOR + identifier
   }
 
+  def buildParsedKey(String account, String region, String namespace, Map keySpecificMap) {
+    return [provider: ID, type: namespace, account: account, region: region] << keySpecificMap
+  }
+
   def 'should parse a given key properly'() {
     given:
-    Keys keys = new Keys()
 
     expect:
-    keys.parseKey(buildKey(namespace, account, region, identifier as String)) == parsedKey
+    Keys.parse(buildKey(namespace, account, region, identifier as String)) == parsedKey
 
     where:
 
     account          | region      | namespace              | identifier                                                                                        | parsedKey
-    'test-account-1' | 'us-west-1' | TASKS.ns               | '1dc5c17a-422b-4dc4-b493-371970c6c4d6'                                                            | [provider: ID, type: TASKS.ns, account: account, region: region, taskId: identifier]
-    'test-account-2' | 'us-west-2' | SERVICES.ns            | 'test-stack-detail-v001'                                                                          | [provider: ID, type: SERVICES.ns, account: account, region: region, serviceName: identifier]
-    'test-account-3' | 'us-west-3' | ECS_CLUSTERS.ns        | 'test-cluster-1'                                                                                  | [provider: ID, type: ECS_CLUSTERS.ns, account: account, region: region, clusterName: identifier]
-    'test-account-4' | 'us-west-4' | CONTAINER_INSTANCES.ns | 'arn:aws:ecs:' + region + ':012345678910:container-instance/14e8cce9-0b16-4af4-bfac-a85f7587aa98' | [provider: ID, type: CONTAINER_INSTANCES.ns, account: account, region: region, containerInstanceArn: identifier]
-    'test-account-5' | 'us-west-5' | TASK_DEFINITIONS.ns    | 'arn:aws:ecs:' + region + ':012345678910:task-definition/hello_world:10'                          | [provider: ID, type: TASK_DEFINITIONS.ns, account: account, region: region, taskDefinitionArn: identifier]
+    'test-account-1' | 'us-west-1' | TASKS.ns               | '1dc5c17a-422b-4dc4-b493-371970c6c4d6'                                                            | buildParsedKey(account, region, namespace, [taskId: identifier])
+    'test-account-2' | 'us-west-2' | SERVICES.ns            | 'test-stack-detail-v001'                                                                          | buildParsedKey(account, region, namespace, [serviceName: identifier])
+    'test-account-3' | 'us-west-3' | ECS_CLUSTERS.ns        | 'test-cluster-1'                                                                                  | buildParsedKey(account, region, namespace, [clusterName: identifier])
+    'test-account-4' | 'us-west-4' | CONTAINER_INSTANCES.ns | 'arn:aws:ecs:' + region + ':012345678910:container-instance/14e8cce9-0b16-4af4-bfac-a85f7587aa98' | buildParsedKey(account, region, namespace, [containerInstanceArn: identifier])
+    'test-account-5' | 'us-west-5' | TASK_DEFINITIONS.ns    | 'arn:aws:ecs:' + region + ':012345678910:task-definition/hello_world:10'                          | buildParsedKey(account, region, namespace, [taskDefinitionArn: identifier])
 
+  }
+
+  def 'should parse a given iam role key properly'() {
+    expect:
+    Keys.parse(ID + SEPARATOR + IAM_ROLE.ns + SEPARATOR + account + SEPARATOR + roleName) == [provider: ID, type: IAM_ROLE.ns, account: account, roleName: roleName]
+
+    where:
+    account          | roleName
+    'test-account-1' | 'iam-role-name-1'
+    'test-account-2' | 'iam-role-name-2'
+  }
+
+  def 'should generate the proper iam role key'() {
+    expect:
+    Keys.getIamRoleKey(account, roleName) == ID + SEPARATOR + IAM_ROLE.ns + SEPARATOR + account + SEPARATOR + roleName
+
+    where:
+    account          | roleName
+    'test-account-1' | 'am-role-name-1'
+    'test-account-2' | 'am-role-name-2'
   }
 
   def 'should generate the proper task key'() {
     expect:
-    Keys.getTaskKey(account, region, taskId) == key
+    Keys.getTaskKey(account, region, taskId) == buildKey(TASKS.ns, account, region, taskId)
 
     where:
-    region      | account          | taskId                                 | key
-    'us-west-1' | 'test-account-1' | '1dc5c17a-422b-4dc4-b493-371970c6c4d6' | buildKey(TASKS.ns, account, region, taskId)
-    'us-west-2' | 'test-account-2' | 'deadbeef-422b-4dc4-b493-371970c6c4d6' | buildKey(TASKS.ns, account, region, taskId)
+    region      | account          | taskId
+    'us-west-1' | 'test-account-1' | '1dc5c17a-422b-4dc4-b493-371970c6c4d6'
+    'us-west-2' | 'test-account-2' | 'deadbeef-422b-4dc4-b493-371970c6c4d6'
   }
 
   def 'should generate the proper service key'() {
     expect:
-    Keys.getServiceKey(account, region, serviceName) == key
+    Keys.getServiceKey(account, region, serviceName) == buildKey(SERVICES.ns, account, region, serviceName)
 
     where:
-    region      | account          | serviceName                            | key
-    'us-west-1' | 'test-account-1' | '1dc5c17a-422b-4dc4-b493-371970c6c4d6' | buildKey(SERVICES.ns, account, region, serviceName)
-    'us-west-2' | 'test-account-2' | 'deadbeef-422b-4dc4-b493-371970c6c4d6' | buildKey(SERVICES.ns, account, region, serviceName)
+    region      | account          | serviceName
+    'us-west-1' | 'test-account-1' | '1dc5c17a-422b-4dc4-b493-371970c6c4d6'
+    'us-west-2' | 'test-account-2' | 'deadbeef-422b-4dc4-b493-371970c6c4d6'
   }
 
   def 'should generate the proper cluster key'() {
     expect:
-    Keys.getClusterKey(account, region, clusterName) == key
+    Keys.getClusterKey(account, region, clusterName) == buildKey(ECS_CLUSTERS.ns, account, region, clusterName)
 
     where:
-    region      | account          | clusterName      | key
-    'us-west-1' | 'test-account-1' | 'test-cluster-1' | buildKey(ECS_CLUSTERS.ns, account, region, clusterName)
-    'us-west-2' | 'test-account-2' | 'test-cluster-2' | buildKey(ECS_CLUSTERS.ns, account, region, clusterName)
+    region      | account          | clusterName
+    'us-west-1' | 'test-account-1' | 'test-cluster-1'
+    'us-west-2' | 'test-account-2' | 'test-cluster-2'
+  }
+
+  def 'should generate the proper container instance key'() {
+    expect:
+    Keys.getContainerInstanceKey(account, region, containerArn) == buildKey(CONTAINER_INSTANCES.ns, account, region, containerArn)
+
+    where:
+    region      | account          | containerArn
+    'us-west-1' | 'test-account-1' | 'arn:aws:ecs:' + region + ':012345678910:container-instance/14e8cce9-0b16-4af4-bfac-a85f7587aa98'
+    'us-west-2' | 'test-account-2' | 'arn:aws:ecs:' + region + ':012345678910:container-instance/deadbeef-0b16-4af4-bfac-a85f7587aa98'
+  }
+
+  def 'should generate the proper task definition key'() {
+    expect:
+    Keys.getTaskDefinitionKey(account, region, taskDefArn) == buildKey(TASK_DEFINITIONS.ns, account, region, taskDefArn)
+
+    where:
+    region      | account          | taskDefArn
+    'us-west-1' | 'test-account-1' | 'arn:aws:ecs:' + region + ':012345678910:task-definition/hello_world:10'
+    'us-west-2' | 'test-account-2' | 'arn:aws:ecs:' + region + ':012345678910:task-definition/hello_world:20'
   }
 }
