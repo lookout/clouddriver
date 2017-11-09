@@ -94,7 +94,7 @@ public class Keys implements KeyParser {
         result.put("clusterName", parts[4]);
         break;
       case TASKS:
-        result.put("taskName", parts[4]);
+        result.put("taskId", parts[4]);
         break;
       case CONTAINER_INSTANCES:
         result.put("containerInstanceArn", parts[4]);
