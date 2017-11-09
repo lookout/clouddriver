@@ -94,7 +94,7 @@ public class Keys implements KeyParser {
         result.put("clusterName", parts[4]);
         break;
       case TASKS:
-        result.put("taskName", parts[4]);
+        result.put("taskId", parts[4]);
         break;
       case CONTAINER_INSTANCES:
         result.put("containerInstanceArn", parts[4]);
@@ -117,30 +117,34 @@ public class Keys implements KeyParser {
   }
 
   public static String getServiceKey(String account, String region, String serviceName) {
-    return ID + SEPARATOR + Namespace.SERVICES + SEPARATOR + account + SEPARATOR + region + SEPARATOR + serviceName;
+    return buildKey(Namespace.SERVICES.ns, account, region, serviceName);
   }
 
   public static String getClusterKey(String account, String region, String clusterName) {
-    return ID + SEPARATOR + Namespace.ECS_CLUSTERS + SEPARATOR + account + SEPARATOR + region + SEPARATOR + clusterName;
+    return buildKey(Namespace.ECS_CLUSTERS.ns, account, region, clusterName);
   }
 
   public static String getTaskKey(String account, String region, String taskId) {
-    return ID + SEPARATOR + Namespace.TASKS + SEPARATOR + account + SEPARATOR + region + SEPARATOR + taskId;
+    return buildKey(Namespace.TASKS.ns, account, region, taskId);
   }
 
   public static String getTaskHealthKey(String account, String region, String taskId) {
-    return ID + SEPARATOR + HEALTH + SEPARATOR + account + SEPARATOR + region + SEPARATOR + taskId;
+    return buildKey(HEALTH.getNs(), account, region, taskId);
   }
 
   public static String getContainerInstanceKey(String account, String region, String containerInstanceArn) {
-    return ID + SEPARATOR + Namespace.CONTAINER_INSTANCES + SEPARATOR + account + SEPARATOR + region + SEPARATOR + containerInstanceArn;
+    return buildKey(Namespace.CONTAINER_INSTANCES.ns, account, region, containerInstanceArn);
   }
 
   public static String getTaskDefinitionKey(String account, String region, String taskDefinitionArn) {
-    return ID + SEPARATOR + Namespace.TASK_DEFINITIONS + SEPARATOR + account + SEPARATOR + region + SEPARATOR + taskDefinitionArn;
+    return buildKey(Namespace.TASK_DEFINITIONS.ns, account, region, taskDefinitionArn);
   }
 
   public static String getIamRoleKey(String account, String iamRoleName) {
     return ID + SEPARATOR + Namespace.IAM_ROLE + SEPARATOR + account + SEPARATOR + iamRoleName;
+  }
+
+  private static String buildKey(String namespace,String account, String region, String identifier){
+    return ID + SEPARATOR + namespace + SEPARATOR + account + SEPARATOR + region + SEPARATOR + identifier;
   }
 }
