@@ -45,7 +45,7 @@ public class Keys implements KeyParser {
     }
   }
 
-  public static final String SEPARATOR = ":";
+  public static final String SEPARATOR = ";";
 
   @Override
   public String getCloudProvider() {
