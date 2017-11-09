@@ -33,13 +33,10 @@ class KeysSpec extends Specification {
   }
 
   def 'should parse a given key properly'() {
-    given:
-
     expect:
     Keys.parse(buildKey(namespace, account, region, identifier as String)) == parsedKey
 
     where:
-
     account          | region      | namespace              | identifier                                                                                        | parsedKey
     'test-account-1' | 'us-west-1' | TASKS.ns               | '1dc5c17a-422b-4dc4-b493-371970c6c4d6'                                                            | buildParsedKey(account, region, namespace, [taskId: identifier])
     'test-account-2' | 'us-west-2' | SERVICES.ns            | 'test-stack-detail-v001'                                                                          | buildParsedKey(account, region, namespace, [serviceName: identifier])
