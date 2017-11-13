@@ -145,7 +145,7 @@ public class Keys implements KeyParser {
   }
 
   public static String getAlarmKey(String account, String region, String alarmArn) {
-    return ID + SEPARATOR + Namespace.ALARMS + SEPARATOR + account + SEPARATOR + region + SEPARATOR + alarmArn;
+    return buildKey(Namespace.ALARMS.ns, account, region, alarmArn);
   }
 
   public static String getIamRoleKey(String account, String iamRoleName) {
