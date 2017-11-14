@@ -70,6 +70,9 @@ public class EcsCloudMetricAlarmCachingAgent implements CachingAgent {
     Map<String, Object> attributes = new HashMap<>();
     attributes.put("alarmArn", metricAlarm.getAlarmArn());
     attributes.put("alarmName", metricAlarm.getAlarmName());
+    attributes.put("alarmActions", metricAlarm.getAlarmActions());
+    attributes.put("okActions", metricAlarm.getOKActions());
+    attributes.put("insufficientDataActions", metricAlarm.getInsufficientDataActions());
     return attributes;
   }
 

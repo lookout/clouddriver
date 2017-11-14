@@ -16,6 +16,7 @@
 
 package com.netflix.spinnaker.clouddriver.ecs.cache.client;
 
+import com.amazonaws.services.cloudwatch.model.Metric;
 import com.amazonaws.services.cloudwatch.model.MetricAlarm;
 import com.netflix.spinnaker.cats.cache.Cache;
 import com.netflix.spinnaker.cats.cache.CacheData;
@@ -23,7 +24,11 @@ import com.netflix.spinnaker.clouddriver.ecs.cache.model.EcsCluster;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.stereotype.Component;
 
+import java.util.Collection;
+import java.util.Collections;
+import java.util.HashSet;
 import java.util.Map;
+import java.util.Set;
 
 import static com.netflix.spinnaker.clouddriver.ecs.cache.Keys.Namespace.ALARMS;
 import static com.netflix.spinnaker.clouddriver.ecs.cache.Keys.Namespace.ECS_CLUSTERS;
@@ -44,6 +49,54 @@ public class EcsCloudWatchAlarmCacheClient extends AbstractCacheClient<MetricAla
     metricAlarm.setAlarmArn((String) attributes.get("alarmArn"));
     metricAlarm.setAlarmName((String) attributes.get("alarmName"));
 
+    if(attributes.containsKey("alarmActions") && attributes.get("alarmActions") != null) {
+      metricAlarm.setAlarmActions((Collection<String>) attributes.get("alarmActions"));
+    }else{
+      metricAlarm.setAlarmActions(Collections.emptyList());
+    }
+
+    if(attributes.containsKey("okActions") && attributes.get("okActions") != null) {
+      metricAlarm.setOKActions((Collection<String>) attributes.get("okActions"));
+    }else{
+      metricAlarm.setOKActions(Collections.emptyList());
+    }
+
+    if(attributes.containsKey("insufficientDataActions") && attributes.get("insufficientDataActions") != null) {
+      metricAlarm.setInsufficientDataActions((Collection<String>) attributes.get("insufficientDataActions"));
+    }else{
+      metricAlarm.setInsufficientDataActions(Collections.emptyList());
+    }
+
     return metricAlarm;
+  }
+
+  public Set<MetricAlarm> getMetricAlarms(String serviceName, String accountName, String region){
+    Set<MetricAlarm> metricAlarms = new HashSet<>();
+    Collection<MetricAlarm> allMetricAlarms = getAll(accountName, region);
+
+    outLoop: for(MetricAlarm metricAlarm:allMetricAlarms){
+      for(String action:metricAlarm.getAlarmActions()){
+        if(action.contains(serviceName)) {
+          metricAlarms.add(metricAlarm);
+          continue outLoop;
+        }
+      }
+
+      for(String action:metricAlarm.getOKActions()){
+        if(action.contains(serviceName)) {
+          metricAlarms.add(metricAlarm);
+          continue outLoop;
+        }
+      }
+
+      for(String action:metricAlarm.getInsufficientDataActions()){
+        if(action.contains(serviceName)) {
+          metricAlarms.add(metricAlarm);
+          continue outLoop;
+        }
+      }
+    }
+
+    return metricAlarms;
   }
 }
