@@ -179,26 +179,4 @@ public class ContainerInformationService {
     }
     return null;
   }
-
-  public int getLatestServiceVersion(String clusterName, String serviceName, String accountName, String region) {
-    int latestVersion = 0;
-
-    Collection<Service> allServices = serviceCacheClient.getAll();
-    for (Service service : allServices) {
-      if (service == null || service.getClusterName() == null) {
-        continue;
-      }
-      if (service.getClusterName().equals(clusterName) && service.getServiceName().contains(serviceName)) {
-        int currentVersion;
-        try {
-          currentVersion = Integer.parseInt(StringUtils.substringAfterLast(service.getServiceName(), "-").replaceAll("v", ""));
-        } catch (NumberFormatException e) {
-          currentVersion = 0;
-        }
-        latestVersion = Math.max(currentVersion, latestVersion);
-      }
-    }
-
-    return latestVersion;
-  }
 }
