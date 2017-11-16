@@ -60,14 +60,15 @@ import com.netflix.spinnaker.clouddriver.security.AccountCredentialsProvider;
 import org.apache.commons.lang3.StringUtils;
 import org.springframework.beans.factory.annotation.Autowired;
 
-import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.Collection;
 import java.util.Collections;
 import java.util.HashMap;
+import java.util.HashSet;
 import java.util.LinkedList;
 import java.util.List;
 import java.util.Map;
+import java.util.Set;
 import java.util.stream.Collectors;
 
 public class CreateServerGroupAtomicOperation implements AtomicOperation<DeploymentResult> {
@@ -127,11 +128,11 @@ public class CreateServerGroupAtomicOperation implements AtomicOperation<Deploym
     DescribeAlarmsResult describeAlarmsResult = cloudWatch.describeAlarms(describeAlarmsRequest);
 
     for (MetricAlarm metricAlarm : describeAlarmsResult.getMetricAlarms()) {
-      List<String> okScalingPolicyArns = putScalingPolicies(autoScalingClient, metricAlarm.getOKActions(), metricAlarm.getNamespace(),
+      Set<String> okScalingPolicyArns = putScalingPolicies(autoScalingClient, metricAlarm.getOKActions(),
         serviceName, resourceId, "ok", "scaling-policy-" + metricAlarm.getAlarmName());
-      List<String> alarmScalingPolicyArns = putScalingPolicies(autoScalingClient, metricAlarm.getAlarmActions(), metricAlarm.getNamespace(),
+      Set<String> alarmScalingPolicyArns = putScalingPolicies(autoScalingClient, metricAlarm.getAlarmActions(),
         serviceName, resourceId, "alarm", "scaling-policy-" + metricAlarm.getAlarmName());
-      List<String> insufficientActionPolicyArns = putScalingPolicies(autoScalingClient, metricAlarm.getInsufficientDataActions(), metricAlarm.getNamespace(),
+      Set<String> insufficientActionPolicyArns = putScalingPolicies(autoScalingClient, metricAlarm.getInsufficientDataActions(),
         serviceName, resourceId, "insuffiicient", "scaling-policy-" + metricAlarm.getAlarmName());
 
       cloudWatch.putMetricAlarm(buildPutMetricAlarmRequest(metricAlarm, serviceName,
@@ -139,18 +140,17 @@ public class CreateServerGroupAtomicOperation implements AtomicOperation<Deploym
     }
   }
 
-  private List<String> putScalingPolicies(AWSApplicationAutoScaling autoScalingClient,
-                                          List<String> actionArns,
-                                          String nameSpace,
-                                          String serviceName,
-                                          String resourceId,
-                                          String type,
-                                          String suffix) {
+  private Set<String> putScalingPolicies(AWSApplicationAutoScaling autoScalingClient,
+                                         List<String> actionArns,
+                                         String serviceName,
+                                         String resourceId,
+                                         String type,
+                                         String suffix) {
     if (actionArns.isEmpty()) {
-      return Collections.emptyList();
+      return Collections.emptySet();
     }
 
-    List<ScalingPolicy> scalingPolicies = new LinkedList<>();
+    Set<ScalingPolicy> scalingPolicies = new HashSet<>();
 
     String nextToken = null;
     do {
@@ -168,7 +168,7 @@ public class CreateServerGroupAtomicOperation implements AtomicOperation<Deploym
       nextToken = result.getNextToken();
     } while (nextToken != null && nextToken.length() != 0);
 
-    List<String> policyArns = new ArrayList<>(scalingPolicies.size());
+    Set<String> policyArns = new HashSet<>();
     for (ScalingPolicy scalingPolicy : scalingPolicies) {
       String newPolicyName = serviceName + "-" + type + "-" + suffix;
       ScalingPolicy clone = scalingPolicy.clone();
@@ -197,9 +197,9 @@ public class CreateServerGroupAtomicOperation implements AtomicOperation<Deploym
 
   private PutMetricAlarmRequest buildPutMetricAlarmRequest(MetricAlarm metricAlarm,
                                                            String serviceName,
-                                                           List<String> insufficientActionPolicyArns,
-                                                           List<String> okActionPolicyArns,
-                                                           List<String> alarmActionPolicyArns) {
+                                                           Set<String> insufficientActionPolicyArns,
+                                                           Set<String> okActionPolicyArns,
+                                                           Set<String> alarmActionPolicyArns) {
     return new PutMetricAlarmRequest()
       .withAlarmName(metricAlarm.getAlarmName() + "-" + serviceName)
       .withEvaluationPeriods(metricAlarm.getEvaluationPeriods())
