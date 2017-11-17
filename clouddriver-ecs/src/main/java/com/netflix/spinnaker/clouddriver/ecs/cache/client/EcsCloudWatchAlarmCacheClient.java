@@ -25,6 +25,8 @@ import org.springframework.stereotype.Component;
 import java.util.Collection;
 import java.util.Collections;
 import java.util.HashSet;
+import java.util.LinkedList;
+import java.util.List;
 import java.util.Map;
 import java.util.Set;
 
@@ -69,8 +71,8 @@ public class EcsCloudWatchAlarmCacheClient extends AbstractCacheClient<EcsMetric
     return metricAlarm;
   }
 
-  public Set<EcsMetricAlarm> getMetricAlarms(String serviceName, String accountName, String region) {
-    Set<EcsMetricAlarm> metricAlarms = new HashSet<>();
+  public List<EcsMetricAlarm> getMetricAlarms(String serviceName, String accountName, String region) {
+    List<EcsMetricAlarm> metricAlarms = new LinkedList<>();
     Collection<EcsMetricAlarm> allMetricAlarms = getAll(accountName, region);
 
     outLoop:

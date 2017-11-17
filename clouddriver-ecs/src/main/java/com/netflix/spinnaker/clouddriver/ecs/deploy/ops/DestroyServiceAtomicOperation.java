@@ -103,7 +103,7 @@ public class DestroyServiceAtomicOperation implements AtomicOperation<Void> {
   }
 
   private void deleteMetrics() {
-    Set<EcsMetricAlarm> metricAlarms = metricAlarmCacheClient.getMetricAlarms(description.getServerGroupName(), description.getCredentialAccount(), description.getRegion());
+    List<EcsMetricAlarm> metricAlarms = metricAlarmCacheClient.getMetricAlarms(description.getServerGroupName(), description.getCredentialAccount(), description.getRegion());
 
     if (metricAlarms.isEmpty()) {
       return;

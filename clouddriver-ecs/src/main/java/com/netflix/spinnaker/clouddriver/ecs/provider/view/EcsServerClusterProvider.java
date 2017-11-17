@@ -224,7 +224,7 @@ public class EcsServerClusterProvider implements ClusterProvider<EcsServerCluste
         .setTaskName(StringUtils.substringAfterLast(taskDefinition.getTaskDefinitionArn(), "/"))
         .setEnvironmentVariables(containerDefinition.getEnvironment());
 
-      Set<EcsMetricAlarm> metricAlarms = ecsCloudWatchAlarmCacheClient.getMetricAlarms(serviceName, credentials.getName(), awsRegion.getName());
+      List<EcsMetricAlarm> metricAlarms = ecsCloudWatchAlarmCacheClient.getMetricAlarms(serviceName, credentials.getName(), awsRegion.getName());
       Set<String> metricAlarmNames = metricAlarms.stream()
         .map(EcsMetricAlarm::getAlarmName)
         .collect(Collectors.toSet());
