@@ -43,6 +43,7 @@ class KeysSpec extends Specification {
     'test-account-3' | 'us-west-3' | ECS_CLUSTERS.ns        | 'test-cluster-1'                                                                                  | buildParsedKey(account, region, namespace, [clusterName: identifier])
     'test-account-4' | 'us-west-4' | CONTAINER_INSTANCES.ns | 'arn:aws:ecs:' + region + ':012345678910:container-instance/14e8cce9-0b16-4af4-bfac-a85f7587aa98' | buildParsedKey(account, region, namespace, [containerInstanceArn: identifier])
     'test-account-5' | 'us-west-5' | TASK_DEFINITIONS.ns    | 'arn:aws:ecs:' + region + ':012345678910:task-definition/hello_world:10'                          | buildParsedKey(account, region, namespace, [taskDefinitionArn: identifier])
+    'test-account-6' | 'us-west-6' | ALARMS.ns    | 'arn:aws:ecs:' + region + ':012345678910:alarms/14e8cce9-0b16-4af4-bfac-a85f7587aa98'                          | buildParsedKey(account, region, namespace, [alarmArn: identifier])
 
   }
 
@@ -114,5 +115,15 @@ class KeysSpec extends Specification {
     region      | account          | taskDefArn
     'us-west-1' | 'test-account-1' | 'arn:aws:ecs:' + region + ':012345678910:task-definition/hello_world:10'
     'us-west-2' | 'test-account-2' | 'arn:aws:ecs:' + region + ':012345678910:task-definition/hello_world:20'
+  }
+
+  def 'should generate the proper alarm key'() {
+    expect:
+    Keys.getAlarmKey(account, region, alarmArn) == buildKey(ALARMS.ns, account, region, alarmArn)
+
+    where:
+    region      | account          | alarmArn
+    'us-west-1' | 'test-account-1' | 'arn:aws:ecs:' + region + ':012345678910:alarm/14e8cce9-0b16-4af4-bfac-a85f7587aa98'
+    'us-west-2' | 'test-account-2' | 'arn:aws:ecs:' + region + ':012345678910:alarm/deadbeef-0b16-4af4-bfac-a85f7587aa98'
   }
 }

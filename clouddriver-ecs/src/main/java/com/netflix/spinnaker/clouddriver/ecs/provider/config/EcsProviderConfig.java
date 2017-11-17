@@ -24,6 +24,7 @@ import com.netflix.spinnaker.clouddriver.aws.security.AmazonClientProvider;
 import com.netflix.spinnaker.clouddriver.aws.security.NetflixAmazonCredentials;
 import com.netflix.spinnaker.clouddriver.ecs.EcsCloudProvider;
 import com.netflix.spinnaker.clouddriver.ecs.provider.EcsProvider;
+import com.netflix.spinnaker.clouddriver.ecs.provider.agent.EcsCloudMetricAlarmCachingAgent;
 import com.netflix.spinnaker.clouddriver.ecs.provider.agent.EcsClusterCachingAgent;
 import com.netflix.spinnaker.clouddriver.ecs.provider.agent.ContainerInstanceCachingAgent;
 import com.netflix.spinnaker.clouddriver.ecs.provider.agent.IamPolicyReader;
@@ -86,6 +87,7 @@ public class EcsProviderConfig {
             newAgents.add(new ContainerInstanceCachingAgent(credentials.getName(), region.getName(), amazonClientProvider, awsCredentialsProvider, registry));
             newAgents.add(new TaskDefinitionCachingAgent(credentials.getName(), region.getName(), amazonClientProvider, awsCredentialsProvider, registry));
             newAgents.add(new TaskHealthCachingAgent(credentials.getName(), region.getName(), amazonClientProvider, awsCredentialsProvider));
+            newAgents.add(new EcsCloudMetricAlarmCachingAgent(credentials.getName(), region.getName(), amazonClientProvider, awsCredentialsProvider));
           }
         }
       }
