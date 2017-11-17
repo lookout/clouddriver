@@ -34,19 +34,20 @@ class EcsCloudMetricProviderSpec extends Specification {
     given:
     def metricAlarm1 = new MetricAlarm().withAlarmName("alarm-name-1").withAlarmArn("alarmArn-1")
     def metricAlarm2 = new MetricAlarm().withAlarmName("alarm-name-2").withAlarmArn("alarmArn-2")
-    def attributes1 = EcsCloudMetricAlarmCachingAgent.convertMetricAlarmToAttributes(metricAlarm1)
-    def attributes2 = EcsCloudMetricAlarmCachingAgent.convertMetricAlarmToAttributes(metricAlarm2)
+    def attributes1 = EcsCloudMetricAlarmCachingAgent.convertMetricAlarmToAttributes(metricAlarm1, 'account-1', 'region-1')
+    def attributes2 = EcsCloudMetricAlarmCachingAgent.convertMetricAlarmToAttributes(metricAlarm2, 'account-2', 'region-2')
 
     when:
-    def metricAlarmCollection = provider.getMetricAlarms("account-1", "us-west-1")
+    def metricAlarmCollection = provider.getAllMetricAlarms()
 
     then:
-    cacheView.filterIdentifiers(_, _) >> ['key-1', 'key-2']
-    cacheView.getAll(_, _) >> [new DefaultCacheData('key-1', attributes1, [:]), new DefaultCacheData('key-2', attributes2, [:])]
+    cacheView.getAll(_) >> [new DefaultCacheData('key-1', attributes1, [:]), new DefaultCacheData('key-2', attributes2, [:])]
 
     metricAlarmCollection.size() == 2
     metricAlarmCollection*.getAlarmArn().containsAll([metricAlarm1.getAlarmArn(), metricAlarm2.getAlarmArn()])
     metricAlarmCollection*.getMetricName().containsAll([metricAlarm1.getMetricName(), metricAlarm2.getMetricName()])
+    metricAlarmCollection*.getAccountName().containsAll(['account-1', 'account-2'])
+    metricAlarmCollection*.getRegion().containsAll(['region-1', 'region-2'])
   }
 
 }

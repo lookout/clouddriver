@@ -17,6 +17,7 @@
 package com.netflix.spinnaker.clouddriver.ecs.controllers
 
 import com.amazonaws.services.cloudwatch.model.MetricAlarm
+import com.netflix.spinnaker.clouddriver.ecs.cache.model.EcsMetricAlarm
 import com.netflix.spinnaker.clouddriver.ecs.provider.view.EcsCloudMetricProvider
 import spock.lang.Specification
 import spock.lang.Subject
@@ -28,14 +29,14 @@ class EcsCloudMetricControllerSpec extends Specification {
 
   def 'should get a map of metrics'() {
     given:
-    def metricAlarms = [new MetricAlarm().withAlarmName('alarm-name-1').withAlarmArn('alarm-arn-1'),
-                        new MetricAlarm().withAlarmName('alarm-name-2').withAlarmArn('alarm-arn-2')]
+    def metricAlarms = [new EcsMetricAlarm().withAlarmName('alarm-name-1').withAlarmArn('alarm-arn-1'),
+                        new EcsMetricAlarm().withAlarmName('alarm-name-2').withAlarmArn('alarm-arn-2')]
 
     when:
-    def returnedMetricAlarms = controller.findMetricAlarms('account-1', 'us-west-1')
+    def returnedMetricAlarms = controller.findAllMetricAlarms()
 
     then:
-    provider.getMetricAlarms(_, _) >> metricAlarms
+    provider.getAllMetricAlarms() >> metricAlarms
     metricAlarms*.getAlarmArn().containsAll(returnedMetricAlarms*.getAlarmArn())
     metricAlarms*.getAlarmName().containsAll(returnedMetricAlarms*.getAlarmName())
 

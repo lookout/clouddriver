@@ -44,6 +44,7 @@ import com.netflix.spinnaker.clouddriver.ecs.cache.client.EcsCloudWatchAlarmCach
 import com.netflix.spinnaker.clouddriver.ecs.cache.client.ServiceCacheClient;
 import com.netflix.spinnaker.clouddriver.ecs.cache.client.TaskCacheClient;
 import com.netflix.spinnaker.clouddriver.ecs.cache.client.TaskDefinitionCacheClient;
+import com.netflix.spinnaker.clouddriver.ecs.cache.model.EcsMetricAlarm;
 import com.netflix.spinnaker.clouddriver.ecs.cache.model.Service;
 import com.netflix.spinnaker.clouddriver.ecs.cache.model.Task;
 import com.netflix.spinnaker.clouddriver.ecs.model.EcsServerCluster;
@@ -223,9 +224,9 @@ public class EcsServerClusterProvider implements ClusterProvider<EcsServerCluste
         .setTaskName(StringUtils.substringAfterLast(taskDefinition.getTaskDefinitionArn(), "/"))
         .setEnvironmentVariables(containerDefinition.getEnvironment());
 
-      Set<MetricAlarm> metricAlarms = ecsCloudWatchAlarmCacheClient.getMetricAlarms(serviceName, credentials.getName(), awsRegion.getName());
+      Set<EcsMetricAlarm> metricAlarms = ecsCloudWatchAlarmCacheClient.getMetricAlarms(serviceName, credentials.getName(), awsRegion.getName());
       Set<String> metricAlarmNames = metricAlarms.stream()
-        .map(MetricAlarm::getAlarmName)
+        .map(EcsMetricAlarm::getAlarmName)
         .collect(Collectors.toSet());
 
       EcsServerGroup ecsServerGroup = generateServerGroup(awsRegion, metadata, instances, capacity, creationTime,

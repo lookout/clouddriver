@@ -16,26 +16,19 @@
 
 package com.netflix.spinnaker.clouddriver.ecs.cache;
 
-import com.amazonaws.services.ecs.model.Task;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import com.netflix.spinnaker.cats.cache.DefaultCacheData;
 import com.netflix.spinnaker.clouddriver.ecs.cache.client.IamRoleCacheClient;
-import com.netflix.spinnaker.clouddriver.ecs.cache.client.TaskCacheClient;
 import com.netflix.spinnaker.clouddriver.ecs.cache.model.IamRole;
 import com.netflix.spinnaker.clouddriver.ecs.provider.agent.IamRoleCachingAgent;
 import com.netflix.spinnaker.clouddriver.ecs.provider.agent.IamTrustRelationship;
-import com.netflix.spinnaker.clouddriver.ecs.provider.agent.TaskCachingAgent;
-import com.netflix.spinnaker.clouddriver.model.TrustRelationship;
 import org.junit.Test;
 import spock.lang.Subject;
 
-import java.util.Collection;
 import java.util.Collections;
-import java.util.Date;
 import java.util.Map;
 
 import static com.netflix.spinnaker.clouddriver.ecs.cache.Keys.Namespace.IAM_ROLE;
-import static com.netflix.spinnaker.clouddriver.ecs.cache.Keys.Namespace.TASKS;
 import static org.junit.Assert.assertTrue;
 import static org.mockito.Mockito.when;
 

@@ -16,9 +16,9 @@
 
 package com.netflix.spinnaker.clouddriver.ecs.provider.view;
 
-import com.amazonaws.services.cloudwatch.model.MetricAlarm;
 import com.netflix.spinnaker.clouddriver.ecs.EcsCloudProvider;
 import com.netflix.spinnaker.clouddriver.ecs.cache.client.EcsCloudWatchAlarmCacheClient;
+import com.netflix.spinnaker.clouddriver.ecs.cache.model.EcsMetricAlarm;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.stereotype.Component;
 
@@ -38,7 +38,7 @@ public class EcsCloudMetricProvider {
     return EcsCloudProvider.ID;
   }
 
-  public Collection<MetricAlarm> getMetricAlarms(String account, String region) {
-    return cacheClient.getAll(account, region);
+  public Collection<EcsMetricAlarm> getAllMetricAlarms() {
+    return cacheClient.getAll();
   }
 }

@@ -33,6 +33,7 @@ import com.netflix.spinnaker.clouddriver.aws.security.AmazonCredentials;
 import com.netflix.spinnaker.clouddriver.data.task.Task;
 import com.netflix.spinnaker.clouddriver.data.task.TaskRepository;
 import com.netflix.spinnaker.clouddriver.ecs.cache.client.EcsCloudWatchAlarmCacheClient;
+import com.netflix.spinnaker.clouddriver.ecs.cache.model.EcsMetricAlarm;
 import com.netflix.spinnaker.clouddriver.ecs.deploy.description.DestroyServiceDescription;
 import com.netflix.spinnaker.clouddriver.orchestration.AtomicOperation;
 import com.netflix.spinnaker.clouddriver.security.AccountCredentialsProvider;
@@ -102,7 +103,7 @@ public class DestroyServiceAtomicOperation implements AtomicOperation<Void> {
   }
 
   private void deleteMetrics() {
-    Set<MetricAlarm> metricAlarms = metricAlarmCacheClient.getMetricAlarms(description.getServerGroupName(), description.getCredentialAccount(), description.getRegion());
+    Set<EcsMetricAlarm> metricAlarms = metricAlarmCacheClient.getMetricAlarms(description.getServerGroupName(), description.getCredentialAccount(), description.getRegion());
 
     if (metricAlarms.isEmpty()) {
       return;

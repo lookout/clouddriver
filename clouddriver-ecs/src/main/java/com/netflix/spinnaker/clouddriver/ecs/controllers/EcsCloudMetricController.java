@@ -16,21 +16,13 @@
 
 package com.netflix.spinnaker.clouddriver.ecs.controllers;
 
-import com.amazonaws.services.cloudwatch.model.MetricAlarm;
-import com.google.common.collect.Maps;
+import com.netflix.spinnaker.clouddriver.ecs.cache.model.EcsMetricAlarm;
 import com.netflix.spinnaker.clouddriver.ecs.provider.view.EcsCloudMetricProvider;
 import org.springframework.beans.factory.annotation.Autowired;
-import org.springframework.web.bind.annotation.PathVariable;
 import org.springframework.web.bind.annotation.RequestMapping;
 import org.springframework.web.bind.annotation.RestController;
 
 import java.util.Collection;
-import java.util.Collections;
-import java.util.HashMap;
-import java.util.HashSet;
-import java.util.LinkedList;
-import java.util.Map;
-import java.util.stream.Collectors;
 
 @RestController
 @RequestMapping("/ecs/cloudmetrics")
@@ -43,16 +35,8 @@ public class EcsCloudMetricController {
   }
 
 
-  @RequestMapping(value = {"/{account}/{region}/alarms"})
-  public Collection<Map<String, String>> findMetricAlarms(@PathVariable("account") String account,
-                                                          @PathVariable("region") String region) {
-    Collection<Map<String, String>> slimMetricAlarms = new HashSet<>();
-    for(MetricAlarm metricAlarm:provider.getMetricAlarms(account, region)){
-      Map<String,String> attributes = new HashMap<>();
-      attributes.put("alarmName",metricAlarm.getAlarmName());
-      attributes.put("alarmArn",metricAlarm.getAlarmArn());
-      slimMetricAlarms.add(attributes);
-    }
-    return slimMetricAlarms;
+  @RequestMapping(value = {"/alarms"})
+  public Collection<EcsMetricAlarm> findAllMetricAlarms() {
+    return provider.getAllMetricAlarms();
   }
 }

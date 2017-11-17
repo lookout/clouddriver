@@ -66,13 +66,15 @@ public class EcsCloudMetricAlarmCachingAgent implements CachingAgent {
     this.awsCredentialsProvider = awsCredentialsProvider;
   }
 
-  public static Map<String, Object> convertMetricAlarmToAttributes(MetricAlarm metricAlarm) {
+  public static Map<String, Object> convertMetricAlarmToAttributes(MetricAlarm metricAlarm, String accountName, String region) {
     Map<String, Object> attributes = new HashMap<>();
     attributes.put("alarmArn", metricAlarm.getAlarmArn());
     attributes.put("alarmName", metricAlarm.getAlarmName());
     attributes.put("alarmActions", metricAlarm.getAlarmActions());
     attributes.put("okActions", metricAlarm.getOKActions());
     attributes.put("insufficientDataActions", metricAlarm.getInsufficientDataActions());
+    attributes.put("accountName", accountName);
+    attributes.put("region", region);
     return attributes;
   }
 
@@ -112,7 +114,7 @@ public class EcsCloudMetricAlarmCachingAgent implements CachingAgent {
 
     for (MetricAlarm metricAlarm : cacheableMetricAlarm) {
       String key = Keys.getAlarmKey(accountName, region, metricAlarm.getAlarmArn());
-      Map<String, Object> attributes = convertMetricAlarmToAttributes(metricAlarm);
+      Map<String, Object> attributes = convertMetricAlarmToAttributes(metricAlarm, accountName, region);
 
       CacheData data = new DefaultCacheData(key, attributes, Collections.emptyMap());
       dataPoints.add(data);

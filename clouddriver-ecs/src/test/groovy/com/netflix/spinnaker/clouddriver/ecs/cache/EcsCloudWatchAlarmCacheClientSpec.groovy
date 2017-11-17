@@ -20,6 +20,7 @@ import com.amazonaws.services.cloudwatch.model.MetricAlarm
 import com.netflix.spinnaker.cats.cache.Cache
 import com.netflix.spinnaker.cats.cache.DefaultCacheData
 import com.netflix.spinnaker.clouddriver.ecs.cache.client.EcsCloudWatchAlarmCacheClient
+import com.netflix.spinnaker.clouddriver.ecs.cache.model.EcsMetricAlarm
 import com.netflix.spinnaker.clouddriver.ecs.provider.agent.EcsCloudMetricAlarmCachingAgent
 import spock.lang.Specification
 import spock.lang.Subject
@@ -33,9 +34,11 @@ class EcsCloudWatchAlarmCacheClientSpec extends Specification {
 
   def 'should convert cache data into object'() {
     given:
-    def metricAlarm = new MetricAlarm().withAlarmName("alarm-name").withAlarmArn("alarmArn")
-    def key = Keys.getAlarmKey('test-account-1', 'us-west-1', metricAlarm.getAlarmArn())
-    def attributes = EcsCloudMetricAlarmCachingAgent.convertMetricAlarmToAttributes(metricAlarm)
+    def accountName = 'test-account-1'
+    def region = 'us-west-1'
+    def metricAlarm = new EcsMetricAlarm().withAlarmName("alarm-name").withAlarmArn("alarmArn").withRegion(region).withAccountName(accountName)
+    def key = Keys.getAlarmKey(accountName, region, metricAlarm.getAlarmArn())
+    def attributes = EcsCloudMetricAlarmCachingAgent.convertMetricAlarmToAttributes(metricAlarm, accountName, region)
 
     when:
     def returnedMetricAlarm = client.get(key)

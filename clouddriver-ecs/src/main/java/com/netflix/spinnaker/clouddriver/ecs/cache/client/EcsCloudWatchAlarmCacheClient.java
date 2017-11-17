@@ -16,11 +16,9 @@
 
 package com.netflix.spinnaker.clouddriver.ecs.cache.client;
 
-import com.amazonaws.services.cloudwatch.model.Metric;
-import com.amazonaws.services.cloudwatch.model.MetricAlarm;
 import com.netflix.spinnaker.cats.cache.Cache;
 import com.netflix.spinnaker.cats.cache.CacheData;
-import com.netflix.spinnaker.clouddriver.ecs.cache.model.EcsCluster;
+import com.netflix.spinnaker.clouddriver.ecs.cache.model.EcsMetricAlarm;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.stereotype.Component;
 
@@ -31,10 +29,9 @@ import java.util.Map;
 import java.util.Set;
 
 import static com.netflix.spinnaker.clouddriver.ecs.cache.Keys.Namespace.ALARMS;
-import static com.netflix.spinnaker.clouddriver.ecs.cache.Keys.Namespace.ECS_CLUSTERS;
 
 @Component
-public class EcsCloudWatchAlarmCacheClient extends AbstractCacheClient<MetricAlarm>{
+public class EcsCloudWatchAlarmCacheClient extends AbstractCacheClient<EcsMetricAlarm> {
 
   @Autowired
   public EcsCloudWatchAlarmCacheClient(Cache cacheView) {
@@ -42,55 +39,58 @@ public class EcsCloudWatchAlarmCacheClient extends AbstractCacheClient<MetricAla
   }
 
   @Override
-  protected MetricAlarm convert(CacheData cacheData) {
-    MetricAlarm metricAlarm = new MetricAlarm();
+  protected EcsMetricAlarm convert(CacheData cacheData) {
+    EcsMetricAlarm metricAlarm = new EcsMetricAlarm();
     Map<String, Object> attributes = cacheData.getAttributes();
 
     metricAlarm.setAlarmArn((String) attributes.get("alarmArn"));
     metricAlarm.setAlarmName((String) attributes.get("alarmName"));
+    metricAlarm.setAccountName((String) attributes.get("accountName"));
+    metricAlarm.setRegion((String) attributes.get("region"));
 
-    if(attributes.containsKey("alarmActions") && attributes.get("alarmActions") != null) {
+    if (attributes.containsKey("alarmActions") && attributes.get("alarmActions") != null) {
       metricAlarm.setAlarmActions((Collection<String>) attributes.get("alarmActions"));
-    }else{
+    } else {
       metricAlarm.setAlarmActions(Collections.emptyList());
     }
 
-    if(attributes.containsKey("okActions") && attributes.get("okActions") != null) {
+    if (attributes.containsKey("okActions") && attributes.get("okActions") != null) {
       metricAlarm.setOKActions((Collection<String>) attributes.get("okActions"));
-    }else{
+    } else {
       metricAlarm.setOKActions(Collections.emptyList());
     }
 
-    if(attributes.containsKey("insufficientDataActions") && attributes.get("insufficientDataActions") != null) {
+    if (attributes.containsKey("insufficientDataActions") && attributes.get("insufficientDataActions") != null) {
       metricAlarm.setInsufficientDataActions((Collection<String>) attributes.get("insufficientDataActions"));
-    }else{
+    } else {
       metricAlarm.setInsufficientDataActions(Collections.emptyList());
     }
 
     return metricAlarm;
   }
 
-  public Set<MetricAlarm> getMetricAlarms(String serviceName, String accountName, String region){
-    Set<MetricAlarm> metricAlarms = new HashSet<>();
-    Collection<MetricAlarm> allMetricAlarms = getAll(accountName, region);
+  public Set<EcsMetricAlarm> getMetricAlarms(String serviceName, String accountName, String region) {
+    Set<EcsMetricAlarm> metricAlarms = new HashSet<>();
+    Collection<EcsMetricAlarm> allMetricAlarms = getAll(accountName, region);
 
-    outLoop: for(MetricAlarm metricAlarm:allMetricAlarms){
-      for(String action:metricAlarm.getAlarmActions()){
-        if(action.contains(serviceName)) {
+    outLoop:
+    for (EcsMetricAlarm metricAlarm : allMetricAlarms) {
+      for (String action : metricAlarm.getAlarmActions()) {
+        if (action.contains(serviceName)) {
           metricAlarms.add(metricAlarm);
           continue outLoop;
         }
       }
 
-      for(String action:metricAlarm.getOKActions()){
-        if(action.contains(serviceName)) {
+      for (String action : metricAlarm.getOKActions()) {
+        if (action.contains(serviceName)) {
           metricAlarms.add(metricAlarm);
           continue outLoop;
         }
       }
 
-      for(String action:metricAlarm.getInsufficientDataActions()){
-        if(action.contains(serviceName)) {
+      for (String action : metricAlarm.getInsufficientDataActions()) {
+        if (action.contains(serviceName)) {
           metricAlarms.add(metricAlarm);
           continue outLoop;
         }

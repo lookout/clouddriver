@@ -19,9 +19,9 @@ package com.netflix.spinnaker.clouddriver.ecs.provider.agent
 import com.amazonaws.auth.AWSCredentialsProvider
 import com.amazonaws.services.cloudwatch.AmazonCloudWatch
 import com.amazonaws.services.cloudwatch.model.DescribeAlarmsResult
-import com.amazonaws.services.cloudwatch.model.MetricAlarm
 import com.netflix.spinnaker.cats.provider.ProviderCache
 import com.netflix.spinnaker.clouddriver.aws.security.AmazonClientProvider
+import com.netflix.spinnaker.clouddriver.ecs.cache.model.EcsMetricAlarm
 import spock.lang.Shared
 import spock.lang.Specification
 import spock.lang.Subject
@@ -50,7 +50,7 @@ class EcsCloudMetricAlarmCachingAgentSpec extends Specification {
 
   def 'should get a list of cloud watch alarms'() {
     given:
-    def metricAlarm = new MetricAlarm().withAlarmName("alarm-name").withAlarmArn("alarmArn")
+    def metricAlarm = new EcsMetricAlarm().withAlarmName("alarm-name").withAlarmArn("alarmArn")
 
     when:
     def alarms = agent.fetchMetricAlarms(cloudWatch)
@@ -62,15 +62,17 @@ class EcsCloudMetricAlarmCachingAgentSpec extends Specification {
 
   def 'should generate fresh data'() {
     given:
-    Set metricAlarms = [new MetricAlarm().withAlarmName("alarm-name-1").withAlarmArn("alarmArn-1"),
-                        new MetricAlarm().withAlarmName("alarm-name-2").withAlarmArn("alarmArn-2")]
+    Set metricAlarms = [new EcsMetricAlarm().withAlarmName("alarm-name-1").withAlarmArn("alarmArn-1").withAccountName(ACCOUNT).withRegion(REGION),
+                        new EcsMetricAlarm().withAlarmName("alarm-name-2").withAlarmArn("alarmArn-2").withAccountName(ACCOUNT).withRegion(REGION)]
     when:
     def cacheData = agent.generateFreshData(metricAlarms)
 
     then:
     cacheData.size() == 1
-    cacheData.get(ALARMS.ns).size() == 2
+    cacheData.get(ALARMS.ns).size() == metricAlarms.size()
     metricAlarms*.alarmName.containsAll(cacheData.get(ALARMS.ns)*.getAttributes().alarmName)
     metricAlarms*.alarmArn.containsAll(cacheData.get(ALARMS.ns)*.getAttributes().alarmArn)
+    metricAlarms*.accountName.containsAll(cacheData.get(ALARMS.ns)*.getAttributes().accountName)
+    metricAlarms*.region.containsAll(cacheData.get(ALARMS.ns)*.getAttributes().region)
   }
 }
