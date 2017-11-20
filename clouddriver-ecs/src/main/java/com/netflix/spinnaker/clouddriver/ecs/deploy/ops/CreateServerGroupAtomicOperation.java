@@ -276,6 +276,7 @@ public class CreateServerGroupAtomicOperation implements AtomicOperation<Deploym
       .withRole(ecsServiceRole)
       .withLoadBalancers(loadBalancers)
       .withTaskDefinition(taskDefinitionArn)
+      .withPlacementStrategy(description.getPlacementStrategySequence())
       .withDeploymentConfiguration(deploymentConfiguration);
 
     updateTaskStatus(String.format("Creating %s of %s with %s for %s.",
