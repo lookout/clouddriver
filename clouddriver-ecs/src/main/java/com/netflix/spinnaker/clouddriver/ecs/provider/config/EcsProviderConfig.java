@@ -23,10 +23,13 @@ import com.netflix.spinnaker.cats.agent.Agent;
 import com.netflix.spinnaker.clouddriver.aws.security.AmazonClientProvider;
 import com.netflix.spinnaker.clouddriver.aws.security.NetflixAmazonCredentials;
 import com.netflix.spinnaker.clouddriver.ecs.EcsCloudProvider;
+import com.netflix.spinnaker.clouddriver.ecs.cache.client.ServiceCacheClient;
+import com.netflix.spinnaker.clouddriver.ecs.cache.client.TaskCacheClient;
+import com.netflix.spinnaker.clouddriver.ecs.cache.client.TaskDefinitionCacheClient;
 import com.netflix.spinnaker.clouddriver.ecs.provider.EcsProvider;
+import com.netflix.spinnaker.clouddriver.ecs.provider.agent.ContainerInstanceCachingAgent;
 import com.netflix.spinnaker.clouddriver.ecs.provider.agent.EcsCloudMetricAlarmCachingAgent;
 import com.netflix.spinnaker.clouddriver.ecs.provider.agent.EcsClusterCachingAgent;
-import com.netflix.spinnaker.clouddriver.ecs.provider.agent.ContainerInstanceCachingAgent;
 import com.netflix.spinnaker.clouddriver.ecs.provider.agent.IamPolicyReader;
 import com.netflix.spinnaker.clouddriver.ecs.provider.agent.IamRoleCachingAgent;
 import com.netflix.spinnaker.clouddriver.ecs.provider.agent.ServiceCachingAgent;
@@ -59,9 +62,13 @@ public class EcsProviderConfig {
 
   @Bean
   @DependsOn("netflixECSCredentials")
-  public EcsProvider ecsProvider(AccountCredentialsRepository accountCredentialsRepository, AmazonClientProvider amazonClientProvider, AWSCredentialsProvider awsCredentialsProvider, Registry registry, IamPolicyReader iamPolicyReader) {
+  public EcsProvider ecsProvider(AccountCredentialsRepository accountCredentialsRepository, AmazonClientProvider amazonClientProvider,
+                                 AWSCredentialsProvider awsCredentialsProvider, Registry registry, IamPolicyReader iamPolicyReader,
+                                 TaskDefinitionCacheClient taskDefinitionCacheClient,
+                                 TaskCacheClient taskCacheClient,
+                                 ServiceCacheClient serviceCacheClient) {
     EcsProvider provider = new EcsProvider(accountCredentialsRepository, Collections.newSetFromMap(new ConcurrentHashMap<Agent, Boolean>()));
-    synchronizeEcsProvider(provider, accountCredentialsRepository, amazonClientProvider, awsCredentialsProvider, registry, iamPolicyReader);
+    synchronizeEcsProvider(provider, accountCredentialsRepository, amazonClientProvider, awsCredentialsProvider, registry, iamPolicyReader, taskDefinitionCacheClient, taskCacheClient, serviceCacheClient);
     return provider;
   }
 
@@ -69,7 +76,10 @@ public class EcsProviderConfig {
   @Bean
   public EcsProviderSynchronizer synchronizeEcsProvider(EcsProvider ecsProvider, AccountCredentialsRepository accountCredentialsRepository,
                                                         AmazonClientProvider amazonClientProvider, AWSCredentialsProvider awsCredentialsProvider, Registry registry,
-                                                        IamPolicyReader iamPolicyReader) {
+                                                        IamPolicyReader iamPolicyReader,
+                                                        TaskDefinitionCacheClient taskDefinitionCacheClient,
+                                                        TaskCacheClient taskCacheClient,
+                                                        ServiceCacheClient serviceCacheClient) {
 
     Set<String> scheduledAccounts = ProviderUtils.getScheduledAccounts(ecsProvider);
     Set<NetflixAmazonCredentials> allAccounts = ProviderUtils.buildThreadSafeSetOfAccounts(accountCredentialsRepository, NetflixAmazonCredentials.class);
@@ -85,8 +95,8 @@ public class EcsProviderConfig {
             newAgents.add(new ServiceCachingAgent(credentials.getName(), region.getName(), amazonClientProvider, awsCredentialsProvider, registry));
             newAgents.add(new TaskCachingAgent(credentials.getName(), region.getName(), amazonClientProvider, awsCredentialsProvider, registry));
             newAgents.add(new ContainerInstanceCachingAgent(credentials.getName(), region.getName(), amazonClientProvider, awsCredentialsProvider, registry));
-            newAgents.add(new TaskDefinitionCachingAgent(credentials.getName(), region.getName(), amazonClientProvider, awsCredentialsProvider, registry));
-            newAgents.add(new TaskHealthCachingAgent(credentials.getName(), region.getName(), amazonClientProvider, awsCredentialsProvider));
+            newAgents.add(new TaskDefinitionCachingAgent(credentials.getName(), region.getName(), amazonClientProvider, awsCredentialsProvider, registry, taskDefinitionCacheClient));
+            newAgents.add(new TaskHealthCachingAgent(credentials.getName(), region.getName(), amazonClientProvider, awsCredentialsProvider, taskCacheClient, serviceCacheClient));
             newAgents.add(new EcsCloudMetricAlarmCachingAgent(credentials.getName(), region.getName(), amazonClientProvider, awsCredentialsProvider));
           }
         }

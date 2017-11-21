@@ -67,8 +67,17 @@ public class TaskHealthCachingAgent extends AbstractEcsCachingAgent<TaskHealth> 
   private Collection<String> serviceEvicitions;
   private Collection<String> taskDefEvicitions;
 
-  public TaskHealthCachingAgent(String accountName, String region, AmazonClientProvider amazonClientProvider, AWSCredentialsProvider awsCredentialsProvider) {
+  private final TaskCacheClient taskCacheClient;
+  private final ServiceCacheClient serviceCacheClient;
+
+  public TaskHealthCachingAgent(String accountName, String region,
+                                AmazonClientProvider amazonClientProvider,
+                                AWSCredentialsProvider awsCredentialsProvider,
+                                TaskCacheClient taskCacheClient,
+                                ServiceCacheClient serviceCacheClient) {
     super(accountName, region, amazonClientProvider, awsCredentialsProvider);
+    this.taskCacheClient = taskCacheClient;
+    this.serviceCacheClient = serviceCacheClient;
   }
 
   public static Map<String, Object> convertTaskHealthToAttributes(TaskHealth taskHealth) {
@@ -87,8 +96,6 @@ public class TaskHealthCachingAgent extends AbstractEcsCachingAgent<TaskHealth> 
   protected List<TaskHealth> getItems(AmazonECS ecs, ProviderCache providerCache) {
     AmazonElasticLoadBalancing amazonloadBalancing = amazonClientProvider.getAmazonElasticLoadBalancingV2(accountName, awsCredentialsProvider, region);
 
-    TaskCacheClient taskCacheClient = new TaskCacheClient(providerCache);
-    ServiceCacheClient serviceCacheClient = new ServiceCacheClient(providerCache);
     ContainerInstanceCacheClient containerInstanceCacheClient = new ContainerInstanceCacheClient(providerCache);
 
     List<TaskHealth> taskHealthList = new LinkedList<>();

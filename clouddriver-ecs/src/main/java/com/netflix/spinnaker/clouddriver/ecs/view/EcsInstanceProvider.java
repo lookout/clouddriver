@@ -19,7 +19,6 @@ package com.netflix.spinnaker.clouddriver.ecs.view;
 import com.amazonaws.auth.AWSCredentialsProvider;
 import com.amazonaws.services.ec2.AmazonEC2;
 import com.amazonaws.services.ec2.model.InstanceStatus;
-import com.netflix.spinnaker.cats.cache.Cache;
 import com.netflix.spinnaker.clouddriver.aws.security.AmazonClientProvider;
 import com.netflix.spinnaker.clouddriver.aws.security.NetflixAmazonCredentials;
 import com.netflix.spinnaker.clouddriver.ecs.EcsCloudProvider;
@@ -46,12 +45,14 @@ public class EcsInstanceProvider implements InstanceProvider<EcsTask> {
   private ContainerInformationService containerInformationService;
 
   @Autowired
-  public EcsInstanceProvider(Cache cacheView, AccountCredentialsProvider accountCredentialsProvider,
-                             AmazonClientProvider amazonClientProvider, ContainerInformationService containerInformationService) {
+  public EcsInstanceProvider(AccountCredentialsProvider accountCredentialsProvider,
+                             AmazonClientProvider amazonClientProvider,
+                             ContainerInformationService containerInformationService,
+                             TaskCacheClient taskCacheClient) {
     this.accountCredentialsProvider = accountCredentialsProvider;
     this.amazonClientProvider = amazonClientProvider;
     this.containerInformationService = containerInformationService;
-    this.taskCacheClient = new TaskCacheClient(cacheView);
+    this.taskCacheClient = taskCacheClient;
   }
 
   @Override

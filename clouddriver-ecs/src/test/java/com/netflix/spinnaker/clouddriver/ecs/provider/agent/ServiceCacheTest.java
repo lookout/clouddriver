@@ -44,7 +44,7 @@ import static org.mockito.Mockito.when;
 public class ServiceCacheTest extends CommonCachingAgent {
   private final ServiceCachingAgent agent = new ServiceCachingAgent(ACCOUNT, REGION, clientProvider, credentialsProvider, registry);
   @Subject
-  private final ServiceCacheClient client = new ServiceCacheClient(providerCache);
+  private final ServiceCacheClient client = new ServiceCacheClient(providerCache, mapper);
 
   @Test
   public void shouldRetrieveFromWrittenCache() {

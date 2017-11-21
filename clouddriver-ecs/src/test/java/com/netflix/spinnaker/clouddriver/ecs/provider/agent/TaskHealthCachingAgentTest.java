@@ -30,6 +30,8 @@ import com.fasterxml.jackson.databind.ObjectMapper;
 import com.netflix.spinnaker.cats.cache.CacheData;
 import com.netflix.spinnaker.cats.cache.DefaultCacheData;
 import com.netflix.spinnaker.clouddriver.ecs.cache.Keys;
+import com.netflix.spinnaker.clouddriver.ecs.cache.client.ServiceCacheClient;
+import com.netflix.spinnaker.clouddriver.ecs.cache.client.TaskCacheClient;
 import com.netflix.spinnaker.clouddriver.ecs.cache.model.TaskHealth;
 import org.junit.Test;
 import spock.lang.Subject;
@@ -54,8 +56,10 @@ import static org.mockito.Mockito.when;
 
 
 public class TaskHealthCachingAgentTest extends CommonCachingAgent {
+  private final TaskCacheClient taskCacheClient = new TaskCacheClient(providerCache, mapper);
+  private final ServiceCacheClient serviceCacheClient = new ServiceCacheClient(providerCache, mapper);
   @Subject
-  private final TaskHealthCachingAgent agent = new TaskHealthCachingAgent(ACCOUNT, REGION, clientProvider, credentialsProvider);
+  private final TaskHealthCachingAgent agent = new TaskHealthCachingAgent(ACCOUNT, REGION, clientProvider, credentialsProvider, taskCacheClient, serviceCacheClient);
 
 
   @Test

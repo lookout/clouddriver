@@ -22,6 +22,7 @@ import com.netflix.spinnaker.cats.cache.Cache;
 import com.netflix.spinnaker.cats.cache.CacheData;
 import com.netflix.spinnaker.clouddriver.ecs.cache.model.Service;
 import org.springframework.beans.factory.annotation.Autowired;
+import org.springframework.stereotype.Component;
 
 import java.util.ArrayList;
 import java.util.Collections;
@@ -30,11 +31,14 @@ import java.util.Map;
 
 import static com.netflix.spinnaker.clouddriver.ecs.cache.Keys.Namespace.SERVICES;
 
+@Component
 public class ServiceCacheClient extends AbstractCacheClient<Service> {
+  private ObjectMapper mapper;
 
   @Autowired
-  public ServiceCacheClient(Cache cacheView) {
+  public ServiceCacheClient(Cache cacheView, ObjectMapper mapper) {
     super(cacheView, SERVICES.toString());
+    this.mapper = mapper;
   }
 
   @Override

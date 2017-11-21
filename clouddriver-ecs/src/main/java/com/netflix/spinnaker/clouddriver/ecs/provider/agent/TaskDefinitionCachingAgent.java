@@ -53,8 +53,15 @@ public class TaskDefinitionCachingAgent extends AbstractEcsOnDemandAgent<TaskDef
   ));
   private final Logger log = LoggerFactory.getLogger(getClass());
 
-  public TaskDefinitionCachingAgent(String accountName, String region, AmazonClientProvider amazonClientProvider, AWSCredentialsProvider awsCredentialsProvider, Registry registry) {
+  private final TaskDefinitionCacheClient taskDefinitionCacheClient;
+
+  public TaskDefinitionCachingAgent(String accountName, String region,
+                                    AmazonClientProvider amazonClientProvider,
+                                    AWSCredentialsProvider awsCredentialsProvider,
+                                    Registry registry,
+                                    TaskDefinitionCacheClient taskDefinitionCacheClient) {
     super(accountName, region, amazonClientProvider, awsCredentialsProvider, registry);
+    this.taskDefinitionCacheClient = taskDefinitionCacheClient;
   }
 
   public static Map<String, Object> convertTaskDefinitionToAttributes(TaskDefinition taskDefinition) {
@@ -121,7 +128,6 @@ public class TaskDefinitionCachingAgent extends AbstractEcsOnDemandAgent<TaskDef
 
   private Set<TaskDefinition> retrieveFromCache(Set<String> taskDefArns, ProviderCache providerCache) {
     Set<TaskDefinition> taskDefs = new HashSet<>();
-    TaskDefinitionCacheClient taskDefinitionCacheClient = new TaskDefinitionCacheClient(providerCache);
 
     for (String taskDefArn : taskDefArns) {
       String key = Keys.getTaskDefinitionKey(accountName, region, taskDefArn);
