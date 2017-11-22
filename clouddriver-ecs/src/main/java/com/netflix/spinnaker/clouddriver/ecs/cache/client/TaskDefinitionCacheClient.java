@@ -22,6 +22,7 @@ import com.fasterxml.jackson.databind.ObjectMapper;
 import com.netflix.spinnaker.cats.cache.Cache;
 import com.netflix.spinnaker.cats.cache.CacheData;
 import org.springframework.beans.factory.annotation.Autowired;
+import org.springframework.beans.factory.annotation.Qualifier;
 import org.springframework.stereotype.Component;
 
 import java.util.ArrayList;
@@ -36,7 +37,7 @@ public class TaskDefinitionCacheClient extends AbstractCacheClient<TaskDefinitio
   private ObjectMapper mapper;
 
   @Autowired
-  public TaskDefinitionCacheClient(Cache cacheView, ObjectMapper mapper) {
+  public TaskDefinitionCacheClient(Cache cacheView, @Qualifier("objectMapper") ObjectMapper mapper) {
     super(cacheView, TASK_DEFINITIONS.toString());
     this.mapper = mapper;
   }

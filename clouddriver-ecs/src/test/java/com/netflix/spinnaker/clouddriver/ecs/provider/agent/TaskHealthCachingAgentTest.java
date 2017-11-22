@@ -56,10 +56,8 @@ import static org.mockito.Mockito.when;
 
 
 public class TaskHealthCachingAgentTest extends CommonCachingAgent {
-  private final TaskCacheClient taskCacheClient = new TaskCacheClient(providerCache, mapper);
-  private final ServiceCacheClient serviceCacheClient = new ServiceCacheClient(providerCache, mapper);
   @Subject
-  private final TaskHealthCachingAgent agent = new TaskHealthCachingAgent(ACCOUNT, REGION, clientProvider, credentialsProvider, taskCacheClient, serviceCacheClient);
+  private final TaskHealthCachingAgent agent = new TaskHealthCachingAgent(ACCOUNT, REGION, clientProvider, credentialsProvider, mapper);
 
 
   @Test

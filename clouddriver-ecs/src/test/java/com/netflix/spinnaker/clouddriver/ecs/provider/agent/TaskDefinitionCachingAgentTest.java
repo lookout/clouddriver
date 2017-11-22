@@ -43,9 +43,7 @@ import static org.mockito.Mockito.when;
 
 public class TaskDefinitionCachingAgentTest extends CommonCachingAgent {
   @Subject
-  private final TaskDefinitionCacheClient client = new TaskDefinitionCacheClient(providerCache, mapper);
-  @Subject
-  private final TaskDefinitionCachingAgent agent = new TaskDefinitionCachingAgent(ACCOUNT, REGION, clientProvider, credentialsProvider, registry, client);
+  private final TaskDefinitionCachingAgent agent = new TaskDefinitionCachingAgent(ACCOUNT, REGION, clientProvider, credentialsProvider, registry, mapper);
 
   @Test
   public void shouldGetListOfTaskDefinitions() {
