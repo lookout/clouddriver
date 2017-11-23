@@ -38,4 +38,11 @@ public class EcsLoadBalancerSummary implements LoadBalancerProvider.Item {
   public List getByAccounts() {
     return byAccounts.values().stream().collect(Collectors.toList());
   }
+
+  public EcsLoadBalancerSummaryByAccount getOrCreateAccount(String account){
+    if(!byAccounts.containsKey(account)){
+      byAccounts.put(account, new EcsLoadBalancerSummaryByAccount());
+    }
+    return byAccounts.get(account);
+  }
 }

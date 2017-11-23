@@ -56,7 +56,7 @@ public class EcsTargetGroupCacheClient {
 
     List<EcsTargetGroup> targetGroups = convertToTargetGroup(targetGroupAttributes);
 
-    return null;
+    return targetGroups;
   }
 
   private EcsTargetGroup convertToTargetGroup(Map<String, Object> targetGroupAttributes) {

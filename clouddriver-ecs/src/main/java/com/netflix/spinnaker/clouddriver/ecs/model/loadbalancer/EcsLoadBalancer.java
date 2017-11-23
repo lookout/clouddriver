@@ -16,20 +16,51 @@
 
 package com.netflix.spinnaker.clouddriver.ecs.model.loadbalancer;
 
+import com.amazonaws.services.elasticloadbalancingv2.model.Listener;
 import com.netflix.spinnaker.clouddriver.ecs.EcsCloudProvider;
 import com.netflix.spinnaker.clouddriver.model.LoadBalancer;
+import com.netflix.spinnaker.clouddriver.model.LoadBalancerProvider;
 import com.netflix.spinnaker.clouddriver.model.LoadBalancerServerGroup;
 import lombok.Data;
 
+import java.util.List;
 import java.util.Set;
 
 @Data
-public class EcsLoadBalancer implements LoadBalancer {
+public class EcsLoadBalancer implements LoadBalancer, LoadBalancerProvider.Item {
 
-  private String name;
-  private String type;
-  private String cloudProvider = EcsCloudProvider.ID;
   private String account;
+  private String region;
+  private String loadBalancerArn;
+  private String loadBalancerType;
+  private String cloudProvider = EcsCloudProvider.ID;
+  private List<Listener> listeners;
+  private String scheme;
+  private List<String> availabilityZones;
+  private String ipAddressType;
+  private String loadBalancerName;
+  private String canonicalHostedZoneId;
+  private String vpcId;
+  private String dnsname;
+  private Long createdTime;
+  private List<String> subnets;
+  private List<String> securityGroups;
+  private List<String> targetGroups;
+  //private List<Object> state;
   private Set<LoadBalancerServerGroup> serverGroups;
 
+  @Override
+  public String getName() {
+    return loadBalancerName;
+  }
+
+  @Override
+  public List<LoadBalancerProvider.ByAccount> getByAccounts() {
+    return null;
+  }
+
+  @Override
+  public String getType() {
+    return loadBalancerType;
+  }
 }

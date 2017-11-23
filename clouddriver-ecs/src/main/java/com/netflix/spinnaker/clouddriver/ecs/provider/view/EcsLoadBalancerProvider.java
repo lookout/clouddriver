@@ -1,25 +1,41 @@
 package com.netflix.spinnaker.clouddriver.ecs.provider.view;
 
+import com.amazonaws.services.ecs.model.LoadBalancer;
+import com.netflix.spinnaker.cats.cache.Cache;
+import com.netflix.spinnaker.clouddriver.aws.model.AmazonLoadBalancer;
+import com.netflix.spinnaker.clouddriver.aws.provider.view.AmazonLoadBalancerProvider.AmazonLoadBalancerDetail;
+import com.netflix.spinnaker.clouddriver.aws.provider.view.AmazonLoadBalancerProvider.AmazonLoadBalancerSummary;
 import com.netflix.spinnaker.clouddriver.ecs.EcsCloudProvider;
+import com.netflix.spinnaker.clouddriver.ecs.cache.client.ServiceCacheClient;
 import com.netflix.spinnaker.clouddriver.ecs.model.loadbalancer.EcsLoadBalancer;
-import com.netflix.spinnaker.clouddriver.ecs.model.loadbalancer.EcsTargetGroup;
 import com.netflix.spinnaker.clouddriver.model.LoadBalancerProvider;
+import org.apache.commons.lang3.StringUtils;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.stereotype.Component;
 
+import java.util.ArrayList;
+import java.util.Collections;
+import java.util.HashMap;
+import java.util.HashSet;
 import java.util.List;
+import java.util.Map;
 import java.util.Set;
+import java.util.stream.Collectors;
 
 @Component
-public class EcsLoadBalancerProvider implements LoadBalancerProvider<EcsLoadBalancer> {
+public class EcsLoadBalancerProvider implements LoadBalancerProvider<AmazonLoadBalancer> {
 
-  private final EcsTargetGroupCacheClient ecsTargetGroupCacheClient;
+  private final ServiceCacheClient serviceCacheClient;
+  private final EcsLoadbalancerpCacheClient ecsLoadbalancerpCacheClient;
 
 
   @Autowired
-  public EcsLoadBalancerProvider(EcsTargetGroupCacheClient ecsTargetGroupCacheClient) {
-    this.ecsTargetGroupCacheClient = ecsTargetGroupCacheClient;
+  public EcsLoadBalancerProvider(Cache cacheView,
+                                 EcsLoadbalancerpCacheClient ecsLoadbalancerpCacheClient) {
+    this.ecsLoadbalancerpCacheClient = ecsLoadbalancerpCacheClient;
+    this.serviceCacheClient = new ServiceCacheClient(cacheView);
   }
+
   @Override
   public String getCloudProvider() {
     return EcsCloudProvider.ID;
@@ -27,31 +43,35 @@ public class EcsLoadBalancerProvider implements LoadBalancerProvider<EcsLoadBala
 
   @Override
   public List<Item> list() {
-    List<EcsTargetGroup> ecsTargetGroups = ecsTargetGroupCacheClient.findAll();
-    // TODO - convert ecsTargetGroups to a list of Items, perhaps by using a new class dedicated to doing that conversion.  It could be called EcsLoadBalancerProviderService
+    Map<String, AmazonLoadBalancerSummary> map = new HashMap<>();
+    List<EcsLoadBalancer> loadBalancers = ecsLoadbalancerpCacheClient.findAll();
 
-    return null;  // TODO - Danil, this is the only method that needs to be implemented for the target group story
-  }
+    for (EcsLoadBalancer lb : loadBalancers) {
+      String name = lb.getLoadBalancerName();
+      String account = lb.getAccount();
+      String region = lb.getRegion();
 
-  /**
-  // TODO - this is great inspiration for a solution.  Although it is groovy-specific, it's a great starting point
-  static class AmazonLoadBalancerSummary implements LoadBalancerProvider.Item {
-    private Map<String, AmazonLoadBalancerAccount> mappedAccounts = [:]
-    String name
-
-    AmazonLoadBalancerAccount getOrCreateAccount(String name) {
-      if (!mappedAccounts.containsKey(name)) {
-        mappedAccounts.put(name, new AmazonLoadBalancerAccount(name: name))
+      AmazonLoadBalancerSummary summary = map.get(name);
+      if (summary == null) {
+        summary = new AmazonLoadBalancerSummary();
+        summary.setName(name);
+        map.put(name, summary);
       }
-      mappedAccounts[name]
+
+      AmazonLoadBalancerDetail loadBalancer = new AmazonLoadBalancerDetail();
+      loadBalancer.setAccount(account);
+      loadBalancer.setRegion(region);
+      loadBalancer.setName(name);
+      loadBalancer.setVpcId(lb.getVpcId());
+      loadBalancer.setSecurityGroups(lb.getSecurityGroups());
+      loadBalancer.setLoadBalancerType(lb.getLoadBalancerType());
+      loadBalancer.setTargetGroups(lb.getTargetGroups());
+
+      summary.getOrCreateAccount(account).getOrCreateRegion(region).getLoadBalancers().add(loadBalancer);
     }
 
-    @JsonProperty("accounts")
-    List<AmazonLoadBalancerAccount> getByAccounts() {
-      mappedAccounts.values() as List
-    }
+    return new ArrayList<>(map.values());
   }
-  */
 
 
   @Override
@@ -65,7 +85,29 @@ public class EcsLoadBalancerProvider implements LoadBalancerProvider<EcsLoadBala
   }
 
   @Override
-  public Set<EcsLoadBalancer> getApplicationLoadBalancers(String application) {
-    return null;  //TODO - Implement this.  This is used to show load balancers and reveals other buttons
+  public Set<AmazonLoadBalancer> getApplicationLoadBalancers(String application) {
+    Set<String> targetGroupNames = serviceCacheClient.getAll().stream()
+      .filter(service -> service.getApplicationName().equals(application))
+      .flatMap(service -> service.getLoadBalancers().stream()
+        .map(loadBalancer -> StringUtils.substringBetween(loadBalancer.getTargetGroupArn(), "targetgroup/", "/"))
+      )
+      .collect(Collectors.toSet());
+
+    Set<EcsLoadBalancer> ecsLoadBalancers = ecsLoadbalancerpCacheClient.findWithTargetGroups(targetGroupNames);
+    Set<AmazonLoadBalancer> amazonLoadBalancers = new HashSet<>();
+    for(EcsLoadBalancer ecsLoadBalancer:ecsLoadBalancers){
+      AmazonLoadBalancer loadBalancer = new AmazonLoadBalancer();
+
+      loadBalancer.setAccount(ecsLoadBalancer.getAccount());
+      loadBalancer.setName(ecsLoadBalancer.getLoadBalancerName());
+      loadBalancer.setRegion(ecsLoadBalancer.getRegion());
+      loadBalancer.setServerGroups(Collections.emptySet()); //TODO: Populate with real values
+      loadBalancer.setTargetGroups(Collections.emptySet());
+      loadBalancer.setVpcId(ecsLoadBalancer.getVpcId());
+
+      amazonLoadBalancers.add(loadBalancer);
+    }
+
+    return amazonLoadBalancers;  //TODO - Implement this.  This is used to show load balancers and reveals other buttons
   }
 }

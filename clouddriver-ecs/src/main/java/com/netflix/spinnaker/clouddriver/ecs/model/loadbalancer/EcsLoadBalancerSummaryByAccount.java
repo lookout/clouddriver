@@ -32,4 +32,11 @@ public class EcsLoadBalancerSummaryByAccount implements LoadBalancerProvider.ByA
   public List getByRegions() {
     return byRegions.values().stream().collect(Collectors.toList());
   }
+
+  public EcsLoadBalancerSummaryByRegion getOrCreateRegions(String region){
+    if(!byRegions.containsKey(region)){
+      byRegions.put(region, new EcsLoadBalancerSummaryByRegion());
+    }
+    return byRegions.get(region);
+  }
 }
