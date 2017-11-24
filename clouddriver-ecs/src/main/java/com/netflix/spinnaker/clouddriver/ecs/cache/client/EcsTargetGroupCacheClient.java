@@ -16,14 +16,12 @@
 
 package com.netflix.spinnaker.clouddriver.ecs.cache.client;
 
-import com.amazonaws.services.ecs.model.LoadBalancer;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import com.netflix.spinnaker.cats.cache.Cache;
 import com.netflix.spinnaker.cats.cache.CacheData;
 import com.netflix.spinnaker.cats.cache.RelationshipCacheFilter;
 import com.netflix.spinnaker.clouddriver.aws.data.Keys;
 import com.netflix.spinnaker.clouddriver.ecs.model.loadbalancer.EcsTargetGroup;
-import com.netflix.spinnaker.clouddriver.model.LoadBalancerProvider;
 import org.springframework.stereotype.Component;
 
 import java.util.ArrayList;
@@ -68,7 +66,7 @@ public class EcsTargetGroupCacheClient {
   private List<EcsTargetGroup> convertToTargetGroup(Collection<Map<String, Object>> targetGroupAttributes) {
     List<EcsTargetGroup> ecsTargetGroups = new ArrayList<>();
 
-    for (Map<String, Object> attributes: targetGroupAttributes) {
+    for (Map<String, Object> attributes : targetGroupAttributes) {
       ecsTargetGroups.add(convertToTargetGroup(attributes));
     }
 
@@ -114,7 +112,7 @@ public class EcsTargetGroupCacheClient {
     for (CacheData loadBalancer : loadBalancers) {
       Collection<String> relatedTargetGroups = loadBalancer.getRelationships().get("targetGroups");
       if (relatedTargetGroups != null && relatedTargetGroups.size() > 0) {
-        for (String targetGroupArn: relatedTargetGroups) {
+        for (String targetGroupArn : relatedTargetGroups) {
           targetGroupsAssociatedWithLoadBalancers.add(targetGroupArn);
         }
       }

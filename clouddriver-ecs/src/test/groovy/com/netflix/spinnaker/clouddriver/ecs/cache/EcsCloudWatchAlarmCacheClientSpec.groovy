@@ -16,7 +16,6 @@
 
 package com.netflix.spinnaker.clouddriver.ecs.cache
 
-import com.amazonaws.services.cloudwatch.model.MetricAlarm
 import com.netflix.spinnaker.cats.cache.Cache
 import com.netflix.spinnaker.cats.cache.DefaultCacheData
 import com.netflix.spinnaker.clouddriver.ecs.cache.client.EcsCloudWatchAlarmCacheClient

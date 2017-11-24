@@ -1,42 +1,29 @@
 package com.netflix.spinnaker.clouddriver.ecs.provider.view;
 
-import com.netflix.spinnaker.cats.cache.Cache;
 import com.netflix.spinnaker.clouddriver.aws.model.AmazonLoadBalancer;
-import com.netflix.spinnaker.clouddriver.aws.provider.view.AmazonLoadBalancerProvider.AmazonLoadBalancerDetail;
-import com.netflix.spinnaker.clouddriver.aws.provider.view.AmazonLoadBalancerProvider.AmazonLoadBalancerSummary;
 import com.netflix.spinnaker.clouddriver.ecs.EcsCloudProvider;
 import com.netflix.spinnaker.clouddriver.ecs.cache.client.EcsLoadbalancerCacheClient;
-import com.netflix.spinnaker.clouddriver.ecs.cache.client.ServiceCacheClient;
 import com.netflix.spinnaker.clouddriver.ecs.cache.model.EcsLoadBalancerCache;
 import com.netflix.spinnaker.clouddriver.ecs.model.loadbalancer.EcsLoadBalancerDetail;
 import com.netflix.spinnaker.clouddriver.ecs.model.loadbalancer.EcsLoadBalancerSummary;
-import com.netflix.spinnaker.clouddriver.ecs.model.loadbalancer.EcsLoadBalancerSummaryByAccount;
 import com.netflix.spinnaker.clouddriver.model.LoadBalancerProvider;
-import org.apache.commons.lang3.StringUtils;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.stereotype.Component;
 
 import java.util.ArrayList;
-import java.util.Collections;
 import java.util.HashMap;
-import java.util.HashSet;
 import java.util.List;
 import java.util.Map;
 import java.util.Set;
-import java.util.stream.Collectors;
 
 @Component
 public class EcsLoadBalancerProvider implements LoadBalancerProvider<AmazonLoadBalancer> {
 
-  private final ServiceCacheClient serviceCacheClient;
   private final EcsLoadbalancerCacheClient ecsLoadbalancerCacheClient;
 
-
   @Autowired
-  public EcsLoadBalancerProvider(Cache cacheView,
-                                 EcsLoadbalancerCacheClient ecsLoadbalancerCacheClient) {
+  public EcsLoadBalancerProvider(EcsLoadbalancerCacheClient ecsLoadbalancerCacheClient) {
     this.ecsLoadbalancerCacheClient = ecsLoadbalancerCacheClient;
-    this.serviceCacheClient = new ServiceCacheClient(cacheView);
   }
 
   @Override
