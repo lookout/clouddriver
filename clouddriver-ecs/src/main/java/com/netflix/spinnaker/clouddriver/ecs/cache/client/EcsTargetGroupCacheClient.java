@@ -14,7 +14,7 @@
  * limitations under the License.
  */
 
-package com.netflix.spinnaker.clouddriver.ecs.provider.view;
+package com.netflix.spinnaker.clouddriver.ecs.cache.client;
 
 import com.amazonaws.services.ecs.model.LoadBalancer;
 import com.fasterxml.jackson.databind.ObjectMapper;

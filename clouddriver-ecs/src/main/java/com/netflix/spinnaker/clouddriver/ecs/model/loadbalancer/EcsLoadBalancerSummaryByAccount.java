@@ -16,26 +16,33 @@
 
 package com.netflix.spinnaker.clouddriver.ecs.model.loadbalancer;
 
-import com.netflix.spinnaker.clouddriver.model.LoadBalancerProvider;
 import lombok.Data;
 
+import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
 import java.util.stream.Collectors;
 
+import static com.netflix.spinnaker.clouddriver.model.LoadBalancerProvider.ByAccount;
+
 @Data
-public class EcsLoadBalancerSummaryByAccount implements LoadBalancerProvider.ByAccount{
+public class EcsLoadBalancerSummaryByAccount implements ByAccount {
 
   private String name;
-  private Map<String, EcsLoadBalancerSummaryByRegion> byRegions;
+  private Map<String, EcsLoadBalancerSummaryByRegion> byRegions = new HashMap<>();
+
+  public EcsLoadBalancerSummaryByAccount withName(String name){
+    setName(name);
+    return this;
+  }
 
   public List getByRegions() {
     return byRegions.values().stream().collect(Collectors.toList());
   }
 
-  public EcsLoadBalancerSummaryByRegion getOrCreateRegions(String region){
-    if(!byRegions.containsKey(region)){
-      byRegions.put(region, new EcsLoadBalancerSummaryByRegion());
+  public EcsLoadBalancerSummaryByRegion getOrCreateRegion(String region) {
+    if (!byRegions.containsKey(region)) {
+      byRegions.put(region, new EcsLoadBalancerSummaryByRegion().withName(region));
     }
     return byRegions.get(region);
   }

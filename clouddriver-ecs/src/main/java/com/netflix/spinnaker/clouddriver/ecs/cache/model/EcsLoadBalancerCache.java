@@ -14,7 +14,7 @@
  * limitations under the License.
  */
 
-package com.netflix.spinnaker.clouddriver.ecs.model.loadbalancer;
+package com.netflix.spinnaker.clouddriver.ecs.cache.model;
 
 import com.amazonaws.services.elasticloadbalancingv2.model.Listener;
 import com.netflix.spinnaker.clouddriver.ecs.EcsCloudProvider;
@@ -27,7 +27,7 @@ import java.util.List;
 import java.util.Set;
 
 @Data
-public class EcsLoadBalancer implements LoadBalancer, LoadBalancerProvider.Item {
+public class EcsLoadBalancerCache implements LoadBalancer, LoadBalancerProvider.Item {
 
   private String account;
   private String region;

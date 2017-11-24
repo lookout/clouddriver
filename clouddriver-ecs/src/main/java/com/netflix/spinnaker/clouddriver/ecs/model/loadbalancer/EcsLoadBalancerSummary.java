@@ -17,21 +17,25 @@
 package com.netflix.spinnaker.clouddriver.ecs.model.loadbalancer;
 
 
-import com.netflix.spinnaker.clouddriver.model.LoadBalancerProvider;
+import lombok.Data;
 
+import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
 import java.util.stream.Collectors;
 
+import static com.netflix.spinnaker.clouddriver.model.LoadBalancerProvider.Item;
 
-public class EcsLoadBalancerSummary implements LoadBalancerProvider.Item {
+
+@Data
+public class EcsLoadBalancerSummary implements Item {
 
   private String name;
-  private Map<String, EcsLoadBalancerSummaryByAccount> byAccounts;
+  private Map<String, EcsLoadBalancerSummaryByAccount> byAccounts = new HashMap<>();
 
-  @Override
-  public String getName() {
-    return name;
+  public EcsLoadBalancerSummary withName(String name){
+    setName(name);
+    return this;
   }
 
   @Override
@@ -39,9 +43,9 @@ public class EcsLoadBalancerSummary implements LoadBalancerProvider.Item {
     return byAccounts.values().stream().collect(Collectors.toList());
   }
 
-  public EcsLoadBalancerSummaryByAccount getOrCreateAccount(String account){
-    if(!byAccounts.containsKey(account)){
-      byAccounts.put(account, new EcsLoadBalancerSummaryByAccount());
+  public EcsLoadBalancerSummaryByAccount getOrCreateAccount(String account) {
+    if (!byAccounts.containsKey(account)) {
+      byAccounts.put(account, new EcsLoadBalancerSummaryByAccount().withName(account));
     }
     return byAccounts.get(account);
   }

@@ -14,20 +14,18 @@
  * limitations under the License.
  */
 
-package com.netflix.spinnaker.clouddriver.ecs.provider.view;
+package com.netflix.spinnaker.clouddriver.ecs.cache.client;
 
 import com.fasterxml.jackson.databind.ObjectMapper;
 import com.netflix.spinnaker.cats.cache.Cache;
 import com.netflix.spinnaker.cats.cache.CacheData;
 import com.netflix.spinnaker.cats.cache.RelationshipCacheFilter;
 import com.netflix.spinnaker.clouddriver.aws.data.Keys;
-import com.netflix.spinnaker.clouddriver.ecs.model.loadbalancer.EcsLoadBalancer;
-import com.netflix.spinnaker.clouddriver.ecs.model.loadbalancer.EcsTargetGroup;
+import com.netflix.spinnaker.clouddriver.ecs.cache.model.EcsLoadBalancerCache;
 import org.springframework.stereotype.Component;
 
 import java.util.ArrayList;
 import java.util.Collection;
-import java.util.Collections;
 import java.util.HashSet;
 import java.util.List;
 import java.util.Map;
@@ -38,40 +36,40 @@ import static com.netflix.spinnaker.clouddriver.core.provider.agent.Namespace.LO
 import static com.netflix.spinnaker.clouddriver.core.provider.agent.Namespace.TARGET_GROUPS;
 
 @Component
-public class EcsLoadbalancerpCacheClient {
+public class EcsLoadbalancerCacheClient {
 
   private final Cache cacheView;
   private final ObjectMapper objectMapper;
 
-  public EcsLoadbalancerpCacheClient(Cache cacheView, ObjectMapper objectMapper) {
+  public EcsLoadbalancerCacheClient(Cache cacheView, ObjectMapper objectMapper) {
     this.cacheView = cacheView;
     this.objectMapper = objectMapper;
   }
 
-  public List<EcsLoadBalancer> findAll() {
+  public List<EcsLoadBalancerCache> findAll() {
     String searchKey = Keys.getLoadBalancerKey("*", "*", "*", "*", "*") + "*";
     Collection<String> loadbalancerKeys = cacheView.filterIdentifiers(LOAD_BALANCERS.getNs(), searchKey);
 
     Set<Map<String, Object>> loadbalancerAttributes = fetchLoadBalancerAttributes(loadbalancerKeys);
 
-    List<EcsLoadBalancer> loadbalancers = convertToLoadbalancer(loadbalancerAttributes);
+    List<EcsLoadBalancerCache> loadbalancers = convertToLoadbalancer(loadbalancerAttributes);
 
     return loadbalancers;
   }
 
-  public Set<EcsLoadBalancer> findWithTargetGroups(Set<String> targetGroups){
+  public Set<EcsLoadBalancerCache> findWithTargetGroups(Set<String> targetGroups){
     return findAll().stream()
-      .filter(ecsLoadBalancer -> targetGroups.containsAll(ecsLoadBalancer.getTargetGroups()))
+      .filter(ecsLoadBalancerCache -> targetGroups.containsAll(ecsLoadBalancerCache.getTargetGroups()))
       .collect(Collectors.toSet());
   }
 
-  private EcsLoadBalancer convertToTargetGroup(Map<String, Object> targetGroupAttributes) {
-    EcsLoadBalancer ecsLoadBalancer = objectMapper.convertValue(targetGroupAttributes, EcsLoadBalancer.class);
-    return ecsLoadBalancer;
+  private EcsLoadBalancerCache convertToTargetGroup(Map<String, Object> targetGroupAttributes) {
+    EcsLoadBalancerCache ecsLoadBalancerCache = objectMapper.convertValue(targetGroupAttributes, EcsLoadBalancerCache.class);
+    return ecsLoadBalancerCache;
   }
 
-  private List<EcsLoadBalancer> convertToLoadbalancer(Collection<Map<String, Object>> targetGroupAttributes) {
-    List<EcsLoadBalancer> ecsTargetGroups = new ArrayList<>();
+  private List<EcsLoadBalancerCache> convertToLoadbalancer(Collection<Map<String, Object>> targetGroupAttributes) {
+    List<EcsLoadBalancerCache> ecsTargetGroups = new ArrayList<>();
 
     for (Map<String, Object> attributes : targetGroupAttributes) {
       ecsTargetGroups.add(convertToTargetGroup(attributes));
