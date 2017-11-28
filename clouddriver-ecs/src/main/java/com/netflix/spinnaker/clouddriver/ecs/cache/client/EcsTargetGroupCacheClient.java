@@ -87,10 +87,6 @@ public class EcsTargetGroupCacheClient {
       .map(lb -> lb.getAttributes())
       .collect(Collectors.toSet());
 
-    //TODO - Transform the return of the above method into a list of items, with the correct nested items inside of it
-    // TODO - Extract a lot of these commands to a LoadBalancerCacheReader
-    // TODO - Implement all methods of the LoadBalancerProvider
-
     return targetGroupAttributes;
   }
 

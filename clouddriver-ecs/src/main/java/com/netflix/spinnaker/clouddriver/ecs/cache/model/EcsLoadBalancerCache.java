@@ -27,7 +27,7 @@ import java.util.List;
 import java.util.Set;
 
 @Data
-public class EcsLoadBalancerCache implements LoadBalancer, LoadBalancerProvider.Item {
+public class EcsLoadBalancerCache implements LoadBalancer {
 
   private String account;
   private String region;
@@ -52,11 +52,6 @@ public class EcsLoadBalancerCache implements LoadBalancer, LoadBalancerProvider.
   @Override
   public String getName() {
     return loadBalancerName;
-  }
-
-  @Override
-  public List<LoadBalancerProvider.ByAccount> getByAccounts() {
-    return null;
   }
 
   @Override
