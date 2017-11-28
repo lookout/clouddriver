@@ -6,6 +6,7 @@ import com.netflix.spinnaker.clouddriver.ecs.cache.client.EcsLoadbalancerCacheCl
 import com.netflix.spinnaker.clouddriver.ecs.cache.model.EcsLoadBalancerCache;
 import com.netflix.spinnaker.clouddriver.ecs.model.loadbalancer.EcsLoadBalancerDetail;
 import com.netflix.spinnaker.clouddriver.ecs.model.loadbalancer.EcsLoadBalancerSummary;
+import com.netflix.spinnaker.clouddriver.ecs.security.ECSCredentialsConfig;
 import com.netflix.spinnaker.clouddriver.model.LoadBalancerProvider;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.stereotype.Component;
@@ -20,10 +21,13 @@ import java.util.Set;
 public class EcsLoadBalancerProvider implements LoadBalancerProvider<AmazonLoadBalancer> {
 
   private final EcsLoadbalancerCacheClient ecsLoadbalancerCacheClient;
+  private final ECSCredentialsConfig ecsCredentialsConfig;
 
   @Autowired
-  public EcsLoadBalancerProvider(EcsLoadbalancerCacheClient ecsLoadbalancerCacheClient) {
+  public EcsLoadBalancerProvider(EcsLoadbalancerCacheClient ecsLoadbalancerCacheClient,
+                                 ECSCredentialsConfig ecsCredentialsConfig) {
     this.ecsLoadbalancerCacheClient = ecsLoadbalancerCacheClient;
+    this.ecsCredentialsConfig = ecsCredentialsConfig;
   }
 
   @Override
@@ -37,8 +41,12 @@ public class EcsLoadBalancerProvider implements LoadBalancerProvider<AmazonLoadB
     List<EcsLoadBalancerCache> loadBalancers = ecsLoadbalancerCacheClient.findAll();
 
     for (EcsLoadBalancerCache lb : loadBalancers) {
+      String account = getEcsAccountName(lb.getAccount());
+      if(account == null){
+        continue;
+      }
+
       String name = lb.getLoadBalancerName();
-      String account = lb.getAccount();
       String region = lb.getRegion();
 
       EcsLoadBalancerSummary summary = map.get(name);
@@ -102,5 +110,14 @@ public class EcsLoadBalancerProvider implements LoadBalancerProvider<AmazonLoadB
 
     return amazonLoadBalancers;*/
     return null;  //TODO - Implement this.  This is used to show load balancers and reveals other buttons
+  }
+
+  private String getEcsAccountName(String awsAccountName){
+    for(ECSCredentialsConfig.Account ecsAccount: ecsCredentialsConfig.getAccounts()){
+      if(ecsAccount.getAwsAccount().equals(awsAccountName)){
+        return ecsAccount.getName();
+      }
+    }
+    return null;
   }
 }

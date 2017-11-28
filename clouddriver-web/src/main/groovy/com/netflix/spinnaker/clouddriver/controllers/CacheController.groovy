@@ -35,12 +35,6 @@ class CacheController {
   ResponseEntity handleOnDemand(@PathVariable String cloudProvider,
                                 @PathVariable String type,
                                 @RequestBody Map<String, ? extends Object> data) {
-    //TODO: Remove the if statement once the proper account is being passed in.
-    if(cloudProvider.equals("ecs")){
-      if(data.account != null){
-        data.account = data.account + "-ecs"
-      }
-    }
     OnDemandAgent.OnDemandType onDemandType = getOnDemandType(type);
     def cacheStatus = onDemandCacheUpdaters.find { it.handles(onDemandType, cloudProvider) }?.handle(onDemandType, cloudProvider, data)
     def httpStatus = (cacheStatus == OnDemandCacheUpdater.OnDemandCacheStatus.PENDING) ? HttpStatus.ACCEPTED : HttpStatus.OK
