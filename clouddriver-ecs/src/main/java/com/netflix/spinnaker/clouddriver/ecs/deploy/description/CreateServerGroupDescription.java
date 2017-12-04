@@ -17,6 +17,7 @@
 package com.netflix.spinnaker.clouddriver.ecs.deploy.description;
 
 import com.amazonaws.services.cloudwatch.model.MetricAlarm;
+import com.amazonaws.services.ecs.model.PlacementStrategy;
 import com.netflix.spinnaker.clouddriver.model.ServerGroup;
 import lombok.Data;
 import lombok.EqualsAndHashCode;
@@ -48,6 +49,7 @@ public class CreateServerGroupDescription extends AbstractECSDescription {
   Map<String, List<String>> availabilityZones;
 
   List<MetricAlarm> autoscalingPolicies;
+  List<PlacementStrategy> placementStrategySequence;
 
   @Data
   public class Source {
