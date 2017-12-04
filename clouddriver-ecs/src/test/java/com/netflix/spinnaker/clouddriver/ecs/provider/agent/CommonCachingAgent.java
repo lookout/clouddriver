@@ -18,6 +18,7 @@ package com.netflix.spinnaker.clouddriver.ecs.provider.agent;
 
 import com.amazonaws.auth.AWSCredentialsProvider;
 import com.amazonaws.services.ecs.AmazonECS;
+import com.fasterxml.jackson.databind.ObjectMapper;
 import com.netflix.spectator.api.Registry;
 import com.netflix.spinnaker.cats.provider.ProviderCache;
 import com.netflix.spinnaker.clouddriver.aws.security.AmazonClientProvider;
@@ -65,6 +66,7 @@ public class CommonCachingAgent {
   final ProviderCache providerCache = mock(ProviderCache.class);
   final AWSCredentialsProvider credentialsProvider = mock(AWSCredentialsProvider.class);
   final Registry registry = mock(Registry.class);
+  ObjectMapper mapper = new ObjectMapper();
 
   @BeforeClass
   public static void setUp() {

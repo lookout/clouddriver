@@ -18,7 +18,6 @@ package com.netflix.spinnaker.clouddriver.ecs.cache;
 
 import com.amazonaws.services.ecs.model.ContainerDefinition;
 import com.amazonaws.services.ecs.model.TaskDefinition;
-import com.fasterxml.jackson.databind.ObjectMapper;
 import com.netflix.spinnaker.cats.cache.DefaultCacheData;
 import com.netflix.spinnaker.clouddriver.ecs.cache.client.TaskDefinitionCacheClient;
 import com.netflix.spinnaker.clouddriver.ecs.provider.agent.TaskDefinitionCachingAgent;
@@ -34,12 +33,11 @@ import static org.mockito.Mockito.when;
 
 public class TaskDefinitionCacheClientTest extends CommonCacheClient {
   @Subject
-  private final TaskDefinitionCacheClient client = new TaskDefinitionCacheClient(cacheView);
+  private final TaskDefinitionCacheClient client = new TaskDefinitionCacheClient(cacheView, mapper);
 
   @Test
   public void shouldConvert() {
     //Given
-    ObjectMapper mapper = new ObjectMapper();
     String taskDefinitionArn = "arn:aws:ecs:" + REGION + ":012345678910:task-definition/hello_world:10";
     String key = Keys.getTaskDefinitionKey(ACCOUNT, REGION, taskDefinitionArn);
 

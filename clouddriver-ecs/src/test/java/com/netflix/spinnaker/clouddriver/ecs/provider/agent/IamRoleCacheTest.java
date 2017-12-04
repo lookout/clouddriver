@@ -54,7 +54,6 @@ public class IamRoleCacheTest extends CommonCachingAgent {
   public void shouldRetrieveFromWrittenCache() {
     //Given
     when(clientProvider.getIam(anyString(), any(AWSCredentialsProvider.class), anyString())).thenReturn(iam);
-    ObjectMapper mapper = new ObjectMapper();
     String name = "iam-role-name";
     String roleArn = "iam-role-arn";
     String key = Keys.getIamRoleKey(ACCOUNT, name);

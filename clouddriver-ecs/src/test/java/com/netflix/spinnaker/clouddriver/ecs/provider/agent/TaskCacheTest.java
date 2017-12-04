@@ -44,7 +44,7 @@ public class TaskCacheTest extends CommonCachingAgent {
   @Subject
   private final TaskCachingAgent agent = new TaskCachingAgent(ACCOUNT, REGION, clientProvider, credentialsProvider, registry);
   @Subject
-  private final TaskCacheClient client = new TaskCacheClient(providerCache);
+  private final TaskCacheClient client = new TaskCacheClient(providerCache, mapper);
 
   @Test
   public void shouldRetrieveFromWrittenCache() {

@@ -33,7 +33,7 @@ import static org.mockito.Mockito.when;
 
 public class TaskCacheClientTest extends CommonCacheClient {
   @Subject
-  private final TaskCacheClient client = new TaskCacheClient(cacheView);
+  private final TaskCacheClient client = new TaskCacheClient(cacheView, mapper);
 
   @Test
   public void shouldConvert() {
