@@ -29,6 +29,7 @@ import com.netflix.spinnaker.clouddriver.aws.security.AmazonCredentials;
 import com.netflix.spinnaker.clouddriver.data.task.Task;
 import com.netflix.spinnaker.clouddriver.data.task.TaskRepository;
 import com.netflix.spinnaker.clouddriver.ecs.deploy.description.ResizeServiceDescription;
+import com.netflix.spinnaker.clouddriver.ecs.services.ContainerInformationService;
 import com.netflix.spinnaker.clouddriver.orchestration.AtomicOperation;
 import com.netflix.spinnaker.clouddriver.security.AccountCredentialsProvider;
 import org.springframework.beans.factory.annotation.Autowired;
@@ -37,7 +38,6 @@ import java.util.List;
 
 public class ResizeServiceAtomicOperation implements AtomicOperation<Void> {
   private static final String BASE_PHASE = "RESIZE_ECS_SERVER_GROUP";
-  private static final String ecsClusterName = "poc";  // TODO - get the cluster name from the ContainerInformationService, instead of hard-coding
 
   private final ResizeServiceDescription description;
 
@@ -47,6 +47,9 @@ public class ResizeServiceAtomicOperation implements AtomicOperation<Void> {
   @Autowired
   AmazonClientProvider amazonClientProvider;
 
+  @Autowired
+  ContainerInformationService containerInformationService;
+
   public ResizeServiceAtomicOperation(ResizeServiceDescription description) {
     this.description = description;
   }
@@ -54,6 +57,7 @@ public class ResizeServiceAtomicOperation implements AtomicOperation<Void> {
   private static Task getTask() {
     return TaskRepository.threadLocalTask.get();
   }
+
   @Override
   public Void operate(List priorOutputs) {
     updateTaskStatus("Initializing Resize ECS Server Group Operation...");
@@ -69,14 +73,15 @@ public class ResizeServiceAtomicOperation implements AtomicOperation<Void> {
 
     String serviceName = description.getServerGroupName();
     Integer desiredCount = description.getCapacity().getDesired();
+    String clusterName = containerInformationService.getClusterName(serviceName, description.getAccount(), description.getRegion());
 
     UpdateServiceRequest updateServiceRequest = new UpdateServiceRequest()
-      .withCluster(ecsClusterName)
+      .withCluster(clusterName)
       .withService(serviceName)
       .withDesiredCount(desiredCount);
     updateTaskStatus(String.format("Resizing %s to %s instances.", serviceName, desiredCount));
     Service service = amazonECS.updateService(updateServiceRequest).getService();
-    updateTaskStatus(String.format("Done resizing %s to %s", serviceName , desiredCount));
+    updateTaskStatus(String.format("Done resizing %s to %s", serviceName, desiredCount));
     return service;
   }
 
@@ -84,11 +89,12 @@ public class ResizeServiceAtomicOperation implements AtomicOperation<Void> {
     AWSApplicationAutoScaling autoScalingClient = getAmazonApplicationAutoScalingClient();
 
     Integer desiredCount = description.getCapacity().getDesired();
+    String clusterName = containerInformationService.getClusterName(service.getServiceName(), description.getAccount(), description.getRegion());
 
     RegisterScalableTargetRequest request = new RegisterScalableTargetRequest()
       .withServiceNamespace(ServiceNamespace.Ecs)
       .withScalableDimension(ScalableDimension.EcsServiceDesiredCount)
-      .withResourceId(String.format("service/%s/%s", ecsClusterName, service.getServiceName()))
+      .withResourceId(String.format("service/%s/%s", clusterName, service.getServiceName()))
       .withRoleARN(service.getRoleArn())
       .withMinCapacity(0)
       .withMaxCapacity(desiredCount);
