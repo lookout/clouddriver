@@ -73,10 +73,10 @@ public class ResizeServiceAtomicOperation implements AtomicOperation<Void> {
 
     String serviceName = description.getServerGroupName();
     Integer desiredCount = description.getCapacity().getDesired();
-    String clusterName = containerInformationService.getClusterName(serviceName, description.getAccount(), description.getRegion());
+    String ecsClusterName = containerInformationService.getClusterName(serviceName, description.getAccount(), description.getRegion());
 
     UpdateServiceRequest updateServiceRequest = new UpdateServiceRequest()
-      .withCluster(clusterName)
+      .withCluster(ecsClusterName)
       .withService(serviceName)
       .withDesiredCount(desiredCount);
     updateTaskStatus(String.format("Resizing %s to %s instances.", serviceName, desiredCount));
@@ -89,12 +89,12 @@ public class ResizeServiceAtomicOperation implements AtomicOperation<Void> {
     AWSApplicationAutoScaling autoScalingClient = getAmazonApplicationAutoScalingClient();
 
     Integer desiredCount = description.getCapacity().getDesired();
-    String clusterName = containerInformationService.getClusterName(service.getServiceName(), description.getAccount(), description.getRegion());
+    String ecsClusterName = containerInformationService.getClusterName(service.getServiceName(), description.getAccount(), description.getRegion());
 
     RegisterScalableTargetRequest request = new RegisterScalableTargetRequest()
       .withServiceNamespace(ServiceNamespace.Ecs)
       .withScalableDimension(ScalableDimension.EcsServiceDesiredCount)
-      .withResourceId(String.format("service/%s/%s", clusterName, service.getServiceName()))
+      .withResourceId(String.format("service/%s/%s", ecsClusterName, service.getServiceName()))
       .withRoleARN(service.getRoleArn())
       .withMinCapacity(0)
       .withMaxCapacity(desiredCount);

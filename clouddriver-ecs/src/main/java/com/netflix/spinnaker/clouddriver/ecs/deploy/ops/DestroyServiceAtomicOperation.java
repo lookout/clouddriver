@@ -77,7 +77,7 @@ public class DestroyServiceAtomicOperation implements AtomicOperation<Void> {
     AmazonCredentials credentials = (AmazonCredentials) accountCredentialsProvider.getCredentials(description.getCredentialAccount());
     AmazonECS ecs = amazonClientProvider.getAmazonEcs(description.getCredentialAccount(), credentials.getCredentialsProvider(), description.getRegion());
 
-    String clusterName = containerInformationService.getClusterName(description.getServerGroupName(), description.getAccount(), description.getRegion());
+    String ecsClusterName = containerInformationService.getClusterName(description.getServerGroupName(), description.getAccount(), description.getRegion());
 
     getTask().updateStatus(BASE_PHASE, "Removing MetricAlarms from " + description.getServerGroupName() + ".");
     deleteMetrics();
@@ -86,14 +86,14 @@ public class DestroyServiceAtomicOperation implements AtomicOperation<Void> {
     UpdateServiceRequest updateServiceRequest = new UpdateServiceRequest();
     updateServiceRequest.setService(description.getServerGroupName());
     updateServiceRequest.setDesiredCount(0);
-    updateServiceRequest.setCluster(clusterName);
+    updateServiceRequest.setCluster(ecsClusterName);
 
     getTask().updateStatus(BASE_PHASE, "Scaling " + description.getServerGroupName() + " service down to 0.");
     ecs.updateService(updateServiceRequest);
 
     DeleteServiceRequest deleteServiceRequest = new DeleteServiceRequest();
     deleteServiceRequest.setService(description.getServerGroupName());
-    deleteServiceRequest.setCluster(clusterName);
+    deleteServiceRequest.setCluster(ecsClusterName);
 
     getTask().updateStatus(BASE_PHASE, "Deleting " + description.getServerGroupName() + " service.");
     DeleteServiceResult deleteServiceResult = ecs.deleteService(deleteServiceRequest);
