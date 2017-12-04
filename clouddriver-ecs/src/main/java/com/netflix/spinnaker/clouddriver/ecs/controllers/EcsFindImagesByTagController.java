@@ -52,9 +52,9 @@ public class EcsFindImagesByTagController {
   private static final String IDENTIFIER_PATTERN = "(:([a-z0-9._-]+)|@(sha256:[0-9a-f]{64}))";
   private static final Pattern REGION_PATTERN = Pattern.compile("(\\w+-\\w+-\\d+)");
   private static final Pattern REPOSITORY_URI_PATTERN = Pattern.compile(ACCOUNT_ID_PATTERN.toString() + ".+" +
-                                                                        REGION_PATTERN.toString() + ".+" +
-                                                                        REPOSITORY_NAME_PATTERN.toString() +
-                                                                        IDENTIFIER_PATTERN);
+    REGION_PATTERN.toString() + ".+" +
+    REPOSITORY_NAME_PATTERN.toString() +
+    IDENTIFIER_PATTERN);
 
   AmazonClientProvider amazonClientProvider;
 
@@ -62,13 +62,13 @@ public class EcsFindImagesByTagController {
 
   @Autowired
   public EcsFindImagesByTagController(AmazonClientProvider amazonClientProvider,
-                       AccountCredentialsProvider accountCredentialsProvider) {
+                                      AccountCredentialsProvider accountCredentialsProvider) {
     this.amazonClientProvider = amazonClientProvider;
     this.accountCredentialsProvider = accountCredentialsProvider;
   }
 
   private NetflixAmazonCredentials getCredentials(String accountId) {
-    for (AccountCredentials credentials: accountCredentialsProvider.getAll()) {
+    for (AccountCredentials credentials : accountCredentialsProvider.getAll()) {
       if (credentials instanceof NetflixAmazonCredentials) {
         NetflixAmazonCredentials amazonCredentials = (NetflixAmazonCredentials) credentials;
         if (amazonCredentials.getAccountId().equals(accountId)) {
@@ -78,14 +78,17 @@ public class EcsFindImagesByTagController {
     }
 
 
-
     throw new NotFoundException(String.format("AWS account %s was not found.  Please specify a valid account name"));
   }
 
   @RequestMapping(value = "/images/find", method = RequestMethod.GET)
   public Object findImage(@RequestParam("q") String dockerImageUrl, HttpServletRequest request) {
+    // TODO: Make this method repo-generic, to allow support for say DockerHub. Have a method findEcrImage that contains the code below, and a method such as findDockerHubImage for when DockerHub repo is supported.
 
-    if(!dockerImageUrl.contains(".ecr.")){
+    // HTTP(S) part is not needed.
+    dockerImageUrl = dockerImageUrl.replace("http://", "").replace("https://","");
+
+    if (!dockerImageUrl.contains(".ecr.")) {
       throw new Error("The repository URI provided is not an ECR URI. Currently only ECR URIs are supported.");
     }
 
@@ -101,7 +104,7 @@ public class EcsFindImagesByTagController {
     }
     String repository = matcher.group(1);
 
-    final Pattern identifierPatter = Pattern.compile(repository+IDENTIFIER_PATTERN);
+    final Pattern identifierPatter = Pattern.compile(repository + IDENTIFIER_PATTERN);
     matcher = identifierPatter.matcher(dockerImageUrl);
     if (!matcher.find()) {
       throw new Error("The repository URI provided does not contain a proper tag or sha256 digest.");
@@ -122,7 +125,7 @@ public class EcsFindImagesByTagController {
 
     NetflixAmazonCredentials credentials = getCredentials(accountId);
 
-    if(!isValidRegion(credentials, region)){
+    if (!isValidRegion(credentials, region)) {
       throw new Error("The repository URI provided does not belong to a region that the credentials have access to or is not a valid region.");
     }
 
@@ -132,8 +135,8 @@ public class EcsFindImagesByTagController {
     DescribeImagesResult imagesResult = amazonECR.describeImages(new DescribeImagesRequest().withRegistryId(accountId).withRepositoryName(repository).withImageIds(result.getImageIds()));
 
     List<ImageDetail> imagesWithThisIdentifier = imagesResult.getImageDetails().stream()
-      .filter(imageDetail -> isTag ? imageDetail.getImageTags() != null  && imageDetail.getImageTags().contains(identifier): // TODO - what is the user interface we want to have here?  We should discuss with Lars and Ethan from the community as this whole thing will undergo a big refactoring
-                                     imageDetail.getImageDigest().equals(identifier))
+      .filter(imageDetail -> isTag ? imageDetail.getImageTags() != null && imageDetail.getImageTags().contains(identifier) : // TODO - what is the user interface we want to have here?  We should discuss with Lars and Ethan from the community as this whole thing will undergo a big refactoring
+        imageDetail.getImageDigest().equals(identifier))
       .collect(Collectors.toList());
 
     if (imagesWithThisIdentifier.size() > 1) {
