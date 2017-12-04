@@ -23,6 +23,7 @@ import com.amazonaws.services.elasticloadbalancingv2.AmazonElasticLoadBalancing;
 import com.amazonaws.services.elasticloadbalancingv2.model.DescribeTargetHealthRequest;
 import com.amazonaws.services.elasticloadbalancingv2.model.DescribeTargetHealthResult;
 import com.amazonaws.services.elasticloadbalancingv2.model.TargetDescription;
+import com.fasterxml.jackson.databind.ObjectMapper;
 import com.netflix.spinnaker.cats.agent.AgentDataType;
 import com.netflix.spinnaker.cats.cache.CacheData;
 import com.netflix.spinnaker.cats.cache.DefaultCacheData;
@@ -62,13 +63,17 @@ public class TaskHealthCachingAgent extends AbstractEcsCachingAgent<TaskHealth> 
   private final static String HEALTH_ID = "ecs-task-instance-health";
   private final Logger log = LoggerFactory.getLogger(getClass());
 
-
   private Collection<String> taskEvicitions;
   private Collection<String> serviceEvicitions;
   private Collection<String> taskDefEvicitions;
+  private ObjectMapper objectMapper;
 
-  public TaskHealthCachingAgent(String accountName, String region, AmazonClientProvider amazonClientProvider, AWSCredentialsProvider awsCredentialsProvider) {
+  public TaskHealthCachingAgent(String accountName, String region,
+                                AmazonClientProvider amazonClientProvider,
+                                AWSCredentialsProvider awsCredentialsProvider,
+                                ObjectMapper objectMapper) {
     super(accountName, region, amazonClientProvider, awsCredentialsProvider);
+    this.objectMapper = objectMapper;
   }
 
   public static Map<String, Object> convertTaskHealthToAttributes(TaskHealth taskHealth) {
@@ -85,10 +90,11 @@ public class TaskHealthCachingAgent extends AbstractEcsCachingAgent<TaskHealth> 
 
   @Override
   protected List<TaskHealth> getItems(AmazonECS ecs, ProviderCache providerCache) {
+    TaskCacheClient taskCacheClient = new TaskCacheClient(providerCache, objectMapper);
+    ServiceCacheClient serviceCacheClient = new ServiceCacheClient(providerCache, objectMapper);
+
     AmazonElasticLoadBalancing amazonloadBalancing = amazonClientProvider.getAmazonElasticLoadBalancingV2(accountName, awsCredentialsProvider, region);
 
-    TaskCacheClient taskCacheClient = new TaskCacheClient(providerCache);
-    ServiceCacheClient serviceCacheClient = new ServiceCacheClient(providerCache);
     ContainerInstanceCacheClient containerInstanceCacheClient = new ContainerInstanceCacheClient(providerCache);
 
     List<TaskHealth> taskHealthList = new LinkedList<>();

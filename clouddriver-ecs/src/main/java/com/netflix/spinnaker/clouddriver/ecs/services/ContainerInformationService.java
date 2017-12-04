@@ -22,7 +22,6 @@ import com.amazonaws.services.ec2.model.DescribeInstancesRequest;
 import com.amazonaws.services.ec2.model.DescribeInstancesResult;
 import com.amazonaws.services.ec2.model.InstanceStatus;
 import com.amazonaws.services.ecs.model.LoadBalancer;
-import com.netflix.spinnaker.cats.cache.Cache;
 import com.netflix.spinnaker.clouddriver.ecs.cache.Keys;
 import com.netflix.spinnaker.clouddriver.ecs.cache.client.ContainerInstanceCacheClient;
 import com.netflix.spinnaker.clouddriver.ecs.cache.client.ServiceCacheClient;
@@ -32,12 +31,10 @@ import com.netflix.spinnaker.clouddriver.ecs.cache.model.ContainerInstance;
 import com.netflix.spinnaker.clouddriver.ecs.cache.model.Service;
 import com.netflix.spinnaker.clouddriver.ecs.cache.model.Task;
 import com.netflix.spinnaker.clouddriver.ecs.cache.model.TaskHealth;
-import org.apache.commons.lang3.StringUtils;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.stereotype.Component;
 
 import java.util.ArrayList;
-import java.util.Collection;
 import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
@@ -51,11 +48,14 @@ public class ContainerInformationService {
   private final ContainerInstanceCacheClient containerInstanceCacheClient;
 
   @Autowired
-  public ContainerInformationService(Cache cacheView) {
-    this.taskCacheClient = new TaskCacheClient(cacheView);
-    this.serviceCacheClient = new ServiceCacheClient(cacheView);
-    this.taskHealthCacheClient = new TaskHealthCacheClient(cacheView);
-    this.containerInstanceCacheClient = new ContainerInstanceCacheClient(cacheView);
+  public ContainerInformationService(TaskCacheClient taskCacheClient,
+                                     ServiceCacheClient serviceCacheClient,
+                                     TaskHealthCacheClient taskHealthCacheClient,
+                                     ContainerInstanceCacheClient containerInstanceCacheClient) {
+    this.taskCacheClient = taskCacheClient;
+    this.serviceCacheClient = serviceCacheClient;
+    this.taskHealthCacheClient = taskHealthCacheClient;
+    this.containerInstanceCacheClient = containerInstanceCacheClient;
   }
 
 
@@ -178,27 +178,5 @@ public class ContainerInformationService {
       return service.getClusterName();
     }
     return null;
-  }
-
-  public int getLatestServiceVersion(String clusterName, String serviceName, String accountName, String region) {
-    int latestVersion = 0;
-
-    Collection<Service> allServices = serviceCacheClient.getAll();
-    for (Service service : allServices) {
-      if (service == null || service.getClusterName() == null) {
-        continue;
-      }
-      if (service.getClusterName().equals(clusterName) && service.getServiceName().contains(serviceName)) {
-        int currentVersion;
-        try {
-          currentVersion = Integer.parseInt(StringUtils.substringAfterLast(service.getServiceName(), "-").replaceAll("v", ""));
-        } catch (NumberFormatException e) {
-          currentVersion = 0;
-        }
-        latestVersion = Math.max(currentVersion, latestVersion);
-      }
-    }
-
-    return latestVersion;
   }
 }

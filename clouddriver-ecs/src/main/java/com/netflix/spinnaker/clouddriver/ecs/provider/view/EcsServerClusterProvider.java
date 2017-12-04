@@ -33,15 +33,16 @@ import com.amazonaws.services.elasticloadbalancingv2.model.DescribeLoadBalancers
 import com.amazonaws.services.elasticloadbalancingv2.model.DescribeLoadBalancersResult;
 import com.amazonaws.services.elasticloadbalancingv2.model.LoadBalancer;
 import com.google.common.collect.Sets;
-import com.netflix.spinnaker.cats.cache.Cache;
 import com.netflix.spinnaker.clouddriver.aws.model.AmazonLoadBalancer;
 import com.netflix.spinnaker.clouddriver.aws.security.AmazonClientProvider;
 import com.netflix.spinnaker.clouddriver.aws.security.AmazonCredentials;
 import com.netflix.spinnaker.clouddriver.ecs.EcsCloudProvider;
 import com.netflix.spinnaker.clouddriver.ecs.cache.Keys;
+import com.netflix.spinnaker.clouddriver.ecs.cache.client.EcsCloudWatchAlarmCacheClient;
 import com.netflix.spinnaker.clouddriver.ecs.cache.client.ServiceCacheClient;
 import com.netflix.spinnaker.clouddriver.ecs.cache.client.TaskCacheClient;
 import com.netflix.spinnaker.clouddriver.ecs.cache.client.TaskDefinitionCacheClient;
+import com.netflix.spinnaker.clouddriver.ecs.cache.model.EcsMetricAlarm;
 import com.netflix.spinnaker.clouddriver.ecs.cache.model.Service;
 import com.netflix.spinnaker.clouddriver.ecs.cache.model.Task;
 import com.netflix.spinnaker.clouddriver.ecs.model.EcsServerCluster;
@@ -75,18 +76,26 @@ public class EcsServerClusterProvider implements ClusterProvider<EcsServerCluste
   private final TaskCacheClient taskCacheClient;
   private final ServiceCacheClient serviceCacheClient;
   private final TaskDefinitionCacheClient taskDefinitionCacheClient;
+  private final EcsCloudWatchAlarmCacheClient ecsCloudWatchAlarmCacheClient;
   private AccountCredentialsProvider accountCredentialsProvider;
   private AmazonClientProvider amazonClientProvider;
   private ContainerInformationService containerInformationService;
 
   @Autowired
-  public EcsServerClusterProvider(Cache cacheView, AccountCredentialsProvider accountCredentialsProvider, AmazonClientProvider amazonClientProvider, ContainerInformationService containerInformationService) {
+  public EcsServerClusterProvider(AccountCredentialsProvider accountCredentialsProvider,
+                                  AmazonClientProvider amazonClientProvider,
+                                  ContainerInformationService containerInformationService,
+                                  TaskCacheClient taskCacheClient,
+                                  ServiceCacheClient serviceCacheClient,
+                                  TaskDefinitionCacheClient taskDefinitionCacheClient,
+                                  EcsCloudWatchAlarmCacheClient ecsCloudWatchAlarmCacheClient) {
     this.accountCredentialsProvider = accountCredentialsProvider;
     this.amazonClientProvider = amazonClientProvider;
     this.containerInformationService = containerInformationService;
-    this.taskCacheClient = new TaskCacheClient(cacheView);
-    this.serviceCacheClient = new ServiceCacheClient(cacheView);
-    this.taskDefinitionCacheClient = new TaskDefinitionCacheClient(cacheView);
+    this.taskCacheClient = taskCacheClient;
+    this.serviceCacheClient = serviceCacheClient;
+    this.taskDefinitionCacheClient = taskDefinitionCacheClient;
+    this.ecsCloudWatchAlarmCacheClient = ecsCloudWatchAlarmCacheClient;
   }
 
   @Override
@@ -218,8 +227,13 @@ public class EcsServerClusterProvider implements ClusterProvider<EcsServerCluste
         .setTaskName(StringUtils.substringAfterLast(taskDefinition.getTaskDefinitionArn(), "/"))
         .setEnvironmentVariables(containerDefinition.getEnvironment());
 
+      List<EcsMetricAlarm> metricAlarms = ecsCloudWatchAlarmCacheClient.getMetricAlarms(serviceName, credentials.getName(), awsRegion.getName());
+      Set<String> metricAlarmNames = metricAlarms.stream()
+        .map(EcsMetricAlarm::getAlarmName)
+        .collect(Collectors.toSet());
+
       EcsServerGroup ecsServerGroup = generateServerGroup(awsRegion, metadata, instances, capacity, creationTime,
-        clusterName, ecsTaskDefinition, vpcId, securityGroups, target);
+        clusterName, ecsTaskDefinition, vpcId, securityGroups, target, metricAlarmNames);
 
       if (!clusterMap.containsKey(metadata.applicationName)) {
         EcsServerCluster spinnakerCluster = generateSpinnakerServerCluster(credentials, loadBalancers, ecsServerGroup);
@@ -298,7 +312,8 @@ public class EcsServerClusterProvider implements ClusterProvider<EcsServerCluste
                                              TaskDefinition taskDefinition,
                                              String vpcId,
                                              Set<String> securityGroups,
-                                             ScalableTarget scalableTarget) {
+                                             ScalableTarget scalableTarget,
+                                             Set<String> metricAlarms) {
     ServerGroup.InstanceCounts instanceCounts = generateInstanceCount(instances);
 
     EcsServerGroup serverGroup = new EcsServerGroup()
@@ -314,7 +329,8 @@ public class EcsServerClusterProvider implements ClusterProvider<EcsServerCluste
       .setEcsCluster(ecsCluster)
       .setTaskDefinition(taskDefinition)
       .setVpcId(vpcId)
-      .setSecurityGroups(securityGroups);
+      .setSecurityGroups(securityGroups)
+      .setMetricAlarms(metricAlarms);
 
     if (scalableTarget != null) {
       EcsServerGroup.AutoScalingGroup asg = new EcsServerGroup.AutoScalingGroup()

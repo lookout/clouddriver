@@ -22,6 +22,7 @@ import com.amazonaws.services.ecs.model.DescribeTaskDefinitionRequest;
 import com.amazonaws.services.ecs.model.ListTaskDefinitionsRequest;
 import com.amazonaws.services.ecs.model.ListTaskDefinitionsResult;
 import com.amazonaws.services.ecs.model.TaskDefinition;
+import com.fasterxml.jackson.databind.ObjectMapper;
 import com.netflix.spectator.api.Registry;
 import com.netflix.spinnaker.cats.agent.AgentDataType;
 import com.netflix.spinnaker.cats.cache.CacheData;
@@ -29,6 +30,7 @@ import com.netflix.spinnaker.cats.cache.DefaultCacheData;
 import com.netflix.spinnaker.cats.provider.ProviderCache;
 import com.netflix.spinnaker.clouddriver.aws.security.AmazonClientProvider;
 import com.netflix.spinnaker.clouddriver.ecs.cache.Keys;
+import com.netflix.spinnaker.clouddriver.ecs.cache.client.TaskDefinitionCacheClient;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
@@ -36,21 +38,38 @@ import java.util.Arrays;
 import java.util.Collection;
 import java.util.Collections;
 import java.util.HashMap;
+import java.util.HashSet;
 import java.util.LinkedList;
 import java.util.List;
 import java.util.Map;
+import java.util.Set;
+import java.util.stream.Collectors;
 
 import static com.netflix.spinnaker.cats.agent.AgentDataType.Authority.AUTHORITATIVE;
 import static com.netflix.spinnaker.clouddriver.ecs.cache.Keys.Namespace.TASK_DEFINITIONS;
 
 public class TaskDefinitionCachingAgent extends AbstractEcsOnDemandAgent<TaskDefinition> {
-  private  static final Collection<AgentDataType> types = Collections.unmodifiableCollection(Arrays.asList(
+  private static final Collection<AgentDataType> types = Collections.unmodifiableCollection(Arrays.asList(
     AUTHORITATIVE.forType(TASK_DEFINITIONS.toString())
   ));
   private final Logger log = LoggerFactory.getLogger(getClass());
 
-  public TaskDefinitionCachingAgent(String accountName, String region, AmazonClientProvider amazonClientProvider, AWSCredentialsProvider awsCredentialsProvider, Registry registry) {
+  private ObjectMapper objectMapper;
+
+  public TaskDefinitionCachingAgent(String accountName, String region,
+                                    AmazonClientProvider amazonClientProvider,
+                                    AWSCredentialsProvider awsCredentialsProvider,
+                                    Registry registry,
+                                    ObjectMapper objectMapper) {
     super(accountName, region, amazonClientProvider, awsCredentialsProvider, registry);
+    this.objectMapper = objectMapper;
+  }
+
+  public static Map<String, Object> convertTaskDefinitionToAttributes(TaskDefinition taskDefinition) {
+    Map<String, Object> attributes = new HashMap<>();
+    attributes.put("taskDefinitionArn", taskDefinition.getTaskDefinitionArn());
+    attributes.put("containerDefinitions", taskDefinition.getContainerDefinitions());
+    return attributes;
   }
 
   @Override
@@ -66,6 +85,12 @@ public class TaskDefinitionCachingAgent extends AbstractEcsOnDemandAgent<TaskDef
   @Override
   protected List<TaskDefinition> getItems(AmazonECS ecs, ProviderCache providerCache) {
     List<TaskDefinition> taskDefinitionList = new LinkedList<>();
+    Set<String> cachedArns = providerCache.getIdentifiers(TASK_DEFINITIONS.toString()).stream()
+      .map(id -> {
+        Map<String, String> keyParts = Keys.parse(id);
+        return keyParts.get("taskDefinitionArn");
+      })
+      .collect(Collectors.toSet());
 
     String nextToken = null;
     do {
@@ -75,18 +100,45 @@ public class TaskDefinitionCachingAgent extends AbstractEcsOnDemandAgent<TaskDef
       }
       ListTaskDefinitionsResult listTaskDefinitionsResult = ecs.listTaskDefinitions(listTasksRequest);
       List<String> taskDefinitionArns = listTaskDefinitionsResult.getTaskDefinitionArns();
+
       if (taskDefinitionArns.size() == 0) {
         continue;
       }
-      for (String taskDefintionArn : taskDefinitionArns) {
-        TaskDefinition taskDefinition = ecs.describeTaskDefinition(new DescribeTaskDefinitionRequest().withTaskDefinition(taskDefintionArn)).getTaskDefinition();
+
+      Set<String> newTaskDefArns = new HashSet<>(taskDefinitionArns);
+      newTaskDefArns.removeAll(cachedArns);
+
+      Set<String> existingTaskDefArns = new HashSet<>(taskDefinitionArns);
+      existingTaskDefArns.removeAll(newTaskDefArns);
+
+      if (!existingTaskDefArns.isEmpty()) {
+        // TaskDefinitions are immutable, there's no reason to make a describe call on existing ones.
+        taskDefinitionList.addAll(retrieveFromCache(existingTaskDefArns, providerCache));
+      }
+
+      for (String taskDefinitionArn : newTaskDefArns) {
+        TaskDefinition taskDefinition = ecs.describeTaskDefinition(new DescribeTaskDefinitionRequest()
+          .withTaskDefinition(taskDefinitionArn)).getTaskDefinition();
         taskDefinitionList.add(taskDefinition);
       }
+
       nextToken = listTaskDefinitionsResult.getNextToken();
     } while (nextToken != null && nextToken.length() != 0);
     return taskDefinitionList;
   }
 
+  private Set<TaskDefinition> retrieveFromCache(Set<String> taskDefArns, ProviderCache providerCache) {
+    TaskDefinitionCacheClient taskDefinitionCacheClient = new TaskDefinitionCacheClient(providerCache, objectMapper);
+    Set<TaskDefinition> taskDefs = new HashSet<>();
+
+    for (String taskDefArn : taskDefArns) {
+      String key = Keys.getTaskDefinitionKey(accountName, region, taskDefArn);
+      TaskDefinition taskDefinition = taskDefinitionCacheClient.get(key);
+      taskDefs.add(taskDefinition);
+    }
+
+    return taskDefs;
+  }
 
   @Override
   protected Map<String, Collection<CacheData>> generateFreshData(Collection<TaskDefinition> taskDefinitions) {
@@ -103,12 +155,5 @@ public class TaskDefinitionCachingAgent extends AbstractEcsOnDemandAgent<TaskDef
     dataMap.put(TASK_DEFINITIONS.toString(), dataPoints);
 
     return dataMap;
-  }
-
-  public static Map<String, Object> convertTaskDefinitionToAttributes(TaskDefinition taskDefinition){
-    Map<String, Object> attributes = new HashMap<>();
-    attributes.put("taskDefinitionArn", taskDefinition.getTaskDefinitionArn());
-    attributes.put("containerDefinitions", taskDefinition.getContainerDefinitions());
-    return  attributes;
   }
 }

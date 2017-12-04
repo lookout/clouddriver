@@ -16,17 +16,28 @@
 
 package com.netflix.spinnaker.clouddriver.ecs.deploy.ops;
 
-import com.amazonaws.auth.AWSCredentials;
 import com.amazonaws.auth.AWSCredentialsProvider;
 import com.amazonaws.services.applicationautoscaling.AWSApplicationAutoScaling;
+import com.amazonaws.services.applicationautoscaling.model.DescribeScalingPoliciesRequest;
+import com.amazonaws.services.applicationautoscaling.model.DescribeScalingPoliciesResult;
+import com.amazonaws.services.applicationautoscaling.model.PutScalingPolicyRequest;
+import com.amazonaws.services.applicationautoscaling.model.PutScalingPolicyResult;
 import com.amazonaws.services.applicationautoscaling.model.RegisterScalableTargetRequest;
 import com.amazonaws.services.applicationautoscaling.model.ScalableDimension;
+import com.amazonaws.services.applicationautoscaling.model.ScalingPolicy;
 import com.amazonaws.services.applicationautoscaling.model.ServiceNamespace;
+import com.amazonaws.services.cloudwatch.AmazonCloudWatch;
+import com.amazonaws.services.cloudwatch.model.DescribeAlarmsRequest;
+import com.amazonaws.services.cloudwatch.model.DescribeAlarmsResult;
+import com.amazonaws.services.cloudwatch.model.MetricAlarm;
+import com.amazonaws.services.cloudwatch.model.PutMetricAlarmRequest;
 import com.amazonaws.services.ecs.AmazonECS;
 import com.amazonaws.services.ecs.model.ContainerDefinition;
 import com.amazonaws.services.ecs.model.CreateServiceRequest;
 import com.amazonaws.services.ecs.model.DeploymentConfiguration;
 import com.amazonaws.services.ecs.model.KeyValuePair;
+import com.amazonaws.services.ecs.model.ListServicesRequest;
+import com.amazonaws.services.ecs.model.ListServicesResult;
 import com.amazonaws.services.ecs.model.LoadBalancer;
 import com.amazonaws.services.ecs.model.PortMapping;
 import com.amazonaws.services.ecs.model.RegisterTaskDefinitionRequest;
@@ -44,17 +55,21 @@ import com.netflix.spinnaker.clouddriver.data.task.Task;
 import com.netflix.spinnaker.clouddriver.data.task.TaskRepository;
 import com.netflix.spinnaker.clouddriver.deploy.DeploymentResult;
 import com.netflix.spinnaker.clouddriver.ecs.deploy.description.CreateServerGroupDescription;
-import com.netflix.spinnaker.clouddriver.ecs.services.ContainerInformationService;
 import com.netflix.spinnaker.clouddriver.orchestration.AtomicOperation;
 import com.netflix.spinnaker.clouddriver.security.AccountCredentialsProvider;
+import org.apache.commons.lang3.StringUtils;
 import org.springframework.beans.factory.annotation.Autowired;
 
 import java.util.Arrays;
 import java.util.Collection;
+import java.util.Collections;
 import java.util.HashMap;
+import java.util.HashSet;
 import java.util.LinkedList;
 import java.util.List;
 import java.util.Map;
+import java.util.Set;
+import java.util.stream.Collectors;
 
 public class CreateServerGroupAtomicOperation implements AtomicOperation<DeploymentResult> {
   private static final String BASE_PHASE = "CREATE_ECS_SERVER_GROUP";
@@ -65,8 +80,6 @@ public class CreateServerGroupAtomicOperation implements AtomicOperation<Deploym
   AmazonClientProvider amazonClientProvider;
   @Autowired
   AccountCredentialsProvider accountCredentialsProvider;
-  @Autowired
-  ContainerInformationService containerInformationService;
 
   public CreateServerGroupAtomicOperation(CreateServerGroupDescription description) {
     this.description = description;
@@ -84,27 +97,134 @@ public class CreateServerGroupAtomicOperation implements AtomicOperation<Deploym
     String credentialAccount = description.getCredentialAccount();
     AmazonCredentials credentials = getCredentials();
     AWSApplicationAutoScaling autoScalingClient = getAmazonApplicationAutoScalingClient();
+    AmazonCloudWatch cloudWatch = getAmazonCloudWatchClient();
 
 
     AmazonECS ecs = getAmazonEcsClient(region, credentialAccount);
 
+    String serverGroupVersion = inferNextServerGroupVersion(ecs);
+
     updateTaskStatus("Creating Amazon ECS Task Definition...");
-    TaskDefinition taskDefinition = registerTaskDefinition(ecs);
+    TaskDefinition taskDefinition = registerTaskDefinition(ecs, serverGroupVersion);
     updateTaskStatus("Done creating Amazon ECS Task Definition...");
 
     String ecsServiceRole = inferAssumedRoleArn(credentials);
-    Service service = createService(ecs, taskDefinition, ecsServiceRole);
+    Service service = createService(ecs, taskDefinition, ecsServiceRole, serverGroupVersion);
 
-    createAutoScalingGroup(autoScalingClient, credentials, service);
+    String resourceId = createAutoScalingGroup(autoScalingClient, credentials, service);
+    associateAsgWithMetrics(cloudWatch, autoScalingClient, service.getServiceName(), resourceId);
 
     return makeDeploymentResult(service);
   }
 
-  private TaskDefinition registerTaskDefinition(AmazonECS ecs) {
-    String serverGroupVersion = inferNextServerGroupVersion();
+  private void associateAsgWithMetrics(AmazonCloudWatch cloudWatch,
+                                       AWSApplicationAutoScaling autoScalingClient,
+                                       String serviceName,
+                                       String resourceId) {
+    DescribeAlarmsRequest describeAlarmsRequest = new DescribeAlarmsRequest()
+      .withAlarmNames(description.getAutoscalingPolicies().stream()
+        .map(MetricAlarm::getAlarmName)
+        .collect(Collectors.toList()));
+    DescribeAlarmsResult describeAlarmsResult = cloudWatch.describeAlarms(describeAlarmsRequest);
+
+    for (MetricAlarm metricAlarm : describeAlarmsResult.getMetricAlarms()) {
+      Set<String> okScalingPolicyArns = putScalingPolicies(autoScalingClient, metricAlarm.getOKActions(),
+        serviceName, resourceId, "ok", "scaling-policy-" + metricAlarm.getAlarmName());
+      Set<String> alarmScalingPolicyArns = putScalingPolicies(autoScalingClient, metricAlarm.getAlarmActions(),
+        serviceName, resourceId, "alarm", "scaling-policy-" + metricAlarm.getAlarmName());
+      Set<String> insufficientActionPolicyArns = putScalingPolicies(autoScalingClient, metricAlarm.getInsufficientDataActions(),
+        serviceName, resourceId, "insuffiicient", "scaling-policy-" + metricAlarm.getAlarmName());
+
+      cloudWatch.putMetricAlarm(buildPutMetricAlarmRequest(metricAlarm, serviceName,
+        insufficientActionPolicyArns, okScalingPolicyArns, alarmScalingPolicyArns));
+    }
+  }
+
+  private Set<String> putScalingPolicies(AWSApplicationAutoScaling autoScalingClient,
+                                         List<String> actionArns,
+                                         String serviceName,
+                                         String resourceId,
+                                         String type,
+                                         String suffix) {
+    if (actionArns.isEmpty()) {
+      return Collections.emptySet();
+    }
+
+    Set<ScalingPolicy> scalingPolicies = new HashSet<>();
+
+    String nextToken = null;
+    do {
+      DescribeScalingPoliciesRequest request = new DescribeScalingPoliciesRequest().withPolicyNames(actionArns.stream()
+        .map(arn -> StringUtils.substringAfterLast(arn, ":policyName/"))
+        .collect(Collectors.toSet()))
+        .withServiceNamespace(ServiceNamespace.Ecs);
+      if (nextToken != null) {
+        request.setNextToken(nextToken);
+      }
+
+      DescribeScalingPoliciesResult result = autoScalingClient.describeScalingPolicies(request);
+      scalingPolicies.addAll(result.getScalingPolicies());
+
+      nextToken = result.getNextToken();
+    } while (nextToken != null && nextToken.length() != 0);
+
+    Set<String> policyArns = new HashSet<>();
+    for (ScalingPolicy scalingPolicy : scalingPolicies) {
+      String newPolicyName = serviceName + "-" + type + "-" + suffix;
+      ScalingPolicy clone = scalingPolicy.clone();
+      clone.setPolicyName(newPolicyName);
+      clone.setResourceId(resourceId);
+
+      updateTaskStatus("Putting Scaling Policy with the name " + newPolicyName);
+      PutScalingPolicyResult result = autoScalingClient.putScalingPolicy(buildPutScalingPolicyRequest(clone));
+      updateTaskStatus("Done putting Scaling Policy with the name " + newPolicyName);
+      policyArns.add(result.getPolicyARN());
+    }
+
+    return policyArns;
+  }
+
+  private PutScalingPolicyRequest buildPutScalingPolicyRequest(ScalingPolicy policy) {
+    return new PutScalingPolicyRequest()
+      .withPolicyName(policy.getPolicyName())
+      .withServiceNamespace(policy.getServiceNamespace())
+      .withPolicyType(policy.getPolicyType())
+      .withResourceId(policy.getResourceId())
+      .withScalableDimension(policy.getScalableDimension())
+      .withStepScalingPolicyConfiguration(policy.getStepScalingPolicyConfiguration())
+      .withTargetTrackingScalingPolicyConfiguration(policy.getTargetTrackingScalingPolicyConfiguration());
+  }
+
+  private PutMetricAlarmRequest buildPutMetricAlarmRequest(MetricAlarm metricAlarm,
+                                                           String serviceName,
+                                                           Set<String> insufficientActionPolicyArns,
+                                                           Set<String> okActionPolicyArns,
+                                                           Set<String> alarmActionPolicyArns) {
+    return new PutMetricAlarmRequest()
+      .withAlarmName(metricAlarm.getAlarmName() + "-" + serviceName)
+      .withEvaluationPeriods(metricAlarm.getEvaluationPeriods())
+      .withThreshold(metricAlarm.getThreshold())
+      .withActionsEnabled(metricAlarm.getActionsEnabled())
+      .withAlarmDescription(metricAlarm.getAlarmDescription())
+      .withComparisonOperator(metricAlarm.getComparisonOperator())
+      .withDimensions(metricAlarm.getDimensions())
+      .withMetricName(metricAlarm.getMetricName())
+      .withUnit(metricAlarm.getUnit())
+      .withPeriod(metricAlarm.getPeriod())
+      .withNamespace(metricAlarm.getNamespace())
+      .withStatistic(metricAlarm.getStatistic())
+      .withEvaluateLowSampleCountPercentile(metricAlarm.getEvaluateLowSampleCountPercentile())
+      .withTreatMissingData(metricAlarm.getTreatMissingData())
+      .withExtendedStatistic(metricAlarm.getExtendedStatistic())
+      .withInsufficientDataActions(insufficientActionPolicyArns)
+      .withOKActions(okActionPolicyArns)
+      .withAlarmActions(alarmActionPolicyArns);
+  }
+
+  private TaskDefinition registerTaskDefinition(AmazonECS ecs, String version) {
 
     Collection<KeyValuePair> containerEnvironment = new LinkedList<>();
-    containerEnvironment.add(new KeyValuePair().withName("SERVER_GROUP").withValue(serverGroupVersion));
+    containerEnvironment.add(new KeyValuePair().withName("SERVER_GROUP").withValue(version));
     containerEnvironment.add(new KeyValuePair().withName("CLOUD_STACK").withValue(description.getStack()));
     containerEnvironment.add(new KeyValuePair().withName("CLOUD_DETAIL").withValue(description.getFreeFormDetails()));
 
@@ -117,7 +237,7 @@ public class CreateServerGroupAtomicOperation implements AtomicOperation<Deploym
     portMappings.add(portMapping);
 
     ContainerDefinition containerDefinition = new ContainerDefinition()
-      .withName(serverGroupVersion)
+      .withName(version)
       .withEnvironment(containerEnvironment)
       .withPortMappings(portMappings)
       .withCpu(description.getComputeUnits())
@@ -137,10 +257,10 @@ public class CreateServerGroupAtomicOperation implements AtomicOperation<Deploym
     return registerTaskDefinitionResult.getTaskDefinition();
   }
 
-  private Service createService(AmazonECS ecs, TaskDefinition taskDefinition, String ecsServiceRole) {
-    String serviceName = getNextServiceName();
+  private Service createService(AmazonECS ecs, TaskDefinition taskDefinition, String ecsServiceRole, String version) {
+    String serviceName = getNextServiceName(version);
     Collection<LoadBalancer> loadBalancers = new LinkedList<>();
-    loadBalancers.add(retrieveLoadBalancer());
+    loadBalancers.add(retrieveLoadBalancer(version));
 
     Integer desiredCapacity = getDesiredCapacity();
     String taskDefinitionArn = taskDefinition.getTaskDefinitionArn();
@@ -156,6 +276,7 @@ public class CreateServerGroupAtomicOperation implements AtomicOperation<Deploym
       .withRole(ecsServiceRole)
       .withLoadBalancers(loadBalancers)
       .withTaskDefinition(taskDefinitionArn)
+      .withPlacementStrategy(description.getPlacementStrategySequence())
       .withDeploymentConfiguration(deploymentConfiguration);
 
     updateTaskStatus(String.format("Creating %s of %s with %s for %s.",
@@ -169,9 +290,9 @@ public class CreateServerGroupAtomicOperation implements AtomicOperation<Deploym
     return service;
   }
 
-  private void createAutoScalingGroup(AWSApplicationAutoScaling autoScalingClient,
-                                      AmazonCredentials credentials,
-                                      Service service) {
+  private String createAutoScalingGroup(AWSApplicationAutoScaling autoScalingClient,
+                                        AmazonCredentials credentials,
+                                        Service service) {
     String assumedRoleArn = inferAssumedRoleArn(credentials);
 
     RegisterScalableTargetRequest request = new RegisterScalableTargetRequest()
@@ -185,6 +306,8 @@ public class CreateServerGroupAtomicOperation implements AtomicOperation<Deploym
     updateTaskStatus("Creating Amazon Application Auto Scaling Scalable Target Definition...");
     autoScalingClient.registerScalableTarget(request);
     updateTaskStatus("Done creating Amazon Application Auto Scaling Scalable Target Definition.");
+
+    return request.getResourceId();
   }
 
   private String inferAssumedRoleArn(AmazonCredentials credentials) {
@@ -214,13 +337,12 @@ public class CreateServerGroupAtomicOperation implements AtomicOperation<Deploym
     return result;
   }
 
-  private LoadBalancer retrieveLoadBalancer() {
+  private LoadBalancer retrieveLoadBalancer(String version) {
     AmazonCredentials credentials = getCredentials();
     String region = getRegion();
-    String versionString = inferNextServerGroupVersion();
 
     LoadBalancer loadBalancer = new LoadBalancer();
-    loadBalancer.setContainerName(versionString);
+    loadBalancer.setContainerName(version);
     loadBalancer.setContainerPort(description.getContainerPort());
 
     if (description.getTargetGroup() != null) {
@@ -242,6 +364,14 @@ public class CreateServerGroupAtomicOperation implements AtomicOperation<Deploym
     String credentialAccount = description.getCredentialAccount();
 
     return amazonClientProvider.getAmazonApplicationAutoScaling(credentialAccount, credentialsProvider, region);
+  }
+
+  private AmazonCloudWatch getAmazonCloudWatchClient() {
+    AWSCredentialsProvider credentialsProvider = getCredentials().getCredentialsProvider();
+    String region = getRegion();
+    String credentialAccount = description.getCredentialAccount();
+
+    return amazonClientProvider.getAmazonCloudWatch(credentialAccount, credentialsProvider, region);
   }
 
   private AmazonECS getAmazonEcsClient(String region, String account) {
@@ -267,9 +397,8 @@ public class CreateServerGroupAtomicOperation implements AtomicOperation<Deploym
     return description.getCapacity().getDesired();
   }
 
-  private String getNextServiceName() {
+  private String getNextServiceName(String versionString) {
     String familyName = getFamilyName();
-    String versionString = inferNextServerGroupVersion();
     return familyName + "-" + versionString;
   }
 
@@ -285,9 +414,33 @@ public class CreateServerGroupAtomicOperation implements AtomicOperation<Deploym
     }
   }
 
-  private String inferNextServerGroupVersion() {
-    int version = containerInformationService.getLatestServiceVersion(description.getEcsClusterName(), getFamilyName(), description.getCredentialAccount(), description.getRegion());
-    return String.format("v%04d", (version+ 1));
+  private String inferNextServerGroupVersion(AmazonECS ecs) {
+    int latestVersion = 0;
+
+    String nextToken = null;
+    do {
+      ListServicesRequest request = new ListServicesRequest().withCluster(description.getEcsClusterName());
+      if (nextToken != null) {
+        request.setNextToken(nextToken);
+      }
+
+      ListServicesResult result = ecs.listServices(request);
+      for (String serviceArn : result.getServiceArns()) {
+        if (serviceArn.contains(getFamilyName())) {
+          int currentVersion;
+          try {
+            currentVersion = Integer.parseInt(StringUtils.substringAfterLast(serviceArn, "-").replaceAll("v", ""));
+          } catch (NumberFormatException e) {
+            currentVersion = 0;
+          }
+          latestVersion = Math.max(currentVersion, latestVersion);
+        }
+      }
+
+      nextToken = result.getNextToken();
+    } while (nextToken != null && nextToken.length() != 0);
+
+    return String.format("v%04d", (latestVersion + 1));
   }
 
   private String getFamilyName() {

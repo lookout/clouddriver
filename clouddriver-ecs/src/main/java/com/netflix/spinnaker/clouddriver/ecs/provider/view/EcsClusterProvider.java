@@ -37,12 +37,8 @@ public class EcsClusterProvider {
     this.ecsClusterCacheClient = new EcsClusterCacheClient(cacheView);
   }
 
-  public List<String> getEcsClusters(String account, String region) {
-    Collection<EcsCluster> ecsClusters = ecsClusterCacheClient.getAll(account, region);
-
-    return ecsClusters.stream()
-      .map(ecsCluster -> ecsCluster.getName())
-      .collect(Collectors.toList());
+  public Collection<EcsCluster> getAllEcsClusters() {
+    return ecsClusterCacheClient.getAll();
   }
 
 }
