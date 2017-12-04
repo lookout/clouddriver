@@ -16,29 +16,29 @@
 
 package com.netflix.spinnaker.clouddriver.ecs.provider.view;
 
-import com.netflix.spinnaker.cats.cache.Cache;
-import com.netflix.spinnaker.clouddriver.ecs.cache.client.EcsClusterCacheClient;
-import com.netflix.spinnaker.clouddriver.ecs.cache.model.EcsCluster;
+import com.netflix.spinnaker.clouddriver.ecs.EcsCloudProvider;
+import com.netflix.spinnaker.clouddriver.ecs.cache.client.EcsCloudWatchAlarmCacheClient;
+import com.netflix.spinnaker.clouddriver.ecs.cache.model.EcsMetricAlarm;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.stereotype.Component;
 
 import java.util.Collection;
-import java.util.Collections;
-import java.util.List;
-import java.util.stream.Collectors;
 
 @Component
-public class EcsClusterProvider {
+public class EcsCloudMetricProvider {
 
-  private EcsClusterCacheClient ecsClusterCacheClient;
+  private final EcsCloudWatchAlarmCacheClient cacheClient;
 
   @Autowired
-  public EcsClusterProvider(Cache cacheView) {
-    this.ecsClusterCacheClient = new EcsClusterCacheClient(cacheView);
+  public EcsCloudMetricProvider(EcsCloudWatchAlarmCacheClient cacheClient) {
+    this.cacheClient = cacheClient;
   }
 
-  public Collection<EcsCluster> getAllEcsClusters() {
-    return ecsClusterCacheClient.getAll();
+  public String getCloudProvider() {
+    return EcsCloudProvider.ID;
   }
 
+  public Collection<EcsMetricAlarm> getAllMetricAlarms() {
+    return cacheClient.getAll();
+  }
 }

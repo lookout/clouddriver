@@ -16,30 +16,27 @@
 
 package com.netflix.spinnaker.clouddriver.ecs.controllers;
 
-import com.netflix.spinnaker.clouddriver.ecs.cache.model.EcsCluster;
-import com.netflix.spinnaker.clouddriver.ecs.provider.view.EcsClusterProvider;
+import com.netflix.spinnaker.clouddriver.ecs.cache.model.EcsMetricAlarm;
+import com.netflix.spinnaker.clouddriver.ecs.provider.view.EcsCloudMetricProvider;
 import org.springframework.beans.factory.annotation.Autowired;
-import org.springframework.web.bind.annotation.PathVariable;
 import org.springframework.web.bind.annotation.RequestMapping;
 import org.springframework.web.bind.annotation.RestController;
 
 import java.util.Collection;
-import java.util.List;
 
 @RestController
-public class EcsClusterController {
-
-  EcsClusterProvider ecsClusterProvider;
+@RequestMapping("/ecs/cloudmetrics")
+public class EcsCloudMetricController {
+  private final EcsCloudMetricProvider provider;
 
   @Autowired
-  public EcsClusterController(EcsClusterProvider ecsClusterProvider) {
-    this.ecsClusterProvider = ecsClusterProvider;
+  public EcsCloudMetricController(EcsCloudMetricProvider provider) {
+    this.provider = provider;
   }
 
 
-  @RequestMapping(value = {"/ecs/ecsclusters"})
-  public Collection<EcsCluster> getAllEcsClusters() {
-    return ecsClusterProvider.getAllEcsClusters();
+  @RequestMapping(value = {"/alarms"})
+  public Collection<EcsMetricAlarm> findAllMetricAlarms() {
+    return provider.getAllMetricAlarms();
   }
-
 }

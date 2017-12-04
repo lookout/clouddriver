@@ -48,6 +48,7 @@ public class EcsServerGroup implements ServerGroup {
   TaskDefinition taskDefinition;
   String vpcId;
   AutoScalingGroup asg;
+  Set<String> metricAlarms;
 
   @Override
   public Boolean isDisabled() {
