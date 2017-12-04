@@ -18,7 +18,6 @@ package com.netflix.spinnaker.clouddriver.ecs.view;
 
 
 import com.google.common.collect.Sets;
-import com.netflix.spinnaker.cats.cache.Cache;
 import com.netflix.spinnaker.clouddriver.aws.security.AmazonCredentials;
 import com.netflix.spinnaker.clouddriver.ecs.cache.client.ServiceCacheClient;
 import com.netflix.spinnaker.clouddriver.ecs.cache.model.Service;
@@ -28,6 +27,7 @@ import com.netflix.spinnaker.clouddriver.model.ApplicationProvider;
 import com.netflix.spinnaker.clouddriver.security.AccountCredentials;
 import com.netflix.spinnaker.clouddriver.security.AccountCredentialsProvider;
 import org.springframework.beans.factory.annotation.Autowired;
+import org.springframework.beans.factory.annotation.Qualifier;
 import org.springframework.stereotype.Component;
 
 import java.util.Collection;
@@ -35,7 +35,6 @@ import java.util.HashMap;
 import java.util.HashSet;
 import java.util.Map;
 import java.util.Set;
-import java.util.stream.Collectors;
 
 @Component
 public class EcsApplicationProvider implements ApplicationProvider {
@@ -44,9 +43,9 @@ public class EcsApplicationProvider implements ApplicationProvider {
   private AccountCredentialsProvider accountCredentialsProvider;
 
   @Autowired
-  public EcsApplicationProvider(Cache cacheView, AccountCredentialsProvider accountCredentialsProvider) {
+  public EcsApplicationProvider(AccountCredentialsProvider accountCredentialsProvider, ServiceCacheClient serviceCacheClient) {
     this.accountCredentialsProvider = accountCredentialsProvider;
-    this.serviceCacheClient = new ServiceCacheClient(cacheView);
+    this.serviceCacheClient = serviceCacheClient;
   }
 
 

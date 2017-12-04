@@ -23,7 +23,6 @@ import com.amazonaws.services.applicationautoscaling.model.DescribeScalableTarge
 import com.amazonaws.services.applicationautoscaling.model.ScalableDimension;
 import com.amazonaws.services.applicationautoscaling.model.ScalableTarget;
 import com.amazonaws.services.applicationautoscaling.model.ServiceNamespace;
-import com.amazonaws.services.cloudwatch.model.MetricAlarm;
 import com.amazonaws.services.ec2.AmazonEC2;
 import com.amazonaws.services.ec2.model.DescribeInstancesRequest;
 import com.amazonaws.services.ec2.model.GroupIdentifier;
@@ -34,7 +33,6 @@ import com.amazonaws.services.elasticloadbalancingv2.model.DescribeLoadBalancers
 import com.amazonaws.services.elasticloadbalancingv2.model.DescribeLoadBalancersResult;
 import com.amazonaws.services.elasticloadbalancingv2.model.LoadBalancer;
 import com.google.common.collect.Sets;
-import com.netflix.spinnaker.cats.cache.Cache;
 import com.netflix.spinnaker.clouddriver.aws.model.AmazonLoadBalancer;
 import com.netflix.spinnaker.clouddriver.aws.security.AmazonClientProvider;
 import com.netflix.spinnaker.clouddriver.aws.security.AmazonCredentials;
@@ -51,7 +49,6 @@ import com.netflix.spinnaker.clouddriver.ecs.model.EcsServerCluster;
 import com.netflix.spinnaker.clouddriver.ecs.model.EcsServerGroup;
 import com.netflix.spinnaker.clouddriver.ecs.model.EcsTask;
 import com.netflix.spinnaker.clouddriver.ecs.model.TaskDefinition;
-import com.netflix.spinnaker.clouddriver.ecs.provider.agent.EcsCloudMetricAlarmCachingAgent;
 import com.netflix.spinnaker.clouddriver.ecs.services.ContainerInformationService;
 import com.netflix.spinnaker.clouddriver.model.ClusterProvider;
 import com.netflix.spinnaker.clouddriver.model.Instance;
@@ -85,14 +82,20 @@ public class EcsServerClusterProvider implements ClusterProvider<EcsServerCluste
   private ContainerInformationService containerInformationService;
 
   @Autowired
-  public EcsServerClusterProvider(Cache cacheView, AccountCredentialsProvider accountCredentialsProvider, AmazonClientProvider amazonClientProvider, ContainerInformationService containerInformationService) {
+  public EcsServerClusterProvider(AccountCredentialsProvider accountCredentialsProvider,
+                                  AmazonClientProvider amazonClientProvider,
+                                  ContainerInformationService containerInformationService,
+                                  TaskCacheClient taskCacheClient,
+                                  ServiceCacheClient serviceCacheClient,
+                                  TaskDefinitionCacheClient taskDefinitionCacheClient,
+                                  EcsCloudWatchAlarmCacheClient ecsCloudWatchAlarmCacheClient) {
     this.accountCredentialsProvider = accountCredentialsProvider;
     this.amazonClientProvider = amazonClientProvider;
     this.containerInformationService = containerInformationService;
-    this.taskCacheClient = new TaskCacheClient(cacheView);
-    this.serviceCacheClient = new ServiceCacheClient(cacheView);
-    this.taskDefinitionCacheClient = new TaskDefinitionCacheClient(cacheView);
-    this.ecsCloudWatchAlarmCacheClient = new EcsCloudWatchAlarmCacheClient(cacheView);
+    this.taskCacheClient = taskCacheClient;
+    this.serviceCacheClient = serviceCacheClient;
+    this.taskDefinitionCacheClient = taskDefinitionCacheClient;
+    this.ecsCloudWatchAlarmCacheClient = ecsCloudWatchAlarmCacheClient;
   }
 
   @Override
