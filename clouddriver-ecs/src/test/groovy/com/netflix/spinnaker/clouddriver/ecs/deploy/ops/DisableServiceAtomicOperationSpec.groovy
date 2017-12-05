@@ -16,23 +16,35 @@
 
 package com.netflix.spinnaker.clouddriver.ecs.deploy.ops
 
+import com.amazonaws.services.ecs.AmazonECS
+import com.netflix.spinnaker.clouddriver.aws.security.AmazonClientProvider
+import com.netflix.spinnaker.clouddriver.ecs.TestCredential
 import com.netflix.spinnaker.clouddriver.ecs.deploy.description.DisableServiceDescription
+import com.netflix.spinnaker.clouddriver.ecs.services.ContainerInformationService
+import com.netflix.spinnaker.clouddriver.security.AccountCredentialsProvider
 import spock.lang.Specification
 
 class DisableServiceAtomicOperationSpec extends Specification {
 
+  def amazonClientProvider = Mock(AmazonClientProvider)
+  def accountCredentialsProvider = Mock(AccountCredentialsProvider)
+  def containerInformationService = Mock(ContainerInformationService)
+  def ecs = Mock(AmazonECS)
+
   void 'should execute the operation'() {
     given:
-    def description = new DisableServiceDescription(
-      serverGroupName: "test-server-group"
-    )
-    def operation = new DisableServiceAtomicOperation(description)
+    amazonClientProvider.getAmazonEcs(_, _, _) >> ecs
+    containerInformationService.getClusterName(_, _, _) >> 'cluster-name'
+
+    def operation = new DisableServiceAtomicOperation(new DisableServiceDescription(
+      serverGroupName: "test-server-group",
+      credentials: TestCredential.named('Test', [:])
+    ))
 
     when:
     operation.operate([])
 
     then:
-    //TODO: Implement a proper `then`
-    true
+    1 * ecs.updateService(_)
   }
 }
