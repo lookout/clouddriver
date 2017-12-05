@@ -32,7 +32,7 @@ import java.util.LinkedList;
 import java.util.List;
 import java.util.Map;
 
-abstract class AbstractEcsOnDemandAgent<T> extends  AbstractEcsCachingAgent<T> implements OnDemandAgent {
+abstract class AbstractEcsOnDemandAgent<T> extends AbstractEcsCachingAgent<T> implements OnDemandAgent {
   final OnDemandMetricsSupport metricsSupport;
 
   AbstractEcsOnDemandAgent(String accountName, String region, AmazonClientProvider amazonClientProvider, AWSCredentialsProvider awsCredentialsProvider, Registry registry) {
