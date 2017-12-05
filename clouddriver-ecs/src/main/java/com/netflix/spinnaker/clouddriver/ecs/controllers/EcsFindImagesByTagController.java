@@ -86,7 +86,7 @@ public class EcsFindImagesByTagController {
     // TODO: Make this method repo-generic, to allow support for say DockerHub. Have a method findEcrImage that contains the code below, and a method such as findDockerHubImage for when DockerHub repo is supported.
 
     // HTTP(S) part is not needed.
-    dockerImageUrl = dockerImageUrl.replace("http://", "").replace("https://","");
+    dockerImageUrl = dockerImageUrl.replace("http://", "").replace("https://", "");
 
     if (!dockerImageUrl.contains(".ecr.")) {
       throw new Error("The repository URI provided is not an ECR URI. Currently only ECR URIs are supported.");
@@ -149,16 +149,22 @@ public class EcsFindImagesByTagController {
     ImageDetail matchedImage = imagesWithThisIdentifier.get(0);
 
     List<Map<String, Object>> responseBody = new ArrayList<>();
+
     Map<String, Object> map = new HashMap<>();
+    map.put("region", region);
+
     map.put("imageName", buildFullDockerImageUrl(matchedImage.getImageDigest(),
       matchedImage.getRegistryId(),
       matchedImage.getRepositoryName(),
       region));
-    map.put("region", region);
 
     Map<String, List<String>> amis = new HashMap<>();
     amis.put(region, Arrays.asList(matchedImage.getImageDigest()));
     map.put("amis", amis);
+
+    Map<String, Object> attributes = new HashMap<>();
+    attributes.put("creationDate", matchedImage.getImagePushedAt());
+    map.put("attributes", attributes);
 
     responseBody.add(map);
 
