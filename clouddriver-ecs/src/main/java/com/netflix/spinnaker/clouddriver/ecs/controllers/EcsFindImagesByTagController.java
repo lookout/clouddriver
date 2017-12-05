@@ -154,6 +154,7 @@ public class EcsFindImagesByTagController {
       matchedImage.getRegistryId(),
       matchedImage.getRepositoryName(),
       region));
+    map.put("region", region);
 
     Map<String, List<String>> amis = new HashMap<>();
     amis.put(region, Arrays.asList(matchedImage.getImageDigest()));
