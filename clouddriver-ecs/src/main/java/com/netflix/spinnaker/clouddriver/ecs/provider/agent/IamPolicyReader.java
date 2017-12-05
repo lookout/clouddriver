@@ -49,7 +49,8 @@ public class IamPolicyReader {
 
           for (Map.Entry<String, Object> principalEntry: principal.entrySet()) {
             if (principalEntry.getValue() instanceof List) {
-              ((List) principalEntry.getValue()).stream().forEach(o -> trustedEntities.add(new IamTrustRelationship(principalEntry.getKey(), o.toString())));
+              ((List) principalEntry.getValue()).stream()
+                .forEach(o -> trustedEntities.add(new IamTrustRelationship(principalEntry.getKey(), o.toString())));
             } else {
               trustedEntities.add(new IamTrustRelationship(principalEntry.getKey(), principalEntry.getValue().toString()));
             }
@@ -62,7 +63,5 @@ public class IamPolicyReader {
 
     return trustedEntities;
   }
-
-
 
 }

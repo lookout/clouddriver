@@ -39,12 +39,10 @@ import java.util.Map;
 import java.util.Set;
 
 import static com.netflix.spinnaker.clouddriver.ecs.cache.Keys.Namespace.ECS_CLUSTERS;
+import static com.netflix.spinnaker.clouddriver.ecs.cache.Keys.Namespace.SERVICES;
 import static junit.framework.TestCase.assertTrue;
 import static org.mockito.Matchers.any;
 import static org.mockito.Mockito.when;
-
-import static com.netflix.spinnaker.clouddriver.ecs.cache.Keys.Namespace.SERVICES;
-
 
 public class ServiceCachingAgentTest extends CommonCachingAgent {
   @Subject

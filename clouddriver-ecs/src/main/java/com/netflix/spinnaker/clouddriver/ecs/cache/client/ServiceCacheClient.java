@@ -61,7 +61,6 @@ public class ServiceCacheClient extends AbstractCacheClient<Service> {
     service.setMinimumHealthyPercent((Integer) attributes.get("minimumHealthyPercent"));
 
     if (attributes.containsKey("loadBalancers")) {
-      ObjectMapper mapper = new ObjectMapper();
       List<Map<String, Object>> loadBalancers = (List<Map<String, Object>>) attributes.get("loadBalancers");
       List<LoadBalancer> deserializedLoadbalancers = new ArrayList<>(loadBalancers.size());
 

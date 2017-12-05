@@ -30,9 +30,12 @@ class KubernetesConfigurationProperties {
     String accountType
     String context
     String cluster
+    String oAuthServiceAccount
+    List<String> oAuthScopes
     String user
     String kubeconfigFile
     Boolean serviceAccount
+    Boolean configureImagePullSecrets
     List<String> namespaces
     List<String> omitNamespaces
     Integer cacheThreads

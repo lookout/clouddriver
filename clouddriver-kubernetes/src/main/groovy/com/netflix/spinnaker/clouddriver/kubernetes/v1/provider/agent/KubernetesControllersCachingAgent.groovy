@@ -19,33 +19,33 @@ package com.netflix.spinnaker.clouddriver.kubernetes.v1.provider.agent
 import com.fasterxml.jackson.core.type.TypeReference
 import com.fasterxml.jackson.databind.ObjectMapper
 import com.netflix.frigga.Names
+import com.netflix.spectator.api.Registry
 import com.netflix.spinnaker.cats.agent.AgentDataType
 import com.netflix.spinnaker.cats.agent.CacheResult
-import com.netflix.spinnaker.clouddriver.kubernetes.KubernetesCloudProvider
-import com.netflix.spinnaker.clouddriver.kubernetes.caching.KubernetesCachingAgent
 import com.netflix.spinnaker.cats.agent.DefaultCacheResult
 import com.netflix.spinnaker.cats.cache.CacheData
+import com.netflix.spinnaker.cats.cache.DefaultCacheData
 import com.netflix.spinnaker.cats.provider.ProviderCache
 import com.netflix.spinnaker.clouddriver.cache.OnDemandAgent
 import com.netflix.spinnaker.clouddriver.cache.OnDemandMetricsSupport
+import com.netflix.spinnaker.clouddriver.kubernetes.KubernetesCloudProvider
+import com.netflix.spinnaker.clouddriver.kubernetes.security.KubernetesNamedAccountCredentials
+import com.netflix.spinnaker.clouddriver.kubernetes.v1.caching.Keys
 import com.netflix.spinnaker.clouddriver.kubernetes.v1.deploy.KubernetesUtil
 import com.netflix.spinnaker.clouddriver.kubernetes.v1.model.KubernetesV1ServerGroup
 import com.netflix.spinnaker.clouddriver.kubernetes.v1.provider.view.MutableCacheData
-import com.netflix.spinnaker.clouddriver.kubernetes.security.KubernetesNamedAccountCredentials
 import com.netflix.spinnaker.clouddriver.kubernetes.v1.security.KubernetesV1Credentials
-import com.netflix.spinnaker.cats.cache.DefaultCacheData
-import com.netflix.spinnaker.clouddriver.kubernetes.v1.caching.Keys
-import com.netflix.spectator.api.Registry
 import groovy.util.logging.Slf4j
 import io.fabric8.kubernetes.api.model.Event
+import io.kubernetes.client.models.V1PodList
 import io.kubernetes.client.models.V1beta1DaemonSet
 import io.kubernetes.client.models.V1beta1StatefulSet
-import io.kubernetes.client.models.V1PodList
+
 import static com.netflix.spinnaker.cats.agent.AgentDataType.Authority.AUTHORITATIVE
 import static com.netflix.spinnaker.cats.agent.AgentDataType.Authority.INFORMATIVE
 
 @Slf4j
-class KubernetesControllersCachingAgent extends KubernetesCachingAgent<KubernetesV1Credentials> implements OnDemandAgent{
+class KubernetesControllersCachingAgent extends KubernetesV1CachingAgent implements OnDemandAgent {
   final String category = 'serverGroup'
   final OnDemandMetricsSupport metricsSupport
 
@@ -83,7 +83,7 @@ class KubernetesControllersCachingAgent extends KubernetesCachingAgent<Kubernete
 
   @Override
   boolean handles(OnDemandAgent.OnDemandType type, String cloudProvider) {
-    return false
+    OnDemandAgent.OnDemandType.ServerGroup == type && cloudProvider == KubernetesCloudProvider.ID
   }
 
   @Override
@@ -105,22 +105,32 @@ class KubernetesControllersCachingAgent extends KubernetesCachingAgent<Kubernete
     def serverGroupName = data.serverGroupName.toString()
 
     V1beta1StatefulSet statefulSet = metricsSupport.readData {
-      loadStatefulSets()
+      loadStatefulSet(namespace, serverGroupName)
     }
 
     V1beta1DaemonSet daemonSet = metricsSupport.readData {
-      loadDaemonSets()
+      loadDaemonSet(namespace, serverGroupName)
     }
 
     CacheResult result = metricsSupport.transformData {
-      buildCacheResult([new KubernetesController(controller: statefulSet,controller1: daemonSet)], [:], [], Long.MAX_VALUE)
+      buildCacheResult([new KubernetesController(statefulController: statefulSet, daemonController: daemonSet)], [:], [], Long.MAX_VALUE)
     }
 
     def jsonResult = objectMapper.writeValueAsString(result.cacheResults)
-
+    boolean isControllerSetCachingAgentType = true
     if (result.cacheResults.values().flatten().isEmpty()) {
       // Avoid writing an empty onDemand cache record (instead delete any that may have previously existed).
       providerCache.evictDeletedItems(Keys.Namespace.ON_DEMAND.ns, [Keys.getServerGroupKey(accountName, namespace, serverGroupName)])
+
+      // Determine if this is the correct agent to delete cache which can avoid double deletion
+      CacheData serverGroup = providerCache.get(Keys.Namespace.SERVER_GROUPS.ns, Keys.getServerGroupKey(accountName, namespace, serverGroupName))
+
+      if (serverGroup) {
+        String kind = serverGroup.attributes?.get("serverGroup")?.get("kind")
+        if (kind != "StatefulSet" || kind != "DaemonSet") {
+          isControllerSetCachingAgentType = false
+        }
+      }
     } else {
       metricsSupport.onDemandStore {
         def cacheData = new DefaultCacheData(
@@ -134,17 +144,19 @@ class KubernetesControllersCachingAgent extends KubernetesCachingAgent<Kubernete
           ],
           [:]
         )
-
         providerCache.putCacheData(Keys.Namespace.ON_DEMAND.ns, cacheData)
       }
     }
 
     // Evict this server group if it no longer exists.
-    Map<String, Collection<String>> evictions = statefulSet | daemonSet  ? [:] : [
-      (Keys.Namespace.SERVER_GROUPS.ns): [
-        Keys.getServerGroupKey(accountName, namespace, serverGroupName)
+    Map<String, Collection<String>> evictions
+    if (isControllerSetCachingAgentType) {
+      evictions = statefulSet || daemonSet ? [:] : [
+        (Keys.Namespace.SERVER_GROUPS.ns): [
+          Keys.getServerGroupKey(accountName, namespace, serverGroupName)
+        ]
       ]
-    ]
+    }
 
     log.info("On demand cache refresh (data: ${data}) succeeded.")
 
@@ -157,7 +169,32 @@ class KubernetesControllersCachingAgent extends KubernetesCachingAgent<Kubernete
 
   @Override
   Collection<Map> pendingOnDemandRequests(ProviderCache providerCache) {
-    return null
+    def keys = providerCache.getIdentifiers(Keys.Namespace.ON_DEMAND.ns)
+    keys = keys.findResults {
+      def parse = Keys.parse(it)
+      if (parse && namespaces.contains(parse.namespace) && parse.account == accountName) {
+        return it
+      } else {
+        return null
+      }
+    }
+
+    def keyCount = keys.size()
+    def be = keyCount == 1 ? "is" : "are"
+    def pluralize = keyCount == 1 ? "" : "s"
+    log.info("There $be $keyCount pending on demand request$pluralize")
+
+    providerCache.getAll(Keys.Namespace.ON_DEMAND.ns, keys).collect {
+      def details = Keys.parse(it.id)
+
+      return [
+        details       : details,
+        moniker       : convertOnDemandDetails(details),
+        cacheTime     : it.attributes.cacheTime,
+        processedCount: it.attributes.processedCount,
+        processedTime : it.attributes.processedTime
+      ]
+    }
   }
 
   /**
@@ -173,9 +210,9 @@ class KubernetesControllersCachingAgent extends KubernetesCachingAgent<Kubernete
     List<V1beta1StatefulSet> statefulSet = loadStatefulSets()
     List<V1beta1DaemonSet> daemonSet = loadDaemonSets()
     List<KubernetesController> serverGroups = (statefulSet.collect {
-      it ? new KubernetesController(controller: it) : null
+      it ? new KubernetesController(statefulController: it) : null
     }+ daemonSet.collect {
-      it ? new KubernetesController(controller: it) : null
+      it ? new KubernetesController(statefulController: it) : null
     }
     ) - null
     List<CacheData> evictFromOnDemand = []
@@ -221,6 +258,14 @@ class KubernetesControllersCachingAgent extends KubernetesCachingAgent<Kubernete
 
   V1PodList loadPods(KubernetesController serverGroup) {
     credentials.apiClientAdaptor.getPods(serverGroup.namespace, serverGroup.selector)
+  }
+
+  V1beta1StatefulSet loadStatefulSet(String namespace, String name) {
+    credentials.apiClientAdaptor.getStatefulSet(name, namespace)
+  }
+
+  V1beta1DaemonSet loadDaemonSet(String namespace, String name) {
+    credentials.apiClientAdaptor.getDaemonSet(name, namespace)
   }
 
   private CacheResult buildCacheResult(List<KubernetesController> serverGroups, Map<String, CacheData> onDemandKeep, List<String> onDemandEvict, Long start) {
@@ -300,12 +345,12 @@ class KubernetesControllersCachingAgent extends KubernetesCachingAgent<Kubernete
           def events = null
           attributes.name = serverGroupName
 
-          if (serverGroup.controller instanceof V1beta1StatefulSet) {
+          if (serverGroup.statefulController instanceof V1beta1StatefulSet) {
             events = stateFulsetEvents[serverGroup.namespace][serverGroupName]
-          } else if (serverGroup.controller instanceof V1beta1DaemonSet) {
+          } else if (serverGroup.statefulController instanceof V1beta1DaemonSet) {
             events = daemonsetEvents[serverGroup.namespace][serverGroupName]
           }
-          attributes.serverGroup = new KubernetesV1ServerGroup(serverGroup.controller, accountName, events)
+          attributes.serverGroup = new KubernetesV1ServerGroup(serverGroup.statefulController ?: serverGroup.daemonController, accountName, events)
           relationships[Keys.Namespace.APPLICATIONS.ns].add(applicationKey)
           relationships[Keys.Namespace.CLUSTERS.ns].add(clusterKey)
           relationships[Keys.Namespace.INSTANCES.ns].addAll(instanceKeys)
@@ -346,27 +391,29 @@ class KubernetesControllersCachingAgent extends KubernetesCachingAgent<Kubernete
     }
   }
 
-  class KubernetesController{
+  static class KubernetesController{
+    def statefulController
+    def daemonController
 
-    def controller
     String getName() {
-      controller.metadata.name
+      statefulController ? statefulController.metadata.name : daemonController.metadata.name
     }
 
     String getNamespace() {
-      controller.metadata.namespace
+      statefulController ? statefulController.metadata.namespace : daemonController.metadata.namespace
     }
 
     Map<String, String> getSelector() {
-      controller.spec.selector.matchLabels
+      statefulController ? statefulController.spec.selector.matchLabels : daemonController.spec.selector.matchLabels
     }
 
     boolean exists() {
-      controller
+      statefulController ?: daemonController
     }
 
     List<String> getLoadBalancers() {
-      KubernetesUtil.getLoadBalancers(controller.spec?.template?.metadata?.labels ?: [:])
+      statefulController ? KubernetesUtil.getLoadBalancers(statefulController.spec?.template?.metadata?.labels ?: [:]) :
+        KubernetesUtil.getLoadBalancers(daemonController.spec?.template?.metadata?.labels ?: [:])
     }
   }
 }

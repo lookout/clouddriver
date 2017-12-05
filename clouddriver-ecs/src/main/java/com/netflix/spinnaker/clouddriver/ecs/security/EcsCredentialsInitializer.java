@@ -17,6 +17,7 @@
 package com.netflix.spinnaker.clouddriver.ecs.security;
 
 import com.netflix.spinnaker.clouddriver.aws.security.NetflixAmazonCredentials;
+import com.netflix.spinnaker.clouddriver.aws.security.NetflixAssumeRoleAmazonCredentials;
 import com.netflix.spinnaker.clouddriver.aws.security.config.CredentialsConfig;
 import com.netflix.spinnaker.clouddriver.aws.security.config.CredentialsLoader;
 import com.netflix.spinnaker.clouddriver.security.AccountCredentials;
@@ -70,16 +71,15 @@ public class EcsCredentialsInitializer implements CredentialsInitializerSynchron
             NetflixAmazonCredentials netflixAmazonCredentials = (NetflixAmazonCredentials) accountCredentials;
 
             // TODO: accountCredentials should be serializable or somehow cloneable.
-            CredentialsConfig.Account account = EcsAccountMaker.makeAccount(netflixAmazonCredentials, ecsAccount.getName(), "ecs");
+            CredentialsConfig.Account account = EcsAccountBuilder.build(netflixAmazonCredentials, ecsAccount.getName(), "ecs");
 
             CredentialsConfig ecsCopy = new CredentialsConfig();
             ecsCopy.setAccounts(Collections.singletonList(account));
 
-            NetflixAmazonCredentials clone = credentialsLoader.load(ecsCopy).get(0);
-            clone.CLOUD_PROVIDER = "ecs";
-            credentials.add(clone);
+            NetflixECSCredentials esCredentials = new NetflixAssumeRoleEcsCredentials((NetflixAssumeRoleAmazonCredentials)credentialsLoader.load(ecsCopy).get(0));
+            credentials.add(esCredentials);
 
-            accountCredentialsRepository.save(ecsAccount.getName(), clone);
+            accountCredentialsRepository.save(ecsAccount.getName(), esCredentials);
             break;
 
           }

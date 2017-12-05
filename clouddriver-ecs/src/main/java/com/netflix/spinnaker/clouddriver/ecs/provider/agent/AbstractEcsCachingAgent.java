@@ -128,7 +128,8 @@ abstract class AbstractEcsCachingAgent<T> implements CachingAgent {
       .collect(Collectors.toSet());
 
     if (authoritativeNamespaces.size() != 1) {
-      throw new RuntimeException("AbstractEcsCachingAgent supports only one authoritative key namespace.");
+      throw new RuntimeException("AbstractEcsCachingAgent supports only one authoritative key namespace. " +
+        authoritativeNamespaces.size() + " authoritative key namespace were given.");
     }
 
     return authoritativeNamespaces.iterator().next().getTypeName();
@@ -140,7 +141,8 @@ abstract class AbstractEcsCachingAgent<T> implements CachingAgent {
     Map<String, Collection<CacheData>> dataMap = generateFreshData(items);
 
     Set<String> oldKeys = providerCache.getAll(authoritativeKeyName).stream()
-      .map(cache -> cache.getId()).collect(Collectors.toSet());
+      .map(CacheData::getId)
+      .collect(Collectors.toSet());
 
     Map<String, Collection<String>> evictions = computeEvictableData(dataMap.get(authoritativeKeyName), oldKeys);
     evictions = addExtraEvictions(evictions);
@@ -157,8 +159,12 @@ abstract class AbstractEcsCachingAgent<T> implements CachingAgent {
    * @return Key collection associated to the key namespace the the caching agent is authoritative of.
    */
   private Map<String, Collection<String>> computeEvictableData(Collection<CacheData> newData, Collection<String> oldKeys) {
-    Set<String> newKeys = newData.stream().map(newKey -> newKey.getId()).collect(Collectors.toSet());
-    Set<String> evictedKeys = oldKeys.stream().filter(oldKey -> !newKeys.contains(oldKey)).collect(Collectors.toSet());
+    Set<String> newKeys = newData.stream()
+      .map(CacheData::getId)
+      .collect(Collectors.toSet());
+    Set<String> evictedKeys = oldKeys.stream()
+      .filter(oldKey -> !newKeys.contains(oldKey))
+      .collect(Collectors.toSet());
 
     Map<String, Collection<String>> evictionsByKey = new HashMap<>();
     evictionsByKey.put(getAuthoritativeKeyName(), evictedKeys);

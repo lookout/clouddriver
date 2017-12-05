@@ -194,6 +194,8 @@ class AwsConfiguration {
     boolean addAppGroupsToClassicLink = false
     int maxClassicLinkSecurityGroups = 5
     boolean addAppGroupToServerGroup = false
+    boolean addAppStackDetailTags = false
+    boolean createLoadBalancerIngressPermissions = false
     int maxSecurityGroups = 5
     ReconcileMode reconcileClassicLinkSecurityGroups = ReconcileMode.NONE
     List<String> reconcileClassicLinkAccounts = []
