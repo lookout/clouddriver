@@ -41,10 +41,6 @@ public class DisableServiceAtomicOperation extends AbstractEcsAtomicOperation<Di
 
     String service = description.getServerGroupName();
     String account = description.getCredentialAccount();
-    //TODO: Remove the if statement once the proper account is being passed in.
-    if(account.equals("continuous-delivery")){
-      account += "-ecs";
-    }
     String cluster = getCluster(service, account);
 
     updateTaskStatus(String.format("Disabling %s service for %s.", service, account));

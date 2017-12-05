@@ -14,17 +14,23 @@
  * limitations under the License.
  */
 
-package com.netflix.spinnaker.clouddriver.ecs.cache;
+package com.netflix.spinnaker.clouddriver.ecs.model.loadbalancer;
 
-import com.fasterxml.jackson.databind.ObjectMapper;
-import com.netflix.spinnaker.cats.cache.Cache;
+import lombok.Data;
 
-import static org.mockito.Mockito.mock;
+import java.util.LinkedList;
+import java.util.List;
 
-class CommonCacheClient {
-  static final String REGION = "us-west-2";
-  static final String ACCOUNT = "test-account";
+import static com.netflix.spinnaker.clouddriver.model.LoadBalancerProvider.Details;
 
-  final Cache cacheView = mock(Cache.class);
-  ObjectMapper mapper = new ObjectMapper();
+@Data
+public class EcsLoadBalancerDetail implements Details {
+  String account;
+  String region;
+  String name;
+  String vpcId;
+  String type = "aws";
+  String loadBalancerType;
+  List<String> securityGroups = new LinkedList<>();
+  List<String> targetGroups = new LinkedList<>();
 }

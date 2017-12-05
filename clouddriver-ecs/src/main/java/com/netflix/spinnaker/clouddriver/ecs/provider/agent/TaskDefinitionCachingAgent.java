@@ -22,6 +22,7 @@ import com.amazonaws.services.ecs.model.DescribeTaskDefinitionRequest;
 import com.amazonaws.services.ecs.model.ListTaskDefinitionsRequest;
 import com.amazonaws.services.ecs.model.ListTaskDefinitionsResult;
 import com.amazonaws.services.ecs.model.TaskDefinition;
+import com.fasterxml.jackson.databind.ObjectMapper;
 import com.netflix.spectator.api.Registry;
 import com.netflix.spinnaker.cats.agent.AgentDataType;
 import com.netflix.spinnaker.cats.cache.CacheData;
@@ -53,8 +54,15 @@ public class TaskDefinitionCachingAgent extends AbstractEcsOnDemandAgent<TaskDef
   ));
   private final Logger log = LoggerFactory.getLogger(getClass());
 
-  public TaskDefinitionCachingAgent(String accountName, String region, AmazonClientProvider amazonClientProvider, AWSCredentialsProvider awsCredentialsProvider, Registry registry) {
+  private ObjectMapper objectMapper;
+
+  public TaskDefinitionCachingAgent(String accountName, String region,
+                                    AmazonClientProvider amazonClientProvider,
+                                    AWSCredentialsProvider awsCredentialsProvider,
+                                    Registry registry,
+                                    ObjectMapper objectMapper) {
     super(accountName, region, amazonClientProvider, awsCredentialsProvider, registry);
+    this.objectMapper = objectMapper;
   }
 
   public static Map<String, Object> convertTaskDefinitionToAttributes(TaskDefinition taskDefinition) {
@@ -120,8 +128,8 @@ public class TaskDefinitionCachingAgent extends AbstractEcsOnDemandAgent<TaskDef
   }
 
   private Set<TaskDefinition> retrieveFromCache(Set<String> taskDefArns, ProviderCache providerCache) {
+    TaskDefinitionCacheClient taskDefinitionCacheClient = new TaskDefinitionCacheClient(providerCache, objectMapper);
     Set<TaskDefinition> taskDefs = new HashSet<>();
-    TaskDefinitionCacheClient taskDefinitionCacheClient = new TaskDefinitionCacheClient(providerCache);
 
     for (String taskDefArn : taskDefArns) {
       String key = Keys.getTaskDefinitionKey(accountName, region, taskDefArn);

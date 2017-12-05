@@ -23,6 +23,7 @@ import com.amazonaws.services.ecs.model.ListTaskDefinitionsResult;
 import com.amazonaws.services.ecs.model.TaskDefinition;
 import com.netflix.spinnaker.cats.cache.CacheData;
 import com.netflix.spinnaker.clouddriver.ecs.cache.Keys;
+import com.netflix.spinnaker.clouddriver.ecs.cache.client.TaskDefinitionCacheClient;
 import org.junit.Test;
 import spock.lang.Subject;
 
@@ -42,7 +43,7 @@ import static org.mockito.Mockito.when;
 
 public class TaskDefinitionCachingAgentTest extends CommonCachingAgent {
   @Subject
-  private final TaskDefinitionCachingAgent agent = new TaskDefinitionCachingAgent(ACCOUNT, REGION, clientProvider, credentialsProvider, registry);
+  private final TaskDefinitionCachingAgent agent = new TaskDefinitionCachingAgent(ACCOUNT, REGION, clientProvider, credentialsProvider, registry, mapper);
 
   @Test
   public void shouldGetListOfTaskDefinitions() {

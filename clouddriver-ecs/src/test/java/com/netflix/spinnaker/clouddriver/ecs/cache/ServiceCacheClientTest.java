@@ -18,7 +18,6 @@ package com.netflix.spinnaker.clouddriver.ecs.cache;
 
 import com.amazonaws.services.ecs.model.DeploymentConfiguration;
 import com.amazonaws.services.ecs.model.LoadBalancer;
-import com.fasterxml.jackson.databind.ObjectMapper;
 import com.netflix.spinnaker.cats.cache.DefaultCacheData;
 import com.netflix.spinnaker.clouddriver.ecs.cache.client.ServiceCacheClient;
 import com.netflix.spinnaker.clouddriver.ecs.cache.model.Service;
@@ -36,12 +35,11 @@ import static org.mockito.Mockito.when;
 
 public class ServiceCacheClientTest extends CommonCacheClient {
   @Subject
-  private final ServiceCacheClient client = new ServiceCacheClient(cacheView);
+  private final ServiceCacheClient client = new ServiceCacheClient(cacheView, mapper);
 
   @Test
   public void shouldConvert() {
     //Given
-    ObjectMapper mapper = new ObjectMapper();
     String applicationName = "test";
     String serviceName = applicationName + "-stack-detail-v1";
     String key = Keys.getServiceKey(ACCOUNT, REGION, serviceName);
