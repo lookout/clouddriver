@@ -55,8 +55,6 @@ class OpenstackLoadBalancer implements LoadBalancerResolver, LoadBalancer {
 
   void setMoniker(Moniker _ignored) {}
 
-  void setMoniker(Moniker _ignored) {}
-
   static OpenstackLoadBalancer from(LoadBalancerV2 loadBalancer, Set<ListenerV2> listeners, LbPoolV2 pool,
                                     HealthMonitorV2 healthMonitor, String account, String region) {
     if (!loadBalancer) {
