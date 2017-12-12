@@ -22,16 +22,17 @@ import com.amazonaws.services.ecr.model.ImageDetail
 import com.amazonaws.services.ecr.model.ListImagesResult
 import com.netflix.spinnaker.clouddriver.aws.security.AmazonClientProvider
 import com.netflix.spinnaker.clouddriver.ecs.TestCredential
+import com.netflix.spinnaker.clouddriver.ecs.model.EcsDockerImage
 import com.netflix.spinnaker.clouddriver.security.AccountCredentialsProvider
 import spock.lang.Specification
 import spock.lang.Subject
 
-class EcsImageProviderSpec extends Specification {
+class EcrImageProviderSpec extends Specification {
 
   def amazonClientProvider = Mock(AmazonClientProvider)
   def accountCredentialsProvider = Mock(AccountCredentialsProvider)
   @Subject
-  def provider = new EcsImageProvider(amazonClientProvider, accountCredentialsProvider)
+  def provider = new EcrImageProvider(amazonClientProvider, accountCredentialsProvider)
 
   def 'should the handle url'() {
     given:
@@ -80,18 +81,18 @@ class EcsImageProviderSpec extends Specification {
     amazonECR.listImages(_) >> new ListImagesResult()
     amazonECR.describeImages(_) >> new DescribeImagesResult().withImageDetails(imageDetail)
 
-    def expectedMaps = [[
-                          region    : region,
-                          imageName : accountId + '.dkr.ecr.' + region + '.amazonaws.com/' + repoName + '@' + digest,
-                          amis      : ['us-west-1': Collections.singletonList(digest)],
-                          attributes: [creationDate: creationDate]
-                        ]]
+    def expectedListOfImages = [new EcsDockerImage(
+      region: region,
+      imageName: accountId + '.dkr.ecr.' + region + '.amazonaws.com/' + repoName + '@' + digest,
+      amis: ['us-west-1': Collections.singletonList(digest)],
+      attributes: [creationDate: creationDate]
+    )]
 
     when:
-    def retrievedMap = provider.findImage(url)
+    def retrievedListOfImages = provider.findImage(url)
 
     then:
-    retrievedMap == expectedMaps
+    retrievedListOfImages == expectedListOfImages
   }
 
   def 'should retrieve image details based on digest url'() {
@@ -118,18 +119,18 @@ class EcsImageProviderSpec extends Specification {
     amazonECR.listImages(_) >> new ListImagesResult()
     amazonECR.describeImages(_) >> new DescribeImagesResult().withImageDetails(imageDetail)
 
-    def expectedMaps = [[
-                          region    : region,
-                          imageName : accountId + '.dkr.ecr.' + region + '.amazonaws.com/' + repoName + '@' + digest,
-                          amis      : ['us-west-1': Collections.singletonList(digest)],
-                          attributes: [creationDate: creationDate]
-                        ]]
+    def expectedListOfImages = [new EcsDockerImage(
+      region: region,
+      imageName: accountId + '.dkr.ecr.' + region + '.amazonaws.com/' + repoName + '@' + digest,
+      amis: ['us-west-1': Collections.singletonList(digest)],
+      attributes: [creationDate: creationDate]
+    )]
 
     when:
-    def retrievedMap = provider.findImage(url)
+    def retrievedListOfImages = provider.findImage(url)
 
     then:
-    retrievedMap == expectedMaps
+    retrievedListOfImages == expectedListOfImages
   }
 
   def 'should throw exception due to malformed account'() {
@@ -196,23 +197,5 @@ class EcsImageProviderSpec extends Specification {
     then:
     final Error error = thrown()
     error.message == "The repository URI provided does not belong to a region that the credentials have access to or is not a valid region."
-  }
-
-  def 'should throw exception due to malformed url'() {
-    given:
-    def region = 'us-west-1'
-    def repoName = 'test-repo'
-    def accountId = '123456789012'
-    def digest = 'sha256:deadbeef785192c146085da66a4261e25e79a6210103433464eb7f79deadbeef'
-    def url = accountId + '.amazonaws.com.' + region + '.dkr.ecr./' + repoName + '@' + digest
-
-    accountCredentialsProvider.getAll() >> [TestCredential.named('')]
-
-    when:
-    provider.findImage(url)
-
-    then:
-    final Error error = thrown()
-    error.message == "The repository URI provided is not properly structured."
   }
 }

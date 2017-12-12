@@ -16,14 +16,14 @@
 
 package com.netflix.spinnaker.clouddriver.ecs.controllers
 
-import com.netflix.spinnaker.clouddriver.ecs.provider.view.EcsImageProvider
+import com.netflix.spinnaker.clouddriver.ecs.provider.view.EcrImageProvider
 import spock.lang.Specification
 import spock.lang.Subject
 
 class EcsImagesControllerSpec extends Specification {
-  def ecsImageProvider = Mock(EcsImageProvider)
+  def ecrImageProvider = Mock(EcrImageProvider)
   @Subject
-  def controller = new EcsImagesController([ecsImageProvider])
+  def controller = new EcsImagesController([ecrImageProvider])
 
   def 'should retrieve image details based on tagged url'() {
     given:
@@ -41,9 +41,9 @@ class EcsImagesControllerSpec extends Specification {
                           attributes: [creationDate: new Date()]
                         ]]
 
-    ecsImageProvider.getRepositoryName() >> 'ECR'
-    ecsImageProvider.handles(url) >> true
-    ecsImageProvider.findImage(url) >> expectedMaps
+    ecrImageProvider.getRepositoryName() >> 'ECR'
+    ecrImageProvider.handles(url) >> true
+    ecrImageProvider.findImage(url) >> expectedMaps
 
     when:
     def retrievedMap = controller.findImage(url, null)

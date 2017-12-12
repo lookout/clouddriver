@@ -25,23 +25,21 @@ import com.amazonaws.services.ecr.model.ListImagesResult;
 import com.netflix.spinnaker.clouddriver.aws.security.AmazonClientProvider;
 import com.netflix.spinnaker.clouddriver.aws.security.AmazonCredentials;
 import com.netflix.spinnaker.clouddriver.aws.security.NetflixAmazonCredentials;
+import com.netflix.spinnaker.clouddriver.ecs.model.EcsDockerImage;
 import com.netflix.spinnaker.clouddriver.security.AccountCredentials;
 import com.netflix.spinnaker.clouddriver.security.AccountCredentialsProvider;
 import com.netflix.spinnaker.kork.web.exceptions.NotFoundException;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.stereotype.Component;
 
-import java.util.ArrayList;
 import java.util.Collections;
-import java.util.HashMap;
 import java.util.List;
-import java.util.Map;
 import java.util.regex.Matcher;
 import java.util.regex.Pattern;
 import java.util.stream.Collectors;
 
 @Component
-public class EcsImageProvider implements ImageRepositoryProvider {
+public class EcrImageProvider implements ImageRepositoryProvider {
   private static final Pattern ACCOUNT_ID_PATTERN = Pattern.compile("^([0-9]{12})");
   private static final Pattern REPOSITORY_NAME_PATTERN = Pattern.compile("\\/([a-z0-9._-]+)");
   private static final String IDENTIFIER_PATTERN = "(:([a-z0-9._-]+)|@(sha256:[0-9a-f]{64}))";
@@ -56,7 +54,7 @@ public class EcsImageProvider implements ImageRepositoryProvider {
   private final AccountCredentialsProvider accountCredentialsProvider;
 
   @Autowired
-  public EcsImageProvider(AmazonClientProvider amazonClientProvider,
+  public EcrImageProvider(AmazonClientProvider amazonClientProvider,
                           AccountCredentialsProvider accountCredentialsProvider) {
     this.amazonClientProvider = amazonClientProvider;
     this.accountCredentialsProvider = accountCredentialsProvider;
@@ -69,11 +67,11 @@ public class EcsImageProvider implements ImageRepositoryProvider {
 
   @Override
   public boolean handles(String url) {
-    return url.contains(".dkr.ecr.");
+    return isValidEcrUrl(url);
   }
 
   @Override
-  public Object findImage(String url) {
+  public List<EcsDockerImage> findImage(String url) {
     // HTTP(S) part is not needed.
     url = url.replace("http://", "").replace("https://", "");
 
@@ -87,10 +85,6 @@ public class EcsImageProvider implements ImageRepositoryProvider {
 
     if (!isValidRegion(credentials, region)) {
       throw new Error("The repository URI provided does not belong to a region that the credentials have access to or is not a valid region.");
-    }
-
-    if (!isValidEcrUrl(url)) {
-      throw new Error("The repository URI provided is not properly structured.");
     }
 
     AmazonECR amazonECR = amazonClientProvider.getAmazonEcr(credentials.getName(), credentials.getCredentialsProvider(), region);
@@ -113,7 +107,7 @@ public class EcsImageProvider implements ImageRepositoryProvider {
 
     ImageDetail matchedImage = imagesWithThisIdentifier.get(0);
 
-    Map<String, Object> map = new HashMap<>();
+    /*Map<String, Object> map = new HashMap<>();
     map.put("region", region);
 
     map.put("imageName", buildFullDockerImageUrl(matchedImage.getImageDigest(),
@@ -132,7 +126,18 @@ public class EcsImageProvider implements ImageRepositoryProvider {
     List<Map<String, Object>> responseBody = new ArrayList<>();
     responseBody.add(map);
 
-    return responseBody;
+    return responseBody;*/
+
+    EcsDockerImage ecsDockerImage = new EcsDockerImage();
+    ecsDockerImage.setRegion(region);
+    ecsDockerImage.addAmiForRegion(region, matchedImage.getImageDigest());
+    ecsDockerImage.setAttribute("creationDate", matchedImage.getImagePushedAt());
+    ecsDockerImage.setImageName(buildFullDockerImageUrl(matchedImage.getImageDigest(),
+      matchedImage.getRegistryId(),
+      matchedImage.getRepositoryName(),
+      region));
+
+    return Collections.singletonList(ecsDockerImage);
   }
 
   private NetflixAmazonCredentials getCredentials(String accountId) {
@@ -155,6 +160,7 @@ public class EcsImageProvider implements ImageRepositoryProvider {
   }
 
   private boolean isValidEcrUrl(String imageUrl) {
+    imageUrl = imageUrl.replace("http://", "").replace("https://", "");
     Matcher matcher = REPOSITORY_URI_PATTERN.matcher(imageUrl);
     return matcher.find();
   }

@@ -16,6 +16,7 @@
 
 package com.netflix.spinnaker.clouddriver.ecs.controllers;
 
+import com.netflix.spinnaker.clouddriver.ecs.model.EcsDockerImage;
 import com.netflix.spinnaker.clouddriver.ecs.provider.view.ImageRepositoryProvider;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.web.bind.annotation.RequestMapping;
@@ -38,7 +39,7 @@ public class EcsImagesController {
   }
 
   @RequestMapping(value = "/find", method = RequestMethod.GET)
-  public Object findImage(@RequestParam("q") String dockerImageUrl, HttpServletRequest request) {
+  public List<EcsDockerImage> findImage(@RequestParam("q") String dockerImageUrl, HttpServletRequest request) {
     for (ImageRepositoryProvider provider : imageRepositoryProviders) {
       if (provider.handles(dockerImageUrl)) {
         return provider.findImage(dockerImageUrl);

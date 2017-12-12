@@ -14,16 +14,30 @@
  * limitations under the License.
  */
 
-package com.netflix.spinnaker.clouddriver.ecs.provider.view;
+package com.netflix.spinnaker.clouddriver.ecs.model;
 
-import com.netflix.spinnaker.clouddriver.ecs.model.EcsDockerImage;
+import lombok.Data;
 
+import java.util.HashMap;
+import java.util.LinkedList;
 import java.util.List;
+import java.util.Map;
 
-public interface ImageRepositoryProvider {
-  String getRepositoryName();
+@Data
+public class EcsDockerImage {
+  String region;
+  String imageName;
+  Map<String, List<String>> amis = new HashMap<>();
+  Map<String, Object> attributes = new HashMap<>();
 
-  boolean handles(String url);
+  public void setAttribute(String name, Object attribute) {
+    attributes.put(name, attribute);
+  }
 
-  List<EcsDockerImage> findImage(String url);
+  public void addAmiForRegion(String region, String ami) {
+    if (!amis.containsKey(region)) {
+      amis.put(region, new LinkedList<>());
+    }
+    amis.get(region).add(ami);
+  }
 }
