@@ -52,6 +52,7 @@ public class TaskDefinitionCacheTest extends CommonCachingAgent {
 
     TaskDefinition taskDefinition = new TaskDefinition();
     taskDefinition.setTaskDefinitionArn(TASK_DEFINITION_ARN_1);
+    taskDefinition.setTaskRoleArn(ROLE_ARN);
     taskDefinition.setContainerDefinitions(Collections.emptyList());
 
     when(ecs.listTaskDefinitions(any(ListTaskDefinitionsRequest.class))).thenReturn(new ListTaskDefinitionsResult().withTaskDefinitionArns(TASK_DEFINITION_ARN_1));

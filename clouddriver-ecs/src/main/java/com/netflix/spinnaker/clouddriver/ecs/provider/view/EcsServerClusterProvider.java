@@ -214,8 +214,8 @@ public class EcsServerClusterProvider implements ClusterProvider<EcsServerCluste
 //      ContainerDefinition containerDefinition = definition.getContainerDefinitions().get(0);
       //TODO: Deserialize containerDefinitions.
       ContainerDefinition containerDefinition = taskDefinition.getContainerDefinitions().get(0);
-      String roleArn = service.getRoleArn();
-      String iamRole = roleArn != null ? roleArn.split("/")[1] : "None";
+      String roleArn = taskDefinition.getTaskRoleArn();
+      String iamRole = roleArn != null ? StringUtils.substringAfterLast(roleArn, "/") : "None";
 
       TaskDefinition ecsTaskDefinition = new TaskDefinition();
       ecsTaskDefinition

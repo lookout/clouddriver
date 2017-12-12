@@ -75,7 +75,7 @@ public class TaskDefinitionCachingAgentTest extends CommonCachingAgent {
     for (String taskDefArn : taskDefinitionArns) {
       keys.add(Keys.getTaskDefinitionKey(ACCOUNT, REGION, taskDefArn));
 
-      tasks.add(new TaskDefinition().withTaskDefinitionArn(taskDefArn)
+      tasks.add(new TaskDefinition().withTaskDefinitionArn(taskDefArn).withTaskRoleArn(ROLE_ARN)
         .withContainerDefinitions(Collections.emptyList()));
     }
 
