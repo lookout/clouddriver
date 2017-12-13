@@ -40,6 +40,7 @@ public class ContainerInstanceCacheClient extends AbstractCacheClient<ContainerI
     Map<String, Object> attributes = cacheData.getAttributes();
     containerInstance.setArn((String) attributes.get("containerInstanceArn"));
     containerInstance.setEc2InstanceId((String) attributes.get("ec2InstanceId"));
+    containerInstance.setAvailabilityZone((String) attributes.get("availabilityZone"));
 
     return containerInstance;
   }
