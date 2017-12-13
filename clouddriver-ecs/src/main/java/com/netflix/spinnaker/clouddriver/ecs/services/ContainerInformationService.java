@@ -108,6 +108,7 @@ public class ContainerInformationService {
   }
 
   //TODO: clean up after EcsServerClusterProvider has been changed. hostPort and containerArn may be replaced with a CacheData instead.
+  //TODO: Use InstanceCachingAgent, write a client for it, retrieve IP and make the private address for the task.
   public String getTaskPrivateAddress(String accountName, String region, AmazonEC2 amazonEC2, Task task) {
     int hostPort;
     try {
