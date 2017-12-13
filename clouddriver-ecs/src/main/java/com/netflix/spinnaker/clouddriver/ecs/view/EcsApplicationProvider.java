@@ -27,7 +27,6 @@ import com.netflix.spinnaker.clouddriver.model.ApplicationProvider;
 import com.netflix.spinnaker.clouddriver.security.AccountCredentials;
 import com.netflix.spinnaker.clouddriver.security.AccountCredentialsProvider;
 import org.springframework.beans.factory.annotation.Autowired;
-import org.springframework.beans.factory.annotation.Qualifier;
 import org.springframework.stereotype.Component;
 
 import java.util.Collection;
@@ -35,8 +34,6 @@ import java.util.HashMap;
 import java.util.HashSet;
 import java.util.Map;
 import java.util.Set;
-import java.util.stream.Collector;
-import java.util.stream.Collectors;
 
 @Component
 public class EcsApplicationProvider implements ApplicationProvider {
@@ -122,7 +119,7 @@ public class EcsApplicationProvider implements ApplicationProvider {
     attributes.put("desiredCount", String.valueOf(service.getDesiredCount()));
 
     HashMap<String, Set<String>> clusterNames = new HashMap<>();
-    if(expand) {
+    if (expand) {
       clusterNames.put(appName, Sets.newHashSet(serviceName));
     }
 
