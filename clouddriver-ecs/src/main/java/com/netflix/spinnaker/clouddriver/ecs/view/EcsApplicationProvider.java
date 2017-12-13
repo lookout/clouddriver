@@ -35,12 +35,14 @@ import java.util.HashMap;
 import java.util.HashSet;
 import java.util.Map;
 import java.util.Set;
+import java.util.stream.Collector;
+import java.util.stream.Collectors;
 
 @Component
 public class EcsApplicationProvider implements ApplicationProvider {
 
   private final ServiceCacheClient serviceCacheClient;
-  private AccountCredentialsProvider accountCredentialsProvider;
+  private final AccountCredentialsProvider accountCredentialsProvider;
 
   @Autowired
   public EcsApplicationProvider(AccountCredentialsProvider accountCredentialsProvider, ServiceCacheClient serviceCacheClient) {
@@ -52,7 +54,7 @@ public class EcsApplicationProvider implements ApplicationProvider {
   @Override
   public Application getApplication(String name) {
 
-    for (Application application : getApplications(false)) {
+    for (Application application : getApplications(true)) {
       if (name.equals(application.getName())) {
         return application;
       }
@@ -61,16 +63,13 @@ public class EcsApplicationProvider implements ApplicationProvider {
     return null;
   }
 
-  /**
-   * TODO - Implement this method as fully intended by the interface, once the POC is over, which includes using the expand boolean
-   */
   @Override
   public Set<Application> getApplications(boolean expand) {
     Set<Application> applications = new HashSet<>();
 
     for (AccountCredentials credentials : accountCredentialsProvider.getAll()) {
       if (credentials instanceof AmazonCredentials) {
-        Set<Application> retrievedApplications = findApplicationsForAllRegions((AmazonCredentials) credentials);
+        Set<Application> retrievedApplications = findApplicationsForAllRegions((AmazonCredentials) credentials, expand);
         applications.addAll(retrievedApplications);
       }
     }
@@ -78,29 +77,27 @@ public class EcsApplicationProvider implements ApplicationProvider {
     return applications;
   }
 
-  private Set<Application> findApplicationsForAllRegions(AmazonCredentials credentials) {
+  private Set<Application> findApplicationsForAllRegions(AmazonCredentials credentials, boolean expand) {
     Set<Application> applications = new HashSet<>();
 
     for (AmazonCredentials.AWSRegion awsRegion : credentials.getRegions()) {
-      applications.addAll(findApplicationsForRegion(credentials.getName(), awsRegion.getName()));
+      applications.addAll(findApplicationsForRegion(credentials.getName(), awsRegion.getName(), expand));
     }
 
     return applications;
   }
 
-  private Set<Application> findApplicationsForRegion(String account, String region) {
-    HashMap<String, Application> applicationHashMap = populateApplicationMap(account, region);
-    Set<Application> applications = transposeApplicationMapToSet(applicationHashMap);
-
-    return applications;
+  private Set<Application> findApplicationsForRegion(String account, String region, boolean expand) {
+    HashMap<String, Application> applicationHashMap = populateApplicationMap(account, region, expand);
+    return transposeApplicationMapToSet(applicationHashMap);
   }
 
-  private HashMap<String, Application> populateApplicationMap(String account, String region) {
+  private HashMap<String, Application> populateApplicationMap(String account, String region, boolean expand) {
     HashMap<String, Application> applicationHashMap = new HashMap<>();
     Collection<Service> services = serviceCacheClient.getAll(account, region);
 
     for (Service service : services) {
-      applicationHashMap = inferApplicationFromServices(applicationHashMap, service);
+      applicationHashMap = inferApplicationFromServices(applicationHashMap, service, expand);
     }
     return applicationHashMap;
   }
@@ -115,7 +112,7 @@ public class EcsApplicationProvider implements ApplicationProvider {
     return applications;
   }
 
-  private HashMap<String, Application> inferApplicationFromServices(HashMap<String, Application> applicationHashMap, Service service) {
+  private HashMap<String, Application> inferApplicationFromServices(HashMap<String, Application> applicationHashMap, Service service, boolean expand) {
 
     HashMap<String, String> attributes = new HashMap<>();  // After POC we'll figure exactly what info we want to put in here
     String appName = service.getApplicationName();
@@ -125,7 +122,9 @@ public class EcsApplicationProvider implements ApplicationProvider {
     attributes.put("desiredCount", String.valueOf(service.getDesiredCount()));
 
     HashMap<String, Set<String>> clusterNames = new HashMap<>();
-    clusterNames.put(appName, Sets.newHashSet(serviceName));
+    if(expand) {
+      clusterNames.put(appName, Sets.newHashSet(serviceName));
+    }
 
     EcsApplication application = new EcsApplication(appName, attributes, clusterNames);
 
