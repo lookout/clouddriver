@@ -250,8 +250,11 @@ public class CreateServerGroupAtomicOperation implements AtomicOperation<Deploym
 
     RegisterTaskDefinitionRequest request = new RegisterTaskDefinitionRequest()
       .withContainerDefinitions(containerDefinitions)
-      .withFamily(getFamilyName())
-      .withTaskRoleArn(description.getIamRole());
+      .withFamily(getFamilyName());
+
+    if (!description.getIamRole().equals("None (No IAM role)")) {
+      request.setTaskRoleArn(description.getIamRole());
+    }
 
     RegisterTaskDefinitionResult registerTaskDefinitionResult = ecs.registerTaskDefinition(request);
 
