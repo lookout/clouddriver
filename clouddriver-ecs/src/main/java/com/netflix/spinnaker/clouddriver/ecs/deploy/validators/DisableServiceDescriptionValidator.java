@@ -33,9 +33,9 @@ public class DisableServiceDescriptionValidator extends CommonValidator {
   public void validate(List priorDescriptions, Object description, Errors errors) {
     DisableServiceDescription disableServiceDescription = (DisableServiceDescription) description;
 
-    boolean validCrednetials = validateCredentials(disableServiceDescription, "disableServiceDescription", errors, "credentials");
+    boolean validCredentials = validateCredentials(disableServiceDescription, "disableServiceDescription", errors, "credentials");
 
-    if (validCrednetials) {
+    if (validCredentials) {
       validateRegions(disableServiceDescription, Collections.singleton(disableServiceDescription.getRegion()), "disableServiceDescription", errors, "region");
     }
 
