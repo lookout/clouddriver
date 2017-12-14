@@ -19,13 +19,15 @@ package com.netflix.spinnaker.clouddriver.ecs.provider.view
 import com.netflix.spinnaker.clouddriver.ecs.EcsCloudProvider
 import com.netflix.spinnaker.clouddriver.ecs.cache.client.EcsLoadbalancerCacheClient
 import com.netflix.spinnaker.clouddriver.ecs.cache.model.EcsLoadBalancerCache
+import com.netflix.spinnaker.clouddriver.ecs.security.ECSCredentialsConfig
 import spock.lang.Specification
 import spock.lang.Subject
 
 class EcsLoadBalancerProviderSpec extends Specification {
   def client = Mock(EcsLoadbalancerCacheClient)
+  def ecsCredentialsConfig = Mock(ECSCredentialsConfig)
   @Subject
-  def provider = new EcsLoadBalancerProvider(client)
+  def provider = new EcsLoadBalancerProvider(client, ecsCredentialsConfig)
 
   def 'should retrieve an empty list'() {
     when:
@@ -40,10 +42,11 @@ class EcsLoadBalancerProviderSpec extends Specification {
     given:
     def expectedNumberOfLoadbalancers = 2
     def givenList = []
+    def accounts = []
     for (int x = 0; x < expectedNumberOfLoadbalancers; x++) {
       givenList << new EcsLoadBalancerCache(
-        account: 'test-account-'+x,
-        region: 'us-west-'+x,
+        account: 'test-account-' + x,
+        region: 'us-west-' + x,
         loadBalancerArn: 'arn',
         loadBalancerType: 'always-classic',
         cloudProvider: EcsCloudProvider.ID,
@@ -51,17 +54,23 @@ class EcsLoadBalancerProviderSpec extends Specification {
         scheme: 'scheme',
         availabilityZones: [],
         ipAddressType: 'ipv4',
-        loadBalancerName: 'load-balancer-'+x,
+        loadBalancerName: 'load-balancer-' + x,
         canonicalHostedZoneId: 'zone-id',
-        vpcId: 'vpc-id-'+x,
+        vpcId: 'vpc-id-' + x,
         dnsname: 'dns-name',
         createdTime: System.currentTimeMillis(),
         subnets: [],
         securityGroups: [],
-        targetGroups: ['target-group-'+x],
+        targetGroups: ['target-group-' + x],
         serverGroups: []
       )
+
+      accounts << new ECSCredentialsConfig.Account(
+        name: 'test-account-' + x,
+        awsAccount: 'test-account-' + x
+      )
     }
+    ecsCredentialsConfig.getAccounts() >> accounts
 
     when:
     def retrievedList = provider.list()

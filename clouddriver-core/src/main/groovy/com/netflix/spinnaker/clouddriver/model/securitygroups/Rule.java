@@ -41,15 +41,15 @@ public interface Rule {
 
   @Data
   class PortRange implements Comparable<PortRange> {
-    Integer startPort;
-    Integer endPort;
+    protected Integer startPort;
+    protected Integer endPort;
 
     @Override
     public int compareTo(PortRange o) {
       if (o == null) {
         return 1;
       }
-      
+
       int res = ObjectUtils.compare(this.startPort, o.startPort);
       return res == 0 ? ObjectUtils.compare(this.endPort, o.endPort) : res;
     }

@@ -4,6 +4,28 @@ The clouddriver-ecs module allows for ECS deployments of dockerized applications
 
 It is a work in progress
 
+## Clouddriver configuration
+
+In order for the ECS cloud provider to work, a corresponding AWS account must be configured and enabled. An ECS account will be tied to a given AWS account by its name. Below is an example snippet of `clouddriver.yml`:
+
+```
+aws:
+  enabled: true
+
+  accounts:
+    - name: aws-account-name
+      accountId: "123456789012"
+      regions:
+        - name: us-east-1
+  defaultAssumeRole: role/SpinnakerManaged
+
+ecs:
+  enabled: true
+  accounts:
+    - name: ecs-account-name
+      awsAccount: aws-account-name
+```
+
 
 
 

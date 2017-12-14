@@ -23,7 +23,6 @@ import com.amazonaws.services.ecs.model.ListTaskDefinitionsResult;
 import com.amazonaws.services.ecs.model.TaskDefinition;
 import com.netflix.spinnaker.cats.cache.CacheData;
 import com.netflix.spinnaker.clouddriver.ecs.cache.Keys;
-import com.netflix.spinnaker.clouddriver.ecs.cache.client.TaskDefinitionCacheClient;
 import org.junit.Test;
 import spock.lang.Subject;
 
@@ -76,7 +75,7 @@ public class TaskDefinitionCachingAgentTest extends CommonCachingAgent {
     for (String taskDefArn : taskDefinitionArns) {
       keys.add(Keys.getTaskDefinitionKey(ACCOUNT, REGION, taskDefArn));
 
-      tasks.add(new TaskDefinition().withTaskDefinitionArn(taskDefArn)
+      tasks.add(new TaskDefinition().withTaskDefinitionArn(taskDefArn).withTaskRoleArn(ROLE_ARN)
         .withContainerDefinitions(Collections.emptyList()));
     }
 

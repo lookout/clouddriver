@@ -69,6 +69,7 @@ public class TaskDefinitionCachingAgent extends AbstractEcsOnDemandAgent<TaskDef
     Map<String, Object> attributes = new HashMap<>();
     attributes.put("taskDefinitionArn", taskDefinition.getTaskDefinitionArn());
     attributes.put("containerDefinitions", taskDefinition.getContainerDefinitions());
+    attributes.put("taskRoleArn", taskDefinition.getTaskRoleArn());
     return attributes;
   }
 

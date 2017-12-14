@@ -47,7 +47,7 @@ import static com.netflix.spinnaker.cats.agent.AgentDataType.Authority.AUTHORITA
 import static com.netflix.spinnaker.cats.agent.AgentDataType.Authority.INFORMATIVE
 
 @Slf4j
-class KubernetesServerGroupCachingAgent extends KubernetesCachingAgent<KubernetesV1Credentials> implements OnDemandAgent {
+class KubernetesServerGroupCachingAgent extends KubernetesV1CachingAgent implements OnDemandAgent {
   final String category = 'serverGroup'
 
   final OnDemandMetricsSupport metricsSupport
@@ -110,10 +110,20 @@ class KubernetesServerGroupCachingAgent extends KubernetesCachingAgent<Kubernete
     }
 
     def jsonResult = objectMapper.writeValueAsString(result.cacheResults)
+    boolean isControllerSetCachingAgentType = false
 
     if (result.cacheResults.values().flatten().isEmpty()) {
       // Avoid writing an empty onDemand cache record (instead delete any that may have previously existed).
       providerCache.evictDeletedItems(Keys.Namespace.ON_DEMAND.ns, [Keys.getServerGroupKey(accountName, namespace, serverGroupName)])
+
+      // Determine if this is the correct agent to delete cache which can avoid double deletion
+      CacheData serverGroup = providerCache.get(Keys.Namespace.SERVER_GROUPS.ns, Keys.getServerGroupKey(accountName, namespace, serverGroupName))
+      if (serverGroup) {
+        String kind = serverGroup.attributes?.get("serverGroup")?.get("kind")
+        if (kind == "StatefulSet" || kind == "DaemonSet") {
+          isControllerSetCachingAgentType = true
+        }
+      }
     } else {
       metricsSupport.onDemandStore {
         def cacheData = new DefaultCacheData(
@@ -133,11 +143,14 @@ class KubernetesServerGroupCachingAgent extends KubernetesCachingAgent<Kubernete
     }
 
     // Evict this server group if it no longer exists.
-    Map<String, Collection<String>> evictions = replicationController || replicaSet ? [:] : [
-      (Keys.Namespace.SERVER_GROUPS.ns): [
-        Keys.getServerGroupKey(accountName, namespace, serverGroupName)
+    Map<String, Collection<String>> evictions
+    if (!isControllerSetCachingAgentType) {
+      evictions = replicationController || replicaSet ? [:] : [
+        (Keys.Namespace.SERVER_GROUPS.ns): [
+          Keys.getServerGroupKey(accountName, namespace, serverGroupName)
+        ]
       ]
-    ]
+    }
 
     log.info("On demand cache refresh (data: ${data}) succeeded.")
 

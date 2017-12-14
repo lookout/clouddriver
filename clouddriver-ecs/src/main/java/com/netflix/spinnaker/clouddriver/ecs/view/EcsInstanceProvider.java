@@ -18,12 +18,13 @@ package com.netflix.spinnaker.clouddriver.ecs.view;
 
 import com.amazonaws.auth.AWSCredentialsProvider;
 import com.amazonaws.services.ec2.AmazonEC2;
-import com.amazonaws.services.ec2.model.InstanceStatus;
 import com.netflix.spinnaker.clouddriver.aws.security.AmazonClientProvider;
 import com.netflix.spinnaker.clouddriver.aws.security.NetflixAmazonCredentials;
 import com.netflix.spinnaker.clouddriver.ecs.EcsCloudProvider;
 import com.netflix.spinnaker.clouddriver.ecs.cache.Keys;
+import com.netflix.spinnaker.clouddriver.ecs.cache.client.ContainerInstanceCacheClient;
 import com.netflix.spinnaker.clouddriver.ecs.cache.client.TaskCacheClient;
+import com.netflix.spinnaker.clouddriver.ecs.cache.model.ContainerInstance;
 import com.netflix.spinnaker.clouddriver.ecs.cache.model.Task;
 import com.netflix.spinnaker.clouddriver.ecs.model.EcsTask;
 import com.netflix.spinnaker.clouddriver.ecs.services.ContainerInformationService;
@@ -40,6 +41,7 @@ import java.util.Map;
 public class EcsInstanceProvider implements InstanceProvider<EcsTask> {
 
   private final TaskCacheClient taskCacheClient;
+  private final ContainerInstanceCacheClient containerInstanceCacheClient;
   private AccountCredentialsProvider accountCredentialsProvider;
   private AmazonClientProvider amazonClientProvider;
   private ContainerInformationService containerInformationService;
@@ -48,11 +50,13 @@ public class EcsInstanceProvider implements InstanceProvider<EcsTask> {
   public EcsInstanceProvider(AccountCredentialsProvider accountCredentialsProvider,
                              AmazonClientProvider amazonClientProvider,
                              ContainerInformationService containerInformationService,
-                             TaskCacheClient taskCacheClient) {
+                             TaskCacheClient taskCacheClient,
+                             ContainerInstanceCacheClient containerInstanceCacheClient) {
     this.accountCredentialsProvider = accountCredentialsProvider;
     this.amazonClientProvider = amazonClientProvider;
     this.containerInformationService = containerInformationService;
     this.taskCacheClient = taskCacheClient;
+    this.containerInstanceCacheClient = containerInstanceCacheClient;
   }
 
   @Override
@@ -67,6 +71,7 @@ public class EcsInstanceProvider implements InstanceProvider<EcsTask> {
 
     EcsTask ecsInstance = null;
 
+    //TODO: If getTaskPrivateAddress in ContainerInformationService is refactored to the point of using cached information, setting up an EC2 client will be unnecessary.
     NetflixAmazonCredentials netflixAmazonCredentials =
       (NetflixAmazonCredentials) accountCredentialsProvider.getCredentials(account);
     AWSCredentialsProvider awsCredentialsProvider = netflixAmazonCredentials.getCredentialsProvider();
@@ -78,17 +83,17 @@ public class EcsInstanceProvider implements InstanceProvider<EcsTask> {
       return null;
     }
 
-    //TODO: getEC2InstanceStatus is only being made to determine the availability zone of the instance.
-    InstanceStatus instanceStatus = containerInformationService.getEC2InstanceStatus(amazonEC2, account, region, task.getContainerInstanceArn());
+    key = Keys.getContainerInstanceKey(account, region, task.getContainerInstanceArn());
+    ContainerInstance containerInstance = containerInstanceCacheClient.get(key);
 
-    if (instanceStatus != null) {
+    if (containerInstance != null) {
       String serviceName = StringUtils.substringAfter(task.getGroup(), "service:");
       Long launchTime = task.getStartedAt();
 
       List<Map<String, String>> healthStatus = containerInformationService.getHealthStatus(id, serviceName, account, region);
       String address = containerInformationService.getTaskPrivateAddress(account, region, amazonEC2, task);
 
-      ecsInstance = new EcsTask(id, launchTime, task.getLastStatus(), task.getDesiredStatus(), instanceStatus.getAvailabilityZone(), healthStatus, address);
+      ecsInstance = new EcsTask(id, launchTime, task.getLastStatus(), task.getDesiredStatus(), containerInstance.getAvailabilityZone(), healthStatus, address);
     }
 
     return ecsInstance;

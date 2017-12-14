@@ -21,6 +21,7 @@ import spock.lang.Specification
 import static com.netflix.spinnaker.clouddriver.ecs.EcsCloudProvider.ID
 import static com.netflix.spinnaker.clouddriver.ecs.cache.Keys.Namespace.*
 import static com.netflix.spinnaker.clouddriver.ecs.cache.Keys.SEPARATOR
+import static com.netflix.spinnaker.clouddriver.core.provider.agent.Namespace.HEALTH
 
 class KeysSpec extends Specification {
 
@@ -125,5 +126,15 @@ class KeysSpec extends Specification {
     region      | account          | alarmArn
     'us-west-1' | 'test-account-1' | 'arn:aws:ecs:' + region + ':012345678910:alarm/14e8cce9-0b16-4af4-bfac-a85f7587aa98'
     'us-west-2' | 'test-account-2' | 'arn:aws:ecs:' + region + ':012345678910:alarm/deadbeef-0b16-4af4-bfac-a85f7587aa98'
+  }
+
+  def 'should generate the proper task health key'() {
+    expect:
+    Keys.getTaskHealthKey(account, region, taskId) == buildKey(HEALTH.ns, account, region, taskId)
+
+    where:
+    region      | account          | taskId
+    'us-west-1' | 'test-account-1' | '1dc5c17a-422b-4dc4-b493-371970c6c4d6'
+    'us-west-2' | 'test-account-2' | 'deadbeef-422b-4dc4-b493-371970c6c4d6'
   }
 }

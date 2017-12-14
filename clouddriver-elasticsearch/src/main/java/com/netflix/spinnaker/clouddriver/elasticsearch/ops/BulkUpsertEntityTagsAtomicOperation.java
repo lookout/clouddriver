@@ -71,7 +71,12 @@ public class BulkUpsertEntityTagsAtomicOperation implements AtomicOperation<Bulk
       Map<String, EntityTags> existingTags = retrieveExistingTags(tags);
 
       getTask().updateStatus(BASE_PHASE, "Merging existing tags and metadata");
-      tags.forEach(tag -> mergeExistingTagsAndMetadata(now, existingTags.get(tag.getId()), tag, bulkUpsertEntityTagsDescription.isPartial));
+      tags.forEach(tag -> mergeExistingTagsAndMetadata(
+        now,
+        existingTags.get(tag.getId()),
+        tag,
+        bulkUpsertEntityTagsDescription.isPartial
+      ));
 
       getTask().updateStatus(BASE_PHASE, "Performing batch update to durable tagging service");
       Map<String, EntityTags> durableTags = front50Service.batchUpdate(new ArrayList<>(tags))
@@ -111,7 +116,9 @@ public class BulkUpsertEntityTagsAtomicOperation implements AtomicOperation<Bulk
     entityTags.removeAll(failed);
   }
 
-  private void updateMetadataFromDurableTagsAndIndex(List<EntityTags> entityTags, Map<String, EntityTags> durableTags, BulkUpsertEntityTagsAtomicOperationResult result) {
+  private void updateMetadataFromDurableTagsAndIndex(List<EntityTags> entityTags,
+                                                     Map<String, EntityTags> durableTags,
+                                                     BulkUpsertEntityTagsAtomicOperationResult result) {
     Collection<EntityTags> failed = new ArrayList<>();
     entityTags.forEach(tag -> {
       try {
@@ -153,14 +160,22 @@ public class BulkUpsertEntityTagsAtomicOperation implements AtomicOperation<Bulk
 
     if (entityRefAccount != null && entityRefAccountId == null) {
       // add `accountId` if not explicitly provided
-      AccountCredentials accountCredentials = lookupAccountCredentialsByAccountIdOrName(accountCredentialsProvider, entityRefAccount, "accountName");
+      AccountCredentials accountCredentials = lookupAccountCredentialsByAccountIdOrName(
+        accountCredentialsProvider,
+        entityRefAccount,
+        "accountName"
+      );
       entityRefAccountId = accountCredentials.getAccountId();
       entityRef.setAccountId(entityRefAccountId);
     }
 
     if (entityRefAccount == null && entityRefAccountId != null) {
       // add `account` if not explicitly provided
-      AccountCredentials accountCredentials = lookupAccountCredentialsByAccountIdOrName(accountCredentialsProvider, entityRefAccountId, "accountId");
+      AccountCredentials accountCredentials = lookupAccountCredentialsByAccountIdOrName(
+        accountCredentialsProvider,
+        entityRefAccountId,
+        "accountId"
+      );
       if (accountCredentials != null) {
         entityRefAccount = accountCredentials.getName();
         entityRef.setAccount(entityRefAccount);
@@ -194,7 +209,7 @@ public class BulkUpsertEntityTagsAtomicOperation implements AtomicOperation<Bulk
       currentTags.getTagsMetadata() == null ? new ArrayList<>() : currentTags.getTagsMetadata()
     );
 
-    updatedTags.getTags().forEach(tag -> updatedTags.putEntityTagMetadata(tagMetadata(tag.getName(), now)));
+    updatedTags.getTags().forEach(tag -> updatedTags.putEntityTagMetadata(tagMetadata(tag, now)));
 
     currentTags.getTags().forEach(updatedTags::putEntityTagIfAbsent);
   }
@@ -228,8 +243,14 @@ public class BulkUpsertEntityTagsAtomicOperation implements AtomicOperation<Bulk
     }
   }
 
-  private static EntityTags.EntityTagMetadata tagMetadata(String tagName, Date now) {
+  private static EntityTags.EntityTagMetadata tagMetadata(EntityTags.EntityTag entityTag, Date now) {
     String user = AuthenticatedRequest.getSpinnakerUser().orElse("unknown");
+
+    String tagName = entityTag.getName();
+    if (entityTag.getTimestamp() != null) {
+      // entity tag has an explicit timestamp, favor it for last modified date
+      now = new Date(entityTag.getTimestamp());
+    }
 
     EntityTags.EntityTagMetadata metadata = new EntityTags.EntityTagMetadata();
     metadata.setName(tagName);
@@ -243,7 +264,7 @@ public class BulkUpsertEntityTagsAtomicOperation implements AtomicOperation<Bulk
 
   private static void addTagMetadata(Date now, EntityTags entityTags) {
     entityTags.setTagsMetadata(new ArrayList<>());
-    entityTags.getTags().forEach(tag -> entityTags.putEntityTagMetadata(tagMetadata(tag.getName(), now)));
+    entityTags.getTags().forEach(tag -> entityTags.putEntityTagMetadata(tagMetadata(tag, now)));
   }
 
   private static AccountCredentials lookupAccountCredentialsByAccountIdOrName(AccountCredentialsProvider accountCredentialsProvider,
@@ -252,7 +273,9 @@ public class BulkUpsertEntityTagsAtomicOperation implements AtomicOperation<Bulk
     return accountCredentialsProvider.getAll().stream()
       .filter(c -> entityRefAccountIdOrName.equals(c.getAccountId()) || entityRefAccountIdOrName.equals(c.getName()))
       .findFirst()
-      .orElseThrow(() -> new IllegalArgumentException(String.format("No credentials found for %s: %s", type, entityRefAccountIdOrName)));
+      .orElseThrow(() -> new IllegalArgumentException(
+        String.format("No credentials found for %s: %s", type, entityRefAccountIdOrName)
+      ));
   }
 
   private static Task getTask() {

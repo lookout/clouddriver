@@ -307,6 +307,10 @@ class BasicGoogleDeployHandler implements DeployHandler<BasicGoogleDeployDescrip
       instanceMetadata = userDataMap
     }
 
+    if (isRegional && description.selectZones) {
+      instanceMetadata[GoogleServerGroup.View.SELECT_ZONES] = true
+    }
+
     def metadata = GCEUtil.buildMetadataFromMap(instanceMetadata)
 
     def tags = GCEUtil.buildTagsFromList(description.tags)
@@ -318,6 +322,14 @@ class BasicGoogleDeployHandler implements DeployHandler<BasicGoogleDeployDescrip
     def serviceAccount = GCEUtil.buildServiceAccount(description.serviceAccountEmail, description.authScopes)
 
     def scheduling = GCEUtil.buildScheduling(description)
+
+    if (labels == null) {
+      labels = [:]
+    }
+
+    // Used to group instances when querying for metrics from kayenta.
+    labels['spinnaker-region'] = region
+    labels['spinnaker-server-group'] = serverGroupName
 
     def instanceProperties = new InstanceProperties(machineType: machineTypeName,
                                                     disks: attachedDisks,
@@ -436,6 +448,14 @@ class BasicGoogleDeployHandler implements DeployHandler<BasicGoogleDeployDescrip
     def willUpdateIlbs = !description.disableTraffic && internalLoadBalancers
 
     if (isRegional) {
+      if (description.selectZones && description.distributionPolicy && description.distributionPolicy.zones) {
+        log.info("Configuring explicit zones selected for regional server group: ${description.distributionPolicy.zones}")
+        List<DistributionPolicyZoneConfiguration> selectedZones = description.distributionPolicy.zones.collect { String z ->
+          new DistributionPolicyZoneConfiguration().setZone(GCEUtil.buildZoneUrl(project, z))
+        }
+        DistributionPolicy distributionPolicy = new DistributionPolicy().setZones(selectedZones)
+        instanceGroupManager.setDistributionPolicy(distributionPolicy)
+      }
       migCreateOperation = timeExecute(
           compute.regionInstanceGroupManagers().insert(project, region, instanceGroupManager),
           "compute.regionInstanceGroupManagers.insert",
