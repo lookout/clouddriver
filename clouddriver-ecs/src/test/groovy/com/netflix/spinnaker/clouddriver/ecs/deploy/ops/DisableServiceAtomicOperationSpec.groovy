@@ -33,13 +33,18 @@ class DisableServiceAtomicOperationSpec extends Specification {
 
   void 'should execute the operation'() {
     given:
-    amazonClientProvider.getAmazonEcs(_, _, _) >> ecs
-    containerInformationService.getClusterName(_, _, _) >> 'cluster-name'
-
     def operation = new DisableServiceAtomicOperation(new DisableServiceDescription(
       serverGroupName: "test-server-group",
       credentials: TestCredential.named('Test', [:])
     ))
+
+    operation.amazonClientProvider = amazonClientProvider
+    operation.accountCredentialsProvider = accountCredentialsProvider
+    operation.containerInformationService = containerInformationService
+
+    amazonClientProvider.getAmazonEcs(_, _, _) >> ecs
+    containerInformationService.getClusterName(_, _, _) >> 'cluster-name'
+    accountCredentialsProvider.getCredentials(_) >> TestCredential.named("test")
 
     when:
     operation.operate([])

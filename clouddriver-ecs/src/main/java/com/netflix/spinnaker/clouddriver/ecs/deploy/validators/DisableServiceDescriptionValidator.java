@@ -33,10 +33,15 @@ public class DisableServiceDescriptionValidator extends CommonValidator {
   public void validate(List priorDescriptions, Object description, Errors errors) {
     DisableServiceDescription disableServiceDescription = (DisableServiceDescription) description;
 
+    boolean validCrednetials = validateCredentials(disableServiceDescription, "disableServiceDescription", errors, "credentials");
+
+    if (validCrednetials) {
+      validateRegions(disableServiceDescription, Collections.singleton(disableServiceDescription.getRegion()), "disableServiceDescription", errors, "region");
+    }
+
     if (disableServiceDescription.getServerGroupName() == null) {
       errors.rejectValue("serverGroupName", "disableServiceDescription.serverGroupName.not.nullable");
     }
-
-    validateRegions(disableServiceDescription, Collections.singleton(disableServiceDescription.getRegion()), "disableServiceDescription", errors, "region");
   }
+
 }

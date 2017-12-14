@@ -16,6 +16,8 @@
 
 package com.netflix.spinnaker.clouddriver.ecs.deploy.validators
 
+import com.netflix.spinnaker.clouddriver.data.task.Task
+import com.netflix.spinnaker.clouddriver.data.task.TaskRepository
 import com.netflix.spinnaker.clouddriver.ecs.TestCredential
 import com.netflix.spinnaker.clouddriver.ecs.deploy.description.DisableServiceDescription
 import org.springframework.validation.Errors
@@ -23,6 +25,10 @@ import spock.lang.Specification
 import spock.lang.Subject
 
 class DisableServiceDescriptionValidatorSpec extends Specification {
+
+  def setupSpec() {
+    TaskRepository.threadLocalTask.set(Mock(Task))
+  }
 
   @Subject
   DisableServiceDescriptionValidator validator = new DisableServiceDescriptionValidator();
@@ -40,7 +46,7 @@ class DisableServiceDescriptionValidatorSpec extends Specification {
     1 * errors.rejectValue('serverGroupName', _)
   }
 
-  void 'should fail an incorrect region'(){
+  void 'should fail an incorrect region'() {
     given:
     def description = new DisableServiceDescription()
     description.credentials = TestCredential.named('test')
@@ -55,7 +61,21 @@ class DisableServiceDescriptionValidatorSpec extends Specification {
     1 * errors.rejectValue('region', _)
   }
 
-  void 'should pass'() {
+  void 'should fail on missing credentials'() {
+    given:
+    def description = new DisableServiceDescription()
+    description.serverGroupName = 'test'
+    description.region = 'us-west-1'
+    def errors = Mock(Errors)
+
+    when:
+    validator.validate([], description, errors)
+
+    then:
+    1 * errors.rejectValue('credentials', _)
+  }
+
+  void 'should pass validation'() {
     given:
     def description = new DisableServiceDescription()
     description.credentials = TestCredential.named('test')
@@ -69,6 +89,5 @@ class DisableServiceDescriptionValidatorSpec extends Specification {
     then:
     0 * errors.rejectValue(_, _)
   }
-
 
 }

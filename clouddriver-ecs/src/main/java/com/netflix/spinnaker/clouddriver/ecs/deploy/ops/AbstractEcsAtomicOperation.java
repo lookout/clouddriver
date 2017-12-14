@@ -30,11 +30,11 @@ import org.springframework.beans.factory.annotation.Autowired;
 
 abstract class AbstractEcsAtomicOperation<T extends AbstractECSDescription, K> implements AtomicOperation<K> {
   @Autowired
-  private AmazonClientProvider amazonClientProvider;
+  AmazonClientProvider amazonClientProvider;
   @Autowired
-  private  AccountCredentialsProvider accountCredentialsProvider;
+  AccountCredentialsProvider accountCredentialsProvider;
   @Autowired
-  private  ContainerInformationService containerInformationService;
+  ContainerInformationService containerInformationService;
 
   private final String basePhase;
 

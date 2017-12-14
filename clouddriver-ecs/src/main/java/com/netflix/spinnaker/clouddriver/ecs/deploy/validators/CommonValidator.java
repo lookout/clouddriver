@@ -40,4 +40,12 @@ abstract class CommonValidator extends DescriptionValidator {
       }
     }
   }
+
+  boolean validateCredentials(AbstractAmazonCredentialsDescription credentialsDescription, String errorKey, Errors errors, String attributeName) {
+    if (credentialsDescription.getCredentials() == null) {
+      errors.rejectValue(attributeName, errorKey + "." + attributeName + ".not.nullable");
+      return false;
+    }
+    return true;
+  }
 }
