@@ -28,16 +28,10 @@ import com.amazonaws.services.ecs.model.DeleteServiceRequest;
 import com.amazonaws.services.ecs.model.DeleteServiceResult;
 import com.amazonaws.services.ecs.model.DeregisterTaskDefinitionRequest;
 import com.amazonaws.services.ecs.model.UpdateServiceRequest;
-import com.netflix.spinnaker.clouddriver.aws.security.AmazonClientProvider;
 import com.netflix.spinnaker.clouddriver.aws.security.AmazonCredentials;
-import com.netflix.spinnaker.clouddriver.data.task.Task;
-import com.netflix.spinnaker.clouddriver.data.task.TaskRepository;
 import com.netflix.spinnaker.clouddriver.ecs.cache.client.EcsCloudWatchAlarmCacheClient;
 import com.netflix.spinnaker.clouddriver.ecs.cache.model.EcsMetricAlarm;
 import com.netflix.spinnaker.clouddriver.ecs.deploy.description.DestroyServiceDescription;
-import com.netflix.spinnaker.clouddriver.ecs.services.ContainerInformationService;
-import com.netflix.spinnaker.clouddriver.orchestration.AtomicOperation;
-import com.netflix.spinnaker.clouddriver.security.AccountCredentialsProvider;
 import org.apache.commons.lang3.StringUtils;
 import org.springframework.beans.factory.annotation.Autowired;
 
@@ -49,56 +43,41 @@ import java.util.Map;
 import java.util.Set;
 import java.util.stream.Collectors;
 
-public class DestroyServiceAtomicOperation implements AtomicOperation<Void> {
-  private static final String BASE_PHASE = "DESTROY_ECS_SERVER_GROUP";
-
-  @Autowired
-  AmazonClientProvider amazonClientProvider;
-  @Autowired
-  AccountCredentialsProvider accountCredentialsProvider;
+public class DestroyServiceAtomicOperation extends AbstractEcsAtomicOperation<DestroyServiceDescription, Void> {
   @Autowired
   EcsCloudWatchAlarmCacheClient metricAlarmCacheClient;
-  @Autowired
-  ContainerInformationService containerInformationService;
-
-  DestroyServiceDescription description;
 
   public DestroyServiceAtomicOperation(DestroyServiceDescription description) {
-    this.description = description;
-  }
-
-  private static Task getTask() {
-    return TaskRepository.threadLocalTask.get();
+    super(description, "DESTROY_ECS_SERVER_GROUP");
   }
 
   @Override
   public Void operate(List priorOutputs) {
-    getTask().updateStatus(BASE_PHASE, "Initializing Destroy Amazon ECS Server Group (Service) Operation...");
-    AmazonCredentials credentials = (AmazonCredentials) accountCredentialsProvider.getCredentials(description.getCredentialAccount());
-    AmazonECS ecs = amazonClientProvider.getAmazonEcs(description.getCredentialAccount(), credentials.getCredentialsProvider(), description.getRegion());
+    updateTaskStatus("Initializing Destroy Amazon ECS Server Group (Service) Operation...");
+    AmazonECS ecs = getAmazonEcsClient();
 
     String ecsClusterName = containerInformationService.getClusterName(description.getServerGroupName(), description.getAccount(), description.getRegion());
 
-    getTask().updateStatus(BASE_PHASE, "Removing MetricAlarms from " + description.getServerGroupName() + ".");
+    updateTaskStatus("Removing MetricAlarms from " + description.getServerGroupName() + ".");
     deleteMetrics();
-    getTask().updateStatus(BASE_PHASE, "Done removing MetricAlarms from " + description.getServerGroupName() + ".");
+    updateTaskStatus("Done removing MetricAlarms from " + description.getServerGroupName() + ".");
 
     UpdateServiceRequest updateServiceRequest = new UpdateServiceRequest();
     updateServiceRequest.setService(description.getServerGroupName());
     updateServiceRequest.setDesiredCount(0);
     updateServiceRequest.setCluster(ecsClusterName);
 
-    getTask().updateStatus(BASE_PHASE, "Scaling " + description.getServerGroupName() + " service down to 0.");
+    updateTaskStatus("Scaling " + description.getServerGroupName() + " service down to 0.");
     ecs.updateService(updateServiceRequest);
 
     DeleteServiceRequest deleteServiceRequest = new DeleteServiceRequest();
     deleteServiceRequest.setService(description.getServerGroupName());
     deleteServiceRequest.setCluster(ecsClusterName);
 
-    getTask().updateStatus(BASE_PHASE, "Deleting " + description.getServerGroupName() + " service.");
+    updateTaskStatus("Deleting " + description.getServerGroupName() + " service.");
     DeleteServiceResult deleteServiceResult = ecs.deleteService(deleteServiceRequest);
 
-    getTask().updateStatus(BASE_PHASE, "Deleting " + deleteServiceResult.getService().getTaskDefinition() + " task definition belonging to the service.");
+    updateTaskStatus("Deleting " + deleteServiceResult.getService().getTaskDefinition() + " task definition belonging to the service.");
     ecs.deregisterTaskDefinition(new DeregisterTaskDefinitionRequest().withTaskDefinition(deleteServiceResult.getService().getTaskDefinition()));
 
     return null;
@@ -111,7 +90,7 @@ public class DestroyServiceAtomicOperation implements AtomicOperation<Void> {
       return;
     }
 
-    AmazonCredentials credentials = (AmazonCredentials) accountCredentialsProvider.getCredentials(description.getCredentialAccount());
+    AmazonCredentials credentials = getCredentials();
     AmazonCloudWatch amazonCloudWatch = amazonClientProvider.getAmazonCloudWatch(description.getCredentialAccount(), credentials.getCredentialsProvider(), description.getRegion());
 
     amazonCloudWatch.deleteAlarms(new DeleteAlarmsRequest().withAlarmNames(metricAlarms.stream()
@@ -141,7 +120,7 @@ public class DestroyServiceAtomicOperation implements AtomicOperation<Void> {
   }
 
   private void deregisterScalableTargets(Set<String> resources) {
-    AmazonCredentials credentials = (AmazonCredentials) accountCredentialsProvider.getCredentials(description.getCredentialAccount());
+    AmazonCredentials credentials = getCredentials();
     AWSApplicationAutoScaling autoScaling = amazonClientProvider.getAmazonApplicationAutoScaling(description.getCredentialAccount(), credentials.getCredentialsProvider(), description.getRegion());
 
     Map<String, Set<String>> resourceMap = new HashMap<>();
@@ -183,6 +162,6 @@ public class DestroyServiceAtomicOperation implements AtomicOperation<Void> {
     for (DeregisterScalableTargetRequest request : deregisterRequests) {
       autoScaling.deregisterScalableTarget(request);
     }
-
   }
+
 }
