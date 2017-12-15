@@ -17,30 +17,10 @@
 package com.netflix.spinnaker.clouddriver.ecs.deploy.validators;
 
 import com.netflix.spinnaker.clouddriver.ecs.EcsOperation;
-import com.netflix.spinnaker.clouddriver.ecs.deploy.description.EnableServiceDescription;
 import com.netflix.spinnaker.clouddriver.orchestration.AtomicOperations;
 import org.springframework.stereotype.Component;
-import org.springframework.validation.Errors;
-
-import java.util.Collections;
-import java.util.List;
 
 @EcsOperation(AtomicOperations.ENABLE_SERVER_GROUP)
 @Component("enableServiceAtomicOperationValidator")
-public class EnableServiceDescriptionValidator extends CommonValidator {
-
-  @Override
-  public void validate(List priorDescriptions, Object description, Errors errors) {
-    EnableServiceDescription enableServiceDescription = (EnableServiceDescription) description;
-
-    boolean validCredentials = validateCredentials(enableServiceDescription, "enableServiceDescription", errors, "credentials");
-
-    if (validCredentials) {
-      validateRegions(enableServiceDescription, Collections.singleton(enableServiceDescription.getRegion()), "enableServiceDescription", errors, "region");
-    }
-
-    if (enableServiceDescription.getServerGroupName() == null) {
-      errors.rejectValue("serverGroupName", "enableServiceDescription.serverGroupName.not.nullable");
-    }
-  }
+public class EnableServiceDescriptionValidator extends ServerGroupDescriptionValidator {
 }

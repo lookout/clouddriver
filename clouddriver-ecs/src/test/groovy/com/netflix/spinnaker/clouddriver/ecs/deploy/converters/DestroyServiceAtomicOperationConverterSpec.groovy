@@ -14,13 +14,14 @@
  * limitations under the License.
  */
 
-package com.netflix.spinnaker.clouddriver.ecs.deploy.description;
+package com.netflix.spinnaker.clouddriver.ecs.deploy.converters
 
-import lombok.Data;
-import lombok.EqualsAndHashCode;
+import com.fasterxml.jackson.databind.ObjectMapper
+import com.netflix.spinnaker.clouddriver.security.AbstractAtomicOperationsCredentialsSupport
 
-@Data
-@EqualsAndHashCode(callSuper = false)
-public class DisableServiceDescription extends AbstractECSDescription {
-  String serverGroupName;
+class DestroyServiceAtomicOperationConverterSpec extends ModifyServiceAtomicOperationConverterSpec<DisableServiceAtomicOperationConverter> {
+  @Override
+  AbstractAtomicOperationsCredentialsSupport getConverter() {
+    new EnableServiceAtomicOperationConverter(objectMapper: new ObjectMapper())
+  }
 }

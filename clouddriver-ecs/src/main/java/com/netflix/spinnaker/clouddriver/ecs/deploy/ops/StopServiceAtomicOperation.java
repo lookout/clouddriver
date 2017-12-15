@@ -16,7 +16,6 @@
 
 package com.netflix.spinnaker.clouddriver.ecs.deploy.ops;
 
-import com.netflix.spinnaker.clouddriver.ecs.deploy.description.DestroyServiceDescription;
 import com.netflix.spinnaker.clouddriver.ecs.deploy.description.StopServiceDescription;
 import com.netflix.spinnaker.clouddriver.orchestration.AtomicOperation;
 

@@ -31,7 +31,7 @@ import com.amazonaws.services.ecs.model.UpdateServiceRequest;
 import com.netflix.spinnaker.clouddriver.aws.security.AmazonCredentials;
 import com.netflix.spinnaker.clouddriver.ecs.cache.client.EcsCloudWatchAlarmCacheClient;
 import com.netflix.spinnaker.clouddriver.ecs.cache.model.EcsMetricAlarm;
-import com.netflix.spinnaker.clouddriver.ecs.deploy.description.DestroyServiceDescription;
+import com.netflix.spinnaker.clouddriver.ecs.deploy.description.ModifyServiceDescription;
 import org.apache.commons.lang3.StringUtils;
 import org.springframework.beans.factory.annotation.Autowired;
 
@@ -43,11 +43,11 @@ import java.util.Map;
 import java.util.Set;
 import java.util.stream.Collectors;
 
-public class DestroyServiceAtomicOperation extends AbstractEcsAtomicOperation<DestroyServiceDescription, Void> {
+public class DestroyServiceAtomicOperation extends AbstractEcsAtomicOperation<ModifyServiceDescription, Void> {
   @Autowired
   EcsCloudWatchAlarmCacheClient metricAlarmCacheClient;
 
-  public DestroyServiceAtomicOperation(DestroyServiceDescription description) {
+  public DestroyServiceAtomicOperation(ModifyServiceDescription description) {
     super(description, "DESTROY_ECS_SERVER_GROUP");
   }
 

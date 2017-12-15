@@ -16,22 +16,29 @@
 
 package com.netflix.spinnaker.clouddriver.ecs.deploy.ops
 
+import com.amazonaws.services.ecs.model.DeleteServiceResult
+import com.amazonaws.services.ecs.model.Service
 import com.netflix.spinnaker.clouddriver.ecs.TestCredential
+import com.netflix.spinnaker.clouddriver.ecs.cache.client.EcsCloudWatchAlarmCacheClient
 import com.netflix.spinnaker.clouddriver.ecs.deploy.description.ModifyServiceDescription
 
-class DisableServiceAtomicOperationSpec extends CommonAtomicOperation {
+class DestroyServiceAtomicOperationSpec extends CommonAtomicOperation {
+  def metricAlarmCacheClient = Mock(EcsCloudWatchAlarmCacheClient)
+
   void 'should execute the operation'() {
     given:
-    def operation = new DisableServiceAtomicOperation(new ModifyServiceDescription(
+    def operation = new DestroyServiceAtomicOperation(new ModifyServiceDescription(
       serverGroupName: "test-server-group",
       credentials: TestCredential.named('Test', [:])
     ))
 
     operation.amazonClientProvider = amazonClientProvider
+    operation.metricAlarmCacheClient = metricAlarmCacheClient
     operation.accountCredentialsProvider = accountCredentialsProvider
     operation.containerInformationService = containerInformationService
 
     amazonClientProvider.getAmazonEcs(_, _, _) >> ecs
+    metricAlarmCacheClient.getMetricAlarms(_, _, _) >> []
     containerInformationService.getClusterName(_, _, _) >> 'cluster-name'
     accountCredentialsProvider.getCredentials(_) >> TestCredential.named("test")
 
@@ -40,5 +47,7 @@ class DisableServiceAtomicOperationSpec extends CommonAtomicOperation {
 
     then:
     1 * ecs.updateService(_)
+    1 * ecs.deleteService(_) >> new DeleteServiceResult().withService(new Service().withTaskDefinition("test"))
+    1 * ecs.deregisterTaskDefinition(_)
   }
 }

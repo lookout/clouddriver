@@ -16,33 +16,11 @@
 
 package com.netflix.spinnaker.clouddriver.ecs.deploy.validators;
 
-import com.netflix.spinnaker.clouddriver.deploy.DescriptionValidator;
 import com.netflix.spinnaker.clouddriver.ecs.EcsOperation;
-import com.netflix.spinnaker.clouddriver.ecs.deploy.description.DestroyServiceDescription;
-import com.netflix.spinnaker.clouddriver.ecs.deploy.description.DisableServiceDescription;
 import com.netflix.spinnaker.clouddriver.orchestration.AtomicOperations;
 import org.springframework.stereotype.Component;
-import org.springframework.validation.Errors;
-
-import java.util.Collections;
-import java.util.List;
 
 @EcsOperation(AtomicOperations.DESTROY_SERVER_GROUP)
 @Component("destroyServiceAtomicOperationValidator")
-public class DestroyServiceAtomicOperationValidator extends CommonValidator {
-
-  @Override
-  public void validate(List priorDescriptions, Object description, Errors errors) {
-    DestroyServiceDescription destroyServiceDescription = (DestroyServiceDescription) description;
-
-    boolean validCredentials = validateCredentials(destroyServiceDescription, "destroyServiceDescription", errors, "credentials");
-
-    if (validCredentials) {
-      validateRegions(destroyServiceDescription, Collections.singleton(destroyServiceDescription.getRegion()), "destroyServiceDescription", errors, "region");
-    }
-
-    if (destroyServiceDescription.getServerGroupName() == null) {
-      errors.rejectValue("serverGroupName", "destroyServiceDescription.serverGroupName.not.nullable");
-    }
-  }
+public class DestroyServiceAtomicOperationValidator extends ServerGroupDescriptionValidator {
 }
