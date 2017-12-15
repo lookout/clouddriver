@@ -16,22 +16,25 @@
 
 package com.netflix.spinnaker.clouddriver.ecs.deploy.ops
 
+import com.amazonaws.services.applicationautoscaling.AWSApplicationAutoScaling
+import com.amazonaws.services.applicationautoscaling.model.DescribeScalableTargetsResult
 import com.amazonaws.services.ecs.AmazonECS
 import com.netflix.spinnaker.clouddriver.aws.security.AmazonClientProvider
 import com.netflix.spinnaker.clouddriver.data.task.Task
 import com.netflix.spinnaker.clouddriver.data.task.TaskRepository
 import com.netflix.spinnaker.clouddriver.ecs.TestCredential
-import com.netflix.spinnaker.clouddriver.ecs.deploy.description.DisableServiceDescription
+import com.netflix.spinnaker.clouddriver.ecs.deploy.description.EnableServiceDescription
 import com.netflix.spinnaker.clouddriver.ecs.services.ContainerInformationService
 import com.netflix.spinnaker.clouddriver.security.AccountCredentialsProvider
 import spock.lang.Specification
 
-class DisableServiceAtomicOperationSpec extends Specification {
+class EnableServiceAtomicOperationSpec extends Specification {
 
   def amazonClientProvider = Mock(AmazonClientProvider)
   def accountCredentialsProvider = Mock(AccountCredentialsProvider)
   def containerInformationService = Mock(ContainerInformationService)
   def ecs = Mock(AmazonECS)
+  def autoscaling = Mock(AWSApplicationAutoScaling)
 
   def setupSpec() {
     TaskRepository.threadLocalTask.set(Mock(Task))
@@ -39,7 +42,7 @@ class DisableServiceAtomicOperationSpec extends Specification {
 
   void 'should execute the operation'() {
     given:
-    def operation = new DisableServiceAtomicOperation(new DisableServiceDescription(
+    def operation = new EnableServiceAtomicOperation(new EnableServiceDescription(
       serverGroupName: "test-server-group",
       credentials: TestCredential.named('Test', [:])
     ))
@@ -49,6 +52,8 @@ class DisableServiceAtomicOperationSpec extends Specification {
     operation.containerInformationService = containerInformationService
 
     amazonClientProvider.getAmazonEcs(_, _, _) >> ecs
+    amazonClientProvider.getAmazonApplicationAutoScaling(_, _, _) >> autoscaling
+
     containerInformationService.getClusterName(_, _, _) >> 'cluster-name'
     accountCredentialsProvider.getCredentials(_) >> TestCredential.named("test")
 
@@ -56,6 +61,7 @@ class DisableServiceAtomicOperationSpec extends Specification {
     operation.operate([])
 
     then:
+    1 * autoscaling.describeScalableTargets(_) >> new DescribeScalableTargetsResult().withScalableTargets([])
     1 * ecs.updateService(_)
   }
 }
