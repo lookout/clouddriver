@@ -25,37 +25,15 @@ import com.amazonaws.services.applicationautoscaling.model.ScalableTarget;
 import com.amazonaws.services.applicationautoscaling.model.ServiceNamespace;
 import com.amazonaws.services.ecs.AmazonECS;
 import com.amazonaws.services.ecs.model.UpdateServiceRequest;
-import com.netflix.spinnaker.clouddriver.aws.security.AmazonClientProvider;
-import com.netflix.spinnaker.clouddriver.aws.security.AmazonCredentials;
-import com.netflix.spinnaker.clouddriver.data.task.Task;
-import com.netflix.spinnaker.clouddriver.data.task.TaskRepository;
 import com.netflix.spinnaker.clouddriver.ecs.deploy.description.EnableServiceDescription;
-import com.netflix.spinnaker.clouddriver.ecs.services.ContainerInformationService;
-import com.netflix.spinnaker.clouddriver.orchestration.AtomicOperation;
-import com.netflix.spinnaker.clouddriver.security.AccountCredentialsProvider;
-import org.springframework.beans.factory.annotation.Autowired;
 
 import java.util.ArrayList;
 import java.util.List;
 
-public class EnableServiceAtomicOperation implements AtomicOperation<Void> {
-  private static final String BASE_PHASE = "ENABLE_ECS_SERVER_GROUP";
-
-  @Autowired
-  AmazonClientProvider amazonClientProvider;
-  @Autowired
-  AccountCredentialsProvider accountCredentialsProvider;
-  @Autowired
-  ContainerInformationService containerInformationService;
-
-  EnableServiceDescription description;
+public class EnableServiceAtomicOperation extends AbstractEcsAtomicOperation<EnableServiceDescription, Void> {
 
   public EnableServiceAtomicOperation(EnableServiceDescription description) {
-    this.description = description;
-  }
-
-  private static Task getTask() {
-    return TaskRepository.threadLocalTask.get();
+    super(description, "ENABLE_ECS_SERVER_GROUP");
   }
 
   @Override
@@ -75,34 +53,26 @@ public class EnableServiceAtomicOperation implements AtomicOperation<Void> {
     UpdateServiceRequest request = new UpdateServiceRequest()
       .withCluster(cluster)
       .withService(service)
-      .withDesiredCount(getMaxCapacity());
+      .withDesiredCount(getMaxCapacity(cluster));
 
     updateTaskStatus(String.format("Enabling %s service for %s.", service, account));
     ecsClient.updateService(request);
     updateTaskStatus(String.format("Service %s enabled for %s.", service, account));
   }
 
-  private String getCluster(String service, String account) {
-    return containerInformationService.getClusterName(service, account, description.getRegion());
-  }
-
-  private Integer getMaxCapacity() {
-    ScalableTarget target = getScalableTarget();
+  private Integer getMaxCapacity(String cluster) {
+    ScalableTarget target = getScalableTarget(cluster);
     if (target != null) {
       return target.getMaxCapacity();
     }
     return 1;
   }
 
-  private ScalableTarget getScalableTarget() {
+  private ScalableTarget getScalableTarget(String cluster) {
     AWSApplicationAutoScaling appASClient = getAmazonApplicationAutoScalingClient();
 
-    String service = description.getServerGroupName();
-    String account = description.getCredentialAccount();
-    String cluster = getCluster(service, account);
-
     List<String> resourceIds = new ArrayList<>();
-    resourceIds.add(String.format("service/%s/%s", cluster, service));
+    resourceIds.add(String.format("service/%s/%s", cluster, description.getServerGroupName()));
 
     DescribeScalableTargetsRequest request = new DescribeScalableTargetsRequest()
       .withResourceIds(resourceIds)
@@ -130,19 +100,4 @@ public class EnableServiceAtomicOperation implements AtomicOperation<Void> {
     return amazonClientProvider.getAmazonApplicationAutoScaling(credentialAccount, credentialsProvider, region);
   }
 
-  private AmazonECS getAmazonEcsClient() {
-    AWSCredentialsProvider credentialsProvider = getCredentials().getCredentialsProvider();
-    String region = description.getRegion();
-    String credentialAccount = description.getCredentialAccount();
-
-    return amazonClientProvider.getAmazonEcs(credentialAccount, credentialsProvider, region);
-  }
-
-  private AmazonCredentials getCredentials() {
-    return (AmazonCredentials) accountCredentialsProvider.getCredentials(description.getCredentialAccount());
-  }
-
-  private void updateTaskStatus(String status) {
-    getTask().updateStatus(BASE_PHASE, status);
-  }
 }

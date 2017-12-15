@@ -18,18 +18,18 @@ package com.netflix.spinnaker.clouddriver.ecs.deploy.converters
 
 import com.fasterxml.jackson.databind.ObjectMapper
 import com.netflix.spinnaker.clouddriver.ecs.TestCredential
-import com.netflix.spinnaker.clouddriver.ecs.deploy.description.DisableServiceDescription
-import com.netflix.spinnaker.clouddriver.ecs.deploy.ops.DisableServiceAtomicOperation
+import com.netflix.spinnaker.clouddriver.ecs.deploy.description.EnableServiceDescription
+import com.netflix.spinnaker.clouddriver.ecs.deploy.ops.EnableServiceAtomicOperation
 import com.netflix.spinnaker.clouddriver.security.AccountCredentialsProvider
 import spock.lang.Specification
 import spock.lang.Subject
 
-class DisableServiceAtomicOperationConverterSpec extends Specification {
+class EnableServiceAtomicOperationConverterSpec extends Specification {
   def mapper = new ObjectMapper()
   def accountCredentialsProvider = Mock(AccountCredentialsProvider)
 
   @Subject
-  DisableServiceAtomicOperationConverter converter = new DisableServiceAtomicOperationConverter(objectMapper: mapper)
+  EnableServiceAtomicOperationConverter converter = new EnableServiceAtomicOperationConverter(objectMapper: mapper)
 
   def 'should convert'() {
     given:
@@ -44,13 +44,13 @@ class DisableServiceAtomicOperationConverterSpec extends Specification {
     def description = converter.convertDescription(input)
 
     then:
-    description instanceof DisableServiceDescription
+    description instanceof EnableServiceDescription
     description.serverGroupName == serverGroupName
 
     when:
     def operation = converter.convertOperation(input)
 
     then:
-    operation instanceof DisableServiceAtomicOperation
+    operation instanceof EnableServiceAtomicOperation
   }
 }
