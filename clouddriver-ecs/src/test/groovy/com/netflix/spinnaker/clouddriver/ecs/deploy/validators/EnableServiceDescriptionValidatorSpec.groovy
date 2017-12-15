@@ -19,14 +19,14 @@ package com.netflix.spinnaker.clouddriver.ecs.deploy.validators
 import com.netflix.spinnaker.clouddriver.deploy.DescriptionValidator
 import com.netflix.spinnaker.clouddriver.ecs.TestCredential
 import com.netflix.spinnaker.clouddriver.ecs.deploy.description.AbstractECSDescription
-import com.netflix.spinnaker.clouddriver.ecs.deploy.description.DisableServiceDescription
+import com.netflix.spinnaker.clouddriver.ecs.deploy.description.EnableServiceDescription
 import org.springframework.validation.Errors
 
-class DisableServiceDescriptionValidatorSpec extends AbstractValidatorSpec {
+class EnableServiceDescriptionValidatorSpec extends AbstractValidatorSpec {
 
   void 'should fail null serverGroupName'() {
     given:
-    def description = (DisableServiceDescription) getDescription()
+    def description = (EnableServiceDescription) getDescription()
     description.serverGroupName = null
     def errors = Mock(Errors)
 
@@ -39,12 +39,12 @@ class DisableServiceDescriptionValidatorSpec extends AbstractValidatorSpec {
 
   @Override
   DescriptionValidator getDescriptionValidator() {
-    new DisableServiceDescriptionValidator()
+    new EnableServiceDescriptionValidator()
   }
 
   @Override
   AbstractECSDescription getDescription() {
-    def description = new DisableServiceDescription()
+    def description = new EnableServiceDescription()
     description.credentials = TestCredential.named('test')
     description.region = 'us-west-1'
     description.serverGroupName = 'test'
