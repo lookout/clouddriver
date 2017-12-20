@@ -19,12 +19,14 @@ package com.netflix.spinnaker.clouddriver.ecs.deploy.converters
 import com.fasterxml.jackson.databind.ObjectMapper
 import com.netflix.spinnaker.clouddriver.ecs.TestCredential
 import com.netflix.spinnaker.clouddriver.ecs.deploy.description.ModifyServiceDescription
+import com.netflix.spinnaker.clouddriver.ecs.deploy.ops.AbstractEcsAtomicOperation
 import com.netflix.spinnaker.clouddriver.ecs.deploy.ops.EnableServiceAtomicOperation
+import com.netflix.spinnaker.clouddriver.orchestration.AtomicOperation
 import com.netflix.spinnaker.clouddriver.security.AbstractAtomicOperationsCredentialsSupport
 import com.netflix.spinnaker.clouddriver.security.AccountCredentialsProvider
 import spock.lang.Specification
 
-abstract class ModifyServiceAtomicOperationConverterSpec<T extends AbstractAtomicOperationsCredentialsSupport> extends Specification {
+abstract class ModifyServiceAtomicOperationConverterSpec<T extends AbstractEcsAtomicOperation> extends Specification {
   def accountCredentialsProvider = Mock(AccountCredentialsProvider)
 
   abstract AbstractAtomicOperationsCredentialsSupport getConverter()
@@ -49,6 +51,6 @@ abstract class ModifyServiceAtomicOperationConverterSpec<T extends AbstractAtomi
     def operation = converter.convertOperation(input)
 
     then:
-    operation instanceof EnableServiceAtomicOperation
+    operation instanceof T
   }
 }

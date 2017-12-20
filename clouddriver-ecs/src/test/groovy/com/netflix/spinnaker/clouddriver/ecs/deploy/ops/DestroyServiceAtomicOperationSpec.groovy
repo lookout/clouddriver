@@ -21,9 +21,9 @@ import com.amazonaws.services.ecs.model.Service
 import com.netflix.spinnaker.clouddriver.ecs.TestCredential
 import com.netflix.spinnaker.clouddriver.ecs.cache.client.EcsCloudWatchAlarmCacheClient
 import com.netflix.spinnaker.clouddriver.ecs.deploy.description.ModifyServiceDescription
+import com.netflix.spinnaker.clouddriver.ecs.services.EcsCloudMetricService
 
 class DestroyServiceAtomicOperationSpec extends CommonAtomicOperation {
-  def metricAlarmCacheClient = Mock(EcsCloudWatchAlarmCacheClient)
 
   void 'should execute the operation'() {
     given:
@@ -33,12 +33,11 @@ class DestroyServiceAtomicOperationSpec extends CommonAtomicOperation {
     ))
 
     operation.amazonClientProvider = amazonClientProvider
-    operation.metricAlarmCacheClient = metricAlarmCacheClient
+    operation.ecsCloudMetricService = Mock(EcsCloudMetricService)
     operation.accountCredentialsProvider = accountCredentialsProvider
     operation.containerInformationService = containerInformationService
 
     amazonClientProvider.getAmazonEcs(_, _, _) >> ecs
-    metricAlarmCacheClient.getMetricAlarms(_, _, _) >> []
     containerInformationService.getClusterName(_, _, _) >> 'cluster-name'
     accountCredentialsProvider.getCredentials(_) >> TestCredential.named("test")
 

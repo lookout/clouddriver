@@ -17,11 +17,12 @@
 package com.netflix.spinnaker.clouddriver.ecs.deploy.converters
 
 import com.fasterxml.jackson.databind.ObjectMapper
+import com.netflix.spinnaker.clouddriver.ecs.deploy.ops.DestroyServiceAtomicOperation
 import com.netflix.spinnaker.clouddriver.security.AbstractAtomicOperationsCredentialsSupport
 
-class DestroyServiceAtomicOperationConverterSpec extends ModifyServiceAtomicOperationConverterSpec<DisableServiceAtomicOperationConverter> {
+class DestroyServiceAtomicOperationConverterSpec extends ModifyServiceAtomicOperationConverterSpec<DestroyServiceAtomicOperation> {
   @Override
   AbstractAtomicOperationsCredentialsSupport getConverter() {
-    new EnableServiceAtomicOperationConverter(objectMapper: new ObjectMapper())
+    new DestroyServiceAtomicOperationConverter(objectMapper: new ObjectMapper())
   }
 }
