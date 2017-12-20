@@ -25,14 +25,14 @@ import com.amazonaws.services.applicationautoscaling.model.ScalableTarget;
 import com.amazonaws.services.applicationautoscaling.model.ServiceNamespace;
 import com.amazonaws.services.ecs.AmazonECS;
 import com.amazonaws.services.ecs.model.UpdateServiceRequest;
-import com.netflix.spinnaker.clouddriver.ecs.deploy.description.EnableServiceDescription;
+import com.netflix.spinnaker.clouddriver.ecs.deploy.description.ModifyServiceDescription;
 
 import java.util.ArrayList;
 import java.util.List;
 
-public class EnableServiceAtomicOperation extends AbstractEcsAtomicOperation<EnableServiceDescription, Void> {
+public class EnableServiceAtomicOperation extends AbstractEcsAtomicOperation<ModifyServiceDescription, Void> {
 
-  public EnableServiceAtomicOperation(EnableServiceDescription description) {
+  public EnableServiceAtomicOperation(ModifyServiceDescription description) {
     super(description, "ENABLE_ECS_SERVER_GROUP");
   }
 

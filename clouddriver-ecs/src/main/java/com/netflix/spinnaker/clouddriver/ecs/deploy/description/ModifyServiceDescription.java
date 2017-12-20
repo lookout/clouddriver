@@ -21,7 +21,6 @@ import lombok.EqualsAndHashCode;
 
 @Data
 @EqualsAndHashCode(callSuper = false)
-public class DestroyServiceDescription extends AbstractECSDescription {
+public class ModifyServiceDescription extends AbstractECSDescription {
   String serverGroupName;
-  String cluster;
 }

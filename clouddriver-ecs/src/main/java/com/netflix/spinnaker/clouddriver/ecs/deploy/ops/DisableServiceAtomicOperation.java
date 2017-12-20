@@ -18,14 +18,14 @@ package com.netflix.spinnaker.clouddriver.ecs.deploy.ops;
 
 import com.amazonaws.services.ecs.AmazonECS;
 import com.amazonaws.services.ecs.model.UpdateServiceRequest;
-import com.netflix.spinnaker.clouddriver.ecs.deploy.description.DisableServiceDescription;
+import com.netflix.spinnaker.clouddriver.ecs.deploy.description.ModifyServiceDescription;
 
 import java.util.List;
 
 // TODO: DisableServiceAtomicOperation should not be resizing the service to 0 tasks. It should do something such as removing the instance from the target group.
-public class DisableServiceAtomicOperation extends AbstractEcsAtomicOperation<DisableServiceDescription, Void> {
+public class DisableServiceAtomicOperation extends AbstractEcsAtomicOperation<ModifyServiceDescription, Void> {
 
-  public DisableServiceAtomicOperation(DisableServiceDescription description) {
+  public DisableServiceAtomicOperation(ModifyServiceDescription description) {
     super(description, "DISABLE_ECS_SERVER_GROUP");
   }
 

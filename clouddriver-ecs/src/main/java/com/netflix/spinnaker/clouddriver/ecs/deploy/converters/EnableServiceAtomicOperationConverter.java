@@ -17,9 +17,7 @@
 package com.netflix.spinnaker.clouddriver.ecs.deploy.converters;
 
 import com.netflix.spinnaker.clouddriver.ecs.EcsOperation;
-import com.netflix.spinnaker.clouddriver.ecs.deploy.description.CloneServiceDescription;
-import com.netflix.spinnaker.clouddriver.ecs.deploy.description.EnableServiceDescription;
-import com.netflix.spinnaker.clouddriver.ecs.deploy.ops.CloneServiceAtomicOperation;
+import com.netflix.spinnaker.clouddriver.ecs.deploy.description.ModifyServiceDescription;
 import com.netflix.spinnaker.clouddriver.ecs.deploy.ops.EnableServiceAtomicOperation;
 import com.netflix.spinnaker.clouddriver.orchestration.AtomicOperation;
 import com.netflix.spinnaker.clouddriver.orchestration.AtomicOperations;
@@ -38,8 +36,8 @@ public class EnableServiceAtomicOperationConverter extends AbstractAtomicOperati
   }
 
   @Override
-  public EnableServiceDescription convertDescription(Map input) {
-    EnableServiceDescription converted = getObjectMapper().convertValue(input, EnableServiceDescription.class);
+  public ModifyServiceDescription convertDescription(Map input) {
+    ModifyServiceDescription converted = getObjectMapper().convertValue(input, ModifyServiceDescription.class);
     converted.setCredentials(getCredentialsObject(input.get("credentials").toString()));
 
     return converted;
