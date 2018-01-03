@@ -20,9 +20,18 @@ import com.amazonaws.services.applicationautoscaling.AWSApplicationAutoScaling;
 import com.amazonaws.services.applicationautoscaling.model.DeregisterScalableTargetRequest;
 import com.amazonaws.services.applicationautoscaling.model.DescribeScalableTargetsRequest;
 import com.amazonaws.services.applicationautoscaling.model.DescribeScalableTargetsResult;
+import com.amazonaws.services.applicationautoscaling.model.DescribeScalingPoliciesRequest;
+import com.amazonaws.services.applicationautoscaling.model.DescribeScalingPoliciesResult;
+import com.amazonaws.services.applicationautoscaling.model.PutScalingPolicyRequest;
+import com.amazonaws.services.applicationautoscaling.model.PutScalingPolicyResult;
+import com.amazonaws.services.applicationautoscaling.model.ScalingPolicy;
+import com.amazonaws.services.applicationautoscaling.model.ServiceNamespace;
 import com.amazonaws.services.cloudwatch.AmazonCloudWatch;
 import com.amazonaws.services.cloudwatch.model.DeleteAlarmsRequest;
+import com.amazonaws.services.cloudwatch.model.DescribeAlarmsRequest;
+import com.amazonaws.services.cloudwatch.model.DescribeAlarmsResult;
 import com.amazonaws.services.cloudwatch.model.MetricAlarm;
+import com.amazonaws.services.cloudwatch.model.PutMetricAlarmRequest;
 import com.netflix.spinnaker.clouddriver.aws.security.AmazonClientProvider;
 import com.netflix.spinnaker.clouddriver.aws.security.AmazonCredentials;
 import com.netflix.spinnaker.clouddriver.ecs.cache.client.EcsCloudWatchAlarmCacheClient;
@@ -128,5 +137,111 @@ public class EcsCloudMetricService {
     for (DeregisterScalableTargetRequest request : deregisterRequests) {
       autoScaling.deregisterScalableTarget(request);
     }
+  }
+
+  private PutMetricAlarmRequest buildPutMetricAlarmRequest(MetricAlarm metricAlarm,
+                                                          String serviceName,
+                                                          Set<String> insufficientActionPolicyArns,
+                                                          Set<String> okActionPolicyArns,
+                                                          Set<String> alarmActionPolicyArns) {
+    return new PutMetricAlarmRequest()
+      .withAlarmName(metricAlarm.getAlarmName() + "-" + serviceName)
+      .withEvaluationPeriods(metricAlarm.getEvaluationPeriods())
+      .withThreshold(metricAlarm.getThreshold())
+      .withActionsEnabled(metricAlarm.getActionsEnabled())
+      .withAlarmDescription(metricAlarm.getAlarmDescription())
+      .withComparisonOperator(metricAlarm.getComparisonOperator())
+      .withDimensions(metricAlarm.getDimensions())
+      .withMetricName(metricAlarm.getMetricName())
+      .withUnit(metricAlarm.getUnit())
+      .withPeriod(metricAlarm.getPeriod())
+      .withNamespace(metricAlarm.getNamespace())
+      .withStatistic(metricAlarm.getStatistic())
+      .withEvaluateLowSampleCountPercentile(metricAlarm.getEvaluateLowSampleCountPercentile())
+      .withTreatMissingData(metricAlarm.getTreatMissingData())
+      .withExtendedStatistic(metricAlarm.getExtendedStatistic())
+      .withInsufficientDataActions(insufficientActionPolicyArns)
+      .withOKActions(okActionPolicyArns)
+      .withAlarmActions(alarmActionPolicyArns);
+  }
+
+  private PutScalingPolicyRequest buildPutScalingPolicyRequest(ScalingPolicy policy) {
+    return new PutScalingPolicyRequest()
+      .withPolicyName(policy.getPolicyName())
+      .withServiceNamespace(policy.getServiceNamespace())
+      .withPolicyType(policy.getPolicyType())
+      .withResourceId(policy.getResourceId())
+      .withScalableDimension(policy.getScalableDimension())
+      .withStepScalingPolicyConfiguration(policy.getStepScalingPolicyConfiguration())
+      .withTargetTrackingScalingPolicyConfiguration(policy.getTargetTrackingScalingPolicyConfiguration());
+  }
+
+  public void associateAsgWithMetrics(String account,
+                                      String region,
+                                      List<String> alarmNames,
+                                      String serviceName,
+                                      String resourceId) {
+
+    AmazonCredentials credentials = (AmazonCredentials) accountCredentialsProvider.getCredentials(account);
+
+    AmazonCloudWatch cloudWatch = amazonClientProvider.getAmazonCloudWatch(account, credentials.getCredentialsProvider(), region);
+    AWSApplicationAutoScaling autoScalingClient = amazonClientProvider.getAmazonApplicationAutoScaling(account, credentials.getCredentialsProvider(), region);
+
+    DescribeAlarmsResult describeAlarmsResult = cloudWatch.describeAlarms(new DescribeAlarmsRequest()
+      .withAlarmNames(alarmNames));
+
+    for (MetricAlarm metricAlarm : describeAlarmsResult.getMetricAlarms()) {
+      Set<String> okScalingPolicyArns = putScalingPolicies(autoScalingClient, metricAlarm.getOKActions(),
+        serviceName, resourceId, "ok", "scaling-policy-" + metricAlarm.getAlarmName());
+      Set<String> alarmScalingPolicyArns = putScalingPolicies(autoScalingClient, metricAlarm.getAlarmActions(),
+        serviceName, resourceId, "alarm", "scaling-policy-" + metricAlarm.getAlarmName());
+      Set<String> insufficientActionPolicyArns = putScalingPolicies(autoScalingClient, metricAlarm.getInsufficientDataActions(),
+        serviceName, resourceId, "insuffiicient", "scaling-policy-" + metricAlarm.getAlarmName());
+
+      cloudWatch.putMetricAlarm(buildPutMetricAlarmRequest(metricAlarm, serviceName,
+        insufficientActionPolicyArns, okScalingPolicyArns, alarmScalingPolicyArns));
+    }
+  }
+
+  private Set<String> putScalingPolicies(AWSApplicationAutoScaling autoScalingClient,
+                                         List<String> actionArns,
+                                         String serviceName,
+                                         String resourceId,
+                                         String type,
+                                         String suffix) {
+    if (actionArns.isEmpty()) {
+      return Collections.emptySet();
+    }
+
+    Set<ScalingPolicy> scalingPolicies = new HashSet<>();
+
+    String nextToken = null;
+    do {
+      DescribeScalingPoliciesRequest request = new DescribeScalingPoliciesRequest().withPolicyNames(actionArns.stream()
+        .map(arn -> StringUtils.substringAfterLast(arn, ":policyName/"))
+        .collect(Collectors.toSet()))
+        .withServiceNamespace(ServiceNamespace.Ecs);
+      if (nextToken != null) {
+        request.setNextToken(nextToken);
+      }
+
+      DescribeScalingPoliciesResult result = autoScalingClient.describeScalingPolicies(request);
+      scalingPolicies.addAll(result.getScalingPolicies());
+
+      nextToken = result.getNextToken();
+    } while (nextToken != null && nextToken.length() != 0);
+
+    Set<String> policyArns = new HashSet<>();
+    for (ScalingPolicy scalingPolicy : scalingPolicies) {
+      String newPolicyName = serviceName + "-" + type + "-" + suffix;
+      ScalingPolicy clone = scalingPolicy.clone();
+      clone.setPolicyName(newPolicyName);
+      clone.setResourceId(resourceId);
+
+      PutScalingPolicyResult result = autoScalingClient.putScalingPolicy(buildPutScalingPolicyRequest(clone));
+      policyArns.add(result.getPolicyARN());
+    }
+
+    return policyArns;
   }
 }

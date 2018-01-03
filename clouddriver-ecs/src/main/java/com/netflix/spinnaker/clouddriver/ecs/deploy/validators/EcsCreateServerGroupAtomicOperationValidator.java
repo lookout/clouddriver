@@ -19,19 +19,19 @@ package com.netflix.spinnaker.clouddriver.ecs.deploy.validators;
 import com.amazonaws.services.ecs.model.PlacementStrategy;
 import com.amazonaws.services.ecs.model.PlacementStrategyType;
 import com.google.common.collect.Sets;
-import com.netflix.spinnaker.clouddriver.deploy.DescriptionValidator;
 import com.netflix.spinnaker.clouddriver.ecs.EcsOperation;
 import com.netflix.spinnaker.clouddriver.ecs.deploy.description.CreateServerGroupDescription;
 import com.netflix.spinnaker.clouddriver.orchestration.AtomicOperations;
 import org.springframework.stereotype.Component;
 import org.springframework.validation.Errors;
 
+import java.util.Collections;
 import java.util.List;
 import java.util.Set;
 
 @EcsOperation(AtomicOperations.CREATE_SERVER_GROUP)
 @Component("ecsCreateServerGroupAtomicOperationValidator")
-public class EcsCreateServerGroupAtomicOperationValidator extends DescriptionValidator {
+public class EcsCreateServerGroupAtomicOperationValidator extends CommonValidator {
 
   private static final Set<String> BINPACK_VALUES = Sets.newHashSet("cpu", "memory");
   private static final Set<String> SPREAD_VALUES = Sets.newHashSet(
@@ -45,6 +45,20 @@ public class EcsCreateServerGroupAtomicOperationValidator extends DescriptionVal
   @Override
   public void validate(List priorDescriptions, Object description, Errors errors) {
     CreateServerGroupDescription createServerGroupDescription = (CreateServerGroupDescription) description;
+
+    boolean validCredentials = validateCredentials(createServerGroupDescription, "createServerGroupDescription", errors, "credentials");
+
+    if (validCredentials) {
+      validateRegions(createServerGroupDescription, Collections.singleton(createServerGroupDescription.getRegion()), "createServerGroupDescription", errors, "region");
+    }
+
+    if (createServerGroupDescription.getAvailabilityZones() != null) {
+      if (createServerGroupDescription.getAvailabilityZones().size() != 1) {
+        errors.rejectValue("availabilityZones", "createServerGroupDescription.availabilityZones.can.only.have.one");
+      }
+    } else {
+      errors.rejectValue("availabilityZones", "createServerGroupDescription.availabilityZones.not.nullable");
+    }
 
     if (createServerGroupDescription.getPlacementStrategySequence() != null) {
       for (PlacementStrategy placementStrategy : createServerGroupDescription.getPlacementStrategySequence()) {
@@ -77,7 +91,55 @@ public class EcsCreateServerGroupAtomicOperationValidator extends DescriptionVal
       }
     } else {
       // This only applies to pipelines that have been created before support for placement strategies and have not been updated since.
-      errors.rejectValue("placementStrategySequence", "createServerGroupDescription.placementStrategySequence.null");
+      errors.rejectValue("placementStrategySequence", "createServerGroupDescription.placementStrategySequence.not.nullable");
+    }
+
+    if (createServerGroupDescription.getAutoscalingPolicies() == null) {
+      errors.rejectValue("autoscalingPolicies", "createServerGroupDescription.autoscalingPolicies.not.nullable");
+    }
+
+    if (createServerGroupDescription.getApplication() == null) {
+      errors.rejectValue("application", "createServerGroupDescription.application.not.nullable");
+    }
+
+    if (createServerGroupDescription.getEcsClusterName() == null) {
+      errors.rejectValue("ecsClusterName", "createServerGroupDescription.ecsClusterName.not.nullable");
+    }
+
+    if (createServerGroupDescription.getCapacity() != null) {
+      if (createServerGroupDescription.getCapacity().getDesired() != null) {
+        if (createServerGroupDescription.getCapacity().getDesired() < 0) {
+          errors.rejectValue("containerPort", "createServerGroupDescription.capacity.desired.invalid");
+        }
+      } else {
+        errors.rejectValue("desired", "createServerGroupDescription.capacity.desired.not.nullable");
+      }
+    } else {
+      errors.rejectValue("capacity", "createServerGroupDescription.capacity.not.nullable");
+    }
+
+    if (createServerGroupDescription.getContainerPort() != null) {
+      if (createServerGroupDescription.getContainerPort() < 0 || createServerGroupDescription.getContainerPort() > 65535) {
+        errors.rejectValue("containerPort", "createServerGroupDescription.containerPort.invalid");
+      }
+    } else {
+      errors.rejectValue("containerPort", "createServerGroupDescription.containerPort.not.nullable");
+    }
+
+    if (createServerGroupDescription.getComputeUnits() != null) {
+      if (createServerGroupDescription.getComputeUnits() < 0) {
+        errors.rejectValue("computeUnits", "createServerGroupDescription.computeUnits.invalid");
+      }
+    } else {
+      errors.rejectValue("computeUnits", "createServerGroupDescription.computeUnits.not.nullable");
+    }
+
+    if (createServerGroupDescription.getReservedMemory() != null) {
+      if (createServerGroupDescription.getReservedMemory() < 0) {
+        errors.rejectValue("reservedMemory", "createServerGroupDescription.reservedMemory.invalid");
+      }
+    } else {
+      errors.rejectValue("reservedMemory", "createServerGroupDescription.reservedMemory.not.nullable");
     }
 
   }
