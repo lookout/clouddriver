@@ -166,17 +166,21 @@ public class EcsServerClusterProvider implements ClusterProvider<EcsServerCluste
         String containerArn = task.getContainerInstanceArn();
         String taskId = task.getTaskId();
 
-        InstanceStatus ec2InstanceStatus = containerInformationService.getEC2InstanceStatus(
-          amazonEC2, credentials.getName(), awsRegion.getName(), containerArn);
+        //instance.getPlacement().getAvailabilityZone() get from the cache client!
+        //InstanceStatus ec2InstanceStatus = containerInformationService.getEC2InstanceStatus(
+        //  amazonEC2, credentials.getName(), awsRegion.getName(), containerArn);
+        //TODO: remove getContainerAvailabilityZone method from containerInformationService should this change to using the cache.
+        String availabilityZone = containerInformationService.getContainerAvailabilityZone(credentials.getName(), awsRegion.getName(), containerArn);
 
         String address = containerInformationService.getTaskPrivateAddress(credentials.getName(), awsRegion.getName(), task);
 
         List<Map<String, String>> healthStatus = containerInformationService.getHealthStatus(taskId, serviceName, credentials.getName(), awsRegion.getName());
 
         Long launchTime = task.getStartedAt();
-        instances.add(new EcsTask(taskId, launchTime, task.getLastStatus(), task.getDesiredStatus(), ec2InstanceStatus.getAvailabilityZone(), healthStatus, address));
+        instances.add(new EcsTask(taskId, launchTime, task.getLastStatus(), task.getDesiredStatus(), availabilityZone, healthStatus, address));
 
         if (vpcId == null) {
+          //TODO: remove getEC2InstanceHostID method from containerInformationService should this change to using the cache.
           String es2HostId = containerInformationService.getEC2InstanceHostID(credentials.getName(), awsRegion.getName(), containerArn);
           //TODO: describeLoadBalancers should probably be cached.
           com.amazonaws.services.ec2.model.Instance oneEc2Instance = amazonEC2.describeInstances(new DescribeInstancesRequest().withInstanceIds(es2HostId)).getReservations().get(0).getInstances().get(0);

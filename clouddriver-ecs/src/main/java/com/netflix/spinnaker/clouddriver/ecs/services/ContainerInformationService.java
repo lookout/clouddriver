@@ -152,6 +152,7 @@ public class ContainerInformationService {
     }
     Instance instance = instances.iterator().next();
 
+
     String hostPrivateIpAddress = instance.getPrivateIpAddress();
     return String.format("%s:%s", hostPrivateIpAddress, hostPort);
   }
@@ -166,32 +167,23 @@ public class ContainerInformationService {
     return null;
   }
 
-  public InstanceStatus getEC2InstanceStatus(AmazonEC2 amazonEC2, String accountName, String region, String containerArn) {
-    if (containerArn == null) {
-      return null;
+  //TODO: Delete this method once EcsServerClusterProvider has been reworked to use the cache.
+  public String getContainerAvailabilityZone(String account, String region, String containerArn) {
+    String containerInstanceCacheKey = Keys.getContainerInstanceKey(account, region, containerArn);
+    ContainerInstance containerInstance = containerInstanceCacheClient.get(containerInstanceCacheKey);
+    if (containerInstance == null) {
+      return "unknown";
     }
 
-    String hostEc2InstanceId = getEC2InstanceHostID(accountName, region, containerArn);
-
-    InstanceStatus instanceStatus = null;
-
-    List<String> queryList = new ArrayList<>();
-    queryList.add(hostEc2InstanceId);
-    DescribeInstanceStatusRequest request = new DescribeInstanceStatusRequest()
-      .withInstanceIds(queryList);
-    //TODO: describeInstanceStatus should probably be cached.
-    List<InstanceStatus> instanceStatusList = amazonEC2.describeInstanceStatus(request).getInstanceStatuses();
-
-    if (!instanceStatusList.isEmpty()) {
-      //TODO: return the status of the container instance (ecs call) as opposed to ec2 instance(s).
-      /*if (instanceStatusList.size() != 1) {
-        String message = "Container instances should only have only one Instance Status. Multiple found";
-        throw new InvalidParameterException(message);
-      }*/
-      instanceStatus = instanceStatusList.get(0);
+    Set<Instance> instances = ecsInstanceCacheClient.find(containerInstance.getEc2InstanceId(), getAwsAccountName(account), region);
+    if (instances.size() > 1) {
+      throw new IllegalArgumentException("There cannot be more than 1 EC2 container instance for a given region and instance ID.");
+    } else if (instances.size() == 0) {
+      return "unknown";
     }
+    Instance instance = instances.iterator().next();
 
-    return instanceStatus;
+    return instance.getPlacement().getAvailabilityZone();
   }
 
   public String getClusterName(String serviceName, String accountName, String region) {
