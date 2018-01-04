@@ -27,7 +27,7 @@ import java.util.List;
 import java.util.regex.Pattern;
 
 @EcsOperation(AtomicOperations.TERMINATE_INSTANCES)
-@Component("terminateInstancesDescriptionValidator")
+@Component("ecsTerminateInstancesDescriptionValidator")
 public class TerminateInstancesDescriptionValidator extends CommonValidator {
   public static final Pattern TASK_ID_PATTERN = Pattern.compile("[\\da-f]{8}-[\\da-f]{4}-[\\da-f]{4}-[\\da-f]{4}-[\\da-f]{12}");
 

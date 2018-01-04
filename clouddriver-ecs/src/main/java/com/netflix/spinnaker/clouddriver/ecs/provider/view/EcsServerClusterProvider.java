@@ -169,7 +169,7 @@ public class EcsServerClusterProvider implements ClusterProvider<EcsServerCluste
         InstanceStatus ec2InstanceStatus = containerInformationService.getEC2InstanceStatus(
           amazonEC2, credentials.getName(), awsRegion.getName(), containerArn);
 
-        String address = containerInformationService.getTaskPrivateAddress(credentials.getName(), awsRegion.getName(), amazonEC2, task);
+        String address = containerInformationService.getTaskPrivateAddress(credentials.getName(), awsRegion.getName(), task);
 
         List<Map<String, String>> healthStatus = containerInformationService.getHealthStatus(taskId, serviceName, credentials.getName(), awsRegion.getName());
 

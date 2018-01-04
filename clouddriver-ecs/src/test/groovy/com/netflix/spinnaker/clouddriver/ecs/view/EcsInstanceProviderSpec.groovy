@@ -73,7 +73,7 @@ class EcsInstanceProviderSpec extends Specification {
     netflixAmazonCredentials.getCredentialsProvider() >> awsCredentialsProvider
     amazonClientProvider.getAmazonEC2(_, _, _) >> amazonEC2
     containerInstanceCacheClient.get(_) >> containerInstance
-    containerInformationService.getTaskPrivateAddress(_, _, _, _) >> address
+    containerInformationService.getTaskPrivateAddress(_, _, _) >> address
 
     when:
     def taskInstance = provider.getInstance(account, region, taskId)
