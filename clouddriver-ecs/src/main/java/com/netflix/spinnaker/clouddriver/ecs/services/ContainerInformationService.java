@@ -16,10 +16,7 @@
 
 package com.netflix.spinnaker.clouddriver.ecs.services;
 
-import com.amazonaws.services.ec2.AmazonEC2;
-import com.amazonaws.services.ec2.model.DescribeInstanceStatusRequest;
 import com.amazonaws.services.ec2.model.Instance;
-import com.amazonaws.services.ec2.model.InstanceStatus;
 import com.amazonaws.services.ecs.model.LoadBalancer;
 import com.netflix.spinnaker.clouddriver.ecs.cache.Keys;
 import com.netflix.spinnaker.clouddriver.ecs.cache.client.ContainerInstanceCacheClient;
@@ -66,10 +63,6 @@ public class ContainerInformationService {
     this.containerInstanceCacheClient = containerInstanceCacheClient;
   }
 
-
-  /**
-   * Sure.
-   */
   public List<Map<String, String>> getHealthStatus(String taskId, String serviceName, String accountName, String region) {
     String serviceCacheKey = Keys.getServiceKey(accountName, region, serviceName);
     Service service = serviceCacheClient.get(serviceCacheKey);
@@ -109,14 +102,20 @@ public class ContainerInformationService {
 
   }
 
-  /**
-   * Sure.
-   */
   public String getClusterArn(String accountName, String region, String taskId) {
     String key = Keys.getTaskKey(accountName, region, taskId);
     Task task = taskCacheClient.get(key);
     if (task != null) {
       return task.getClusterArn();
+    }
+    return null;
+  }
+
+  public String getClusterName(String serviceName, String accountName, String region) {
+    String serviceCachekey = Keys.getServiceKey(accountName, region, serviceName);
+    Service service = serviceCacheClient.get(serviceCachekey);
+    if (service != null) {
+      return service.getClusterName();
     }
     return null;
   }
@@ -184,15 +183,6 @@ public class ContainerInformationService {
     Instance instance = instances.iterator().next();
 
     return instance.getPlacement().getAvailabilityZone();
-  }
-
-  public String getClusterName(String serviceName, String accountName, String region) {
-    String serviceCachekey = Keys.getServiceKey(accountName, region, serviceName);
-    Service service = serviceCacheClient.get(serviceCachekey);
-    if (service != null) {
-      return service.getClusterName();
-    }
-    return null;
   }
 
   private String getAwsAccountName(String ecsAccountName) {
