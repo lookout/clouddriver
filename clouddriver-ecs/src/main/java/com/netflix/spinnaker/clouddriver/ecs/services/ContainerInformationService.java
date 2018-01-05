@@ -137,52 +137,27 @@ public class ContainerInformationService {
       return "unknown";
     }
 
-    String containerInstanceCacheKey = Keys.getContainerInstanceKey(accountName, region, task.getContainerInstanceArn());
-    ContainerInstance containerInstance = containerInstanceCacheClient.get(containerInstanceCacheKey);
-    if (containerInstance == null) {
-      return "unknown";
-    }
-
-    Set<Instance> instances = ecsInstanceCacheClient.find(containerInstance.getEc2InstanceId(), getAwsAccountName(accountName), region);
-    if (instances.size() > 1) {
-      throw new IllegalArgumentException("There cannot be more than 1 EC2 container instance for a given region and instance ID.");
-    } else if (instances.size() == 0) {
-      return "unknown";
-    }
-    Instance instance = instances.iterator().next();
-
+    Instance instance = getEc2Instance(accountName, region, task);
 
     String hostPrivateIpAddress = instance.getPrivateIpAddress();
     return String.format("%s:%s", hostPrivateIpAddress, hostPort);
   }
 
-  //TODO: Delete this method once EcsServerClusterProvider has been reworked to use the cache.
-  public String getEC2InstanceHostID(String accountName, String region, String containerArn) {
-    String containerInstanceCacheKey = Keys.getContainerInstanceKey(accountName, region, containerArn);
-    ContainerInstance containerInstance = containerInstanceCacheClient.get(containerInstanceCacheKey);
-    if (containerInstance != null) {
-      return containerInstance.getEc2InstanceId();
-    }
-    return null;
-  }
-
-  //TODO: Delete this method once EcsServerClusterProvider has been reworked to use the cache.
-  public String getContainerAvailabilityZone(String account, String region, String containerArn) {
-    String containerInstanceCacheKey = Keys.getContainerInstanceKey(account, region, containerArn);
+  public Instance getEc2Instance(String ecsAccount, String region, Task task){
+    String containerInstanceCacheKey = Keys.getContainerInstanceKey(ecsAccount, region, task.getContainerInstanceArn());
     ContainerInstance containerInstance = containerInstanceCacheClient.get(containerInstanceCacheKey);
     if (containerInstance == null) {
-      return "unknown";
+      return null;
     }
 
-    Set<Instance> instances = ecsInstanceCacheClient.find(containerInstance.getEc2InstanceId(), getAwsAccountName(account), region);
+    Set<Instance> instances = ecsInstanceCacheClient.find(containerInstance.getEc2InstanceId(), getAwsAccountName(ecsAccount), region);
     if (instances.size() > 1) {
       throw new IllegalArgumentException("There cannot be more than 1 EC2 container instance for a given region and instance ID.");
     } else if (instances.size() == 0) {
-      return "unknown";
+      return null;
     }
-    Instance instance = instances.iterator().next();
 
-    return instance.getPlacement().getAvailabilityZone();
+    return instances.iterator().next();
   }
 
   private String getAwsAccountName(String ecsAccountName) {

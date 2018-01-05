@@ -23,22 +23,15 @@ import com.amazonaws.services.applicationautoscaling.model.DescribeScalableTarge
 import com.amazonaws.services.applicationautoscaling.model.ScalableDimension;
 import com.amazonaws.services.applicationautoscaling.model.ScalableTarget;
 import com.amazonaws.services.applicationautoscaling.model.ServiceNamespace;
-import com.amazonaws.services.ec2.AmazonEC2;
-import com.amazonaws.services.ec2.model.DescribeInstancesRequest;
 import com.amazonaws.services.ec2.model.GroupIdentifier;
-import com.amazonaws.services.ec2.model.InstanceStatus;
 import com.amazonaws.services.ecs.model.ContainerDefinition;
-import com.amazonaws.services.elasticloadbalancingv2.AmazonElasticLoadBalancing;
-import com.amazonaws.services.elasticloadbalancingv2.model.DescribeLoadBalancersRequest;
-import com.amazonaws.services.elasticloadbalancingv2.model.DescribeLoadBalancersResult;
-import com.amazonaws.services.elasticloadbalancingv2.model.LoadBalancer;
 import com.google.common.collect.Sets;
-import com.netflix.spinnaker.clouddriver.aws.model.AmazonLoadBalancer;
 import com.netflix.spinnaker.clouddriver.aws.security.AmazonClientProvider;
 import com.netflix.spinnaker.clouddriver.aws.security.AmazonCredentials;
 import com.netflix.spinnaker.clouddriver.ecs.EcsCloudProvider;
 import com.netflix.spinnaker.clouddriver.ecs.cache.Keys;
 import com.netflix.spinnaker.clouddriver.ecs.cache.client.EcsCloudWatchAlarmCacheClient;
+import com.netflix.spinnaker.clouddriver.ecs.cache.client.EcsLoadbalancerCacheClient;
 import com.netflix.spinnaker.clouddriver.ecs.cache.client.ServiceCacheClient;
 import com.netflix.spinnaker.clouddriver.ecs.cache.client.TaskCacheClient;
 import com.netflix.spinnaker.clouddriver.ecs.cache.client.TaskDefinitionCacheClient;
@@ -52,6 +45,7 @@ import com.netflix.spinnaker.clouddriver.ecs.model.TaskDefinition;
 import com.netflix.spinnaker.clouddriver.ecs.services.ContainerInformationService;
 import com.netflix.spinnaker.clouddriver.model.ClusterProvider;
 import com.netflix.spinnaker.clouddriver.model.Instance;
+import com.netflix.spinnaker.clouddriver.model.LoadBalancer;
 import com.netflix.spinnaker.clouddriver.model.ServerGroup;
 import com.netflix.spinnaker.clouddriver.security.AccountCredentials;
 import com.netflix.spinnaker.clouddriver.security.AccountCredentialsProvider;
@@ -76,10 +70,11 @@ public class EcsServerClusterProvider implements ClusterProvider<EcsServerCluste
   private final TaskCacheClient taskCacheClient;
   private final ServiceCacheClient serviceCacheClient;
   private final TaskDefinitionCacheClient taskDefinitionCacheClient;
+  private final EcsLoadbalancerCacheClient ecsLoadbalancerCacheClient;
   private final EcsCloudWatchAlarmCacheClient ecsCloudWatchAlarmCacheClient;
-  private AccountCredentialsProvider accountCredentialsProvider;
-  private AmazonClientProvider amazonClientProvider;
-  private ContainerInformationService containerInformationService;
+  private final AccountCredentialsProvider accountCredentialsProvider;
+  private final AmazonClientProvider amazonClientProvider;
+  private final ContainerInformationService containerInformationService;
 
   @Autowired
   public EcsServerClusterProvider(AccountCredentialsProvider accountCredentialsProvider,
@@ -87,6 +82,7 @@ public class EcsServerClusterProvider implements ClusterProvider<EcsServerCluste
                                   ContainerInformationService containerInformationService,
                                   TaskCacheClient taskCacheClient,
                                   ServiceCacheClient serviceCacheClient,
+                                  EcsLoadbalancerCacheClient ecsLoadbalancerCacheClient,
                                   TaskDefinitionCacheClient taskDefinitionCacheClient,
                                   EcsCloudWatchAlarmCacheClient ecsCloudWatchAlarmCacheClient) {
     this.accountCredentialsProvider = accountCredentialsProvider;
@@ -95,6 +91,7 @@ public class EcsServerClusterProvider implements ClusterProvider<EcsServerCluste
     this.taskCacheClient = taskCacheClient;
     this.serviceCacheClient = serviceCacheClient;
     this.taskDefinitionCacheClient = taskDefinitionCacheClient;
+    this.ecsLoadbalancerCacheClient = ecsLoadbalancerCacheClient;
     this.ecsCloudWatchAlarmCacheClient = ecsCloudWatchAlarmCacheClient;
   }
 
@@ -131,17 +128,6 @@ public class EcsServerClusterProvider implements ClusterProvider<EcsServerCluste
     Collection<Service> services = serviceCacheClient.getAll(credentials.getName(), awsRegion.getName());
     Collection<Task> allTasks = taskCacheClient.getAll();
 
-    AmazonEC2 amazonEC2 = amazonClientProvider.getAmazonEC2(credentials.getName(),
-      credentials.getCredentialsProvider(),
-      awsRegion.getName());
-    AmazonElasticLoadBalancing amazonELB = amazonClientProvider.getAmazonElasticLoadBalancingV2(credentials.getName(),
-      credentials.getCredentialsProvider(),
-      awsRegion.getName());
-
-    String vpcId = null; // TODO - the assumption that there is only 1 VPC associated with the cluster might not be true 100% of the time.  It should be, but I am sure some people out there are weird
-    Set<String> securityGroups = new HashSet<>();
-
-
     for (Service service : services) {
       String serviceArn = service.getServiceArn();
       String serviceName = service.getServiceName();
@@ -151,63 +137,12 @@ public class EcsServerClusterProvider implements ClusterProvider<EcsServerCluste
         continue;
       }
 
-      Set<Instance> instances = new HashSet<>();
+      Set<LoadBalancer> loadBalancers = new HashSet<>(ecsLoadbalancerCacheClient.findAll());
 
-      //TODO: describeLoadBalancers should probably be cached.
-      DescribeLoadBalancersResult loadBalancersResult = amazonELB.describeLoadBalancers(new DescribeLoadBalancersRequest());
-      Set<com.netflix.spinnaker.clouddriver.model.LoadBalancer> loadBalancers = extractLoadBalancersData(loadBalancersResult);
-
-      Collection<Task> serviceTasks = allTasks
-        .stream()
+      Set<Instance> instances = allTasks.stream()
         .filter(task -> task.getGroup().equals("service:" + serviceName))
+        .map(task -> convertToEcsTask(credentials.getName(), awsRegion.getName(), serviceName, task))
         .collect(Collectors.toSet());
-
-      for (Task task : serviceTasks) {
-        String containerArn = task.getContainerInstanceArn();
-        String taskId = task.getTaskId();
-
-        //instance.getPlacement().getAvailabilityZone() get from the cache client!
-        //InstanceStatus ec2InstanceStatus = containerInformationService.getEC2InstanceStatus(
-        //  amazonEC2, credentials.getName(), awsRegion.getName(), containerArn);
-        //TODO: remove getContainerAvailabilityZone method from containerInformationService should this change to using the cache.
-        String availabilityZone = containerInformationService.getContainerAvailabilityZone(credentials.getName(), awsRegion.getName(), containerArn);
-
-        String address = containerInformationService.getTaskPrivateAddress(credentials.getName(), awsRegion.getName(), task);
-
-        List<Map<String, String>> healthStatus = containerInformationService.getHealthStatus(taskId, serviceName, credentials.getName(), awsRegion.getName());
-
-        Long launchTime = task.getStartedAt();
-        instances.add(new EcsTask(taskId, launchTime, task.getLastStatus(), task.getDesiredStatus(), availabilityZone, healthStatus, address));
-
-        if (vpcId == null) {
-          //TODO: remove getEC2InstanceHostID method from containerInformationService should this change to using the cache.
-          String es2HostId = containerInformationService.getEC2InstanceHostID(credentials.getName(), awsRegion.getName(), containerArn);
-          //TODO: describeLoadBalancers should probably be cached.
-          com.amazonaws.services.ec2.model.Instance oneEc2Instance = amazonEC2.describeInstances(new DescribeInstancesRequest().withInstanceIds(es2HostId)).getReservations().get(0).getInstances().get(0);
-          vpcId = oneEc2Instance.getVpcId();
-          for (GroupIdentifier groupIdentifier : oneEc2Instance.getSecurityGroups()) {
-            securityGroups.add(groupIdentifier.getGroupId());
-          }
-        }
-      }
-
-      String clusterName = service.getClusterName();
-      ScalableTarget target = retrieveScalableTarget(credentials, awsRegion, serviceName, clusterName);
-      int desiredCount = service.getDesiredCount();
-
-      ServerGroup.Capacity capacity = new ServerGroup.Capacity();
-      capacity.setDesired(desiredCount);
-      if (target != null) {
-        capacity.setMin(target.getMinCapacity());
-        capacity.setMax(target.getMaxCapacity());
-      } else {
-        //TODO: Min/Max should be based on (desired count * min/max precent).
-        capacity.setMin(desiredCount);
-        capacity.setMax(desiredCount);
-      }
-
-      long creationTime = service.getCreatedAt();
-
 
       String taskDefinitionKey = Keys.getTaskDefinitionKey(credentials.getName(), awsRegion.getName(), service.getTaskDefinition());
       com.amazonaws.services.ecs.model.TaskDefinition taskDefinition = taskDefinitionCacheClient.get(taskDefinitionKey);
@@ -215,34 +150,11 @@ public class EcsServerClusterProvider implements ClusterProvider<EcsServerCluste
         continue;
       }
 
-//      ContainerDefinition containerDefinition = definition.getContainerDefinitions().get(0);
-      //TODO: Deserialize containerDefinitions.
-      ContainerDefinition containerDefinition = taskDefinition.getContainerDefinitions().get(0);
-      String roleArn = taskDefinition.getTaskRoleArn();
-      String iamRole = roleArn != null ? StringUtils.substringAfterLast(roleArn, "/") : "None";
+      EcsServerGroup ecsServerGroup = buildEcsServerGroup(credentials, awsRegion.getName(),
+        serviceName, service.getDesiredCount(), metadata, instances, service.getCreatedAt(),
+        service.getClusterName(), taskDefinition);
 
-      TaskDefinition ecsTaskDefinition = new TaskDefinition();
-      ecsTaskDefinition
-        .setContainerImage(containerDefinition.getImage())
-        .setContainerPort(containerDefinition.getPortMappings().get(0).getContainerPort())
-        .setCpuUnits(containerDefinition.getCpu())
-        .setMemoryReservation(containerDefinition.getMemoryReservation())
-        .setIamRole(iamRole)
-        .setTaskName(StringUtils.substringAfterLast(taskDefinition.getTaskDefinitionArn(), "/"))
-        .setEnvironmentVariables(containerDefinition.getEnvironment());
-
-      List<EcsMetricAlarm> metricAlarms = ecsCloudWatchAlarmCacheClient.getMetricAlarms(serviceName, credentials.getName(), awsRegion.getName());
-      Set<String> metricAlarmNames = metricAlarms.stream()
-        .map(EcsMetricAlarm::getAlarmName)
-        .collect(Collectors.toSet());
-
-      EcsServerGroup ecsServerGroup = generateServerGroup(awsRegion, metadata, instances, capacity, creationTime,
-        clusterName, ecsTaskDefinition, vpcId, securityGroups, target, metricAlarmNames);
-
-      if (!clusterMap.containsKey(metadata.applicationName)) {
-        EcsServerCluster spinnakerCluster = generateSpinnakerServerCluster(credentials, loadBalancers, ecsServerGroup);
-        clusterMap.put(metadata.applicationName, Sets.newHashSet(spinnakerCluster));
-      } else {
+      if (clusterMap.containsKey(metadata.applicationName)) {
         String escClusterName = removeVersion(ecsServerGroup.getName());
         boolean found = false;
 
@@ -255,18 +167,141 @@ public class EcsServerClusterProvider implements ClusterProvider<EcsServerCluste
         }
 
         if (!found) {
-          EcsServerCluster spinnakerCluster = generateSpinnakerServerCluster(credentials, loadBalancers, ecsServerGroup);
+          EcsServerCluster spinnakerCluster = buildSpinnakerServerCluster(credentials, loadBalancers, ecsServerGroup);
           clusterMap.get(metadata.applicationName).add(spinnakerCluster);
         }
+      } else {
+        EcsServerCluster spinnakerCluster = buildSpinnakerServerCluster(credentials, loadBalancers, ecsServerGroup);
+        clusterMap.put(metadata.applicationName, Sets.newHashSet(spinnakerCluster));
       }
     }
 
     return clusterMap;
   }
 
-  private ScalableTarget retrieveScalableTarget(AmazonCredentials credentials, AmazonCredentials.AWSRegion awsRegion, String serviceName, String clusterName) {
+  private EcsTask convertToEcsTask(String account, String region, String serviceName, Task task) {
+    String taskId = task.getTaskId();
+    Long launchTime = task.getStartedAt();
+
+    String address = containerInformationService.getTaskPrivateAddress(account, region, task);
+    List<Map<String, String>> healthStatus = containerInformationService.getHealthStatus(taskId, serviceName, account, region);
+
+    com.amazonaws.services.ec2.model.Instance ec2Instance = containerInformationService.getEc2Instance(account, region, task);
+    String availabilityZone = ec2Instance.getPlacement().getAvailabilityZone();
+
+    return new EcsTask(taskId, launchTime, task.getLastStatus(), task.getDesiredStatus(), availabilityZone, healthStatus, address);
+  }
+
+  private TaskDefinition buildTaskDefinition(com.amazonaws.services.ecs.model.TaskDefinition taskDefinition) {
+    String roleArn = taskDefinition.getTaskRoleArn();
+    String iamRole = roleArn != null ? StringUtils.substringAfterLast(roleArn, "/") : "None";
+    ContainerDefinition containerDefinition = taskDefinition.getContainerDefinitions().get(0);
+
+    return new TaskDefinition()
+      .setContainerImage(containerDefinition.getImage())
+      .setContainerPort(containerDefinition.getPortMappings().get(0).getContainerPort())
+      .setCpuUnits(containerDefinition.getCpu())
+      .setMemoryReservation(containerDefinition.getMemoryReservation())
+      .setIamRole(iamRole)
+      .setTaskName(StringUtils.substringAfterLast(taskDefinition.getTaskDefinitionArn(), "/"))
+      .setEnvironmentVariables(containerDefinition.getEnvironment());
+  }
+
+  private ServerGroup.Capacity buildServerGroupCapacity(int desiredCount, ScalableTarget target) {
+    ServerGroup.Capacity capacity = new ServerGroup.Capacity();
+    capacity.setDesired(desiredCount);
+    if (target != null) {
+      capacity.setMin(target.getMinCapacity());
+      capacity.setMax(target.getMaxCapacity());
+    } else {
+      //TODO: Min/Max should be based on (desired count * min/max precent).
+      capacity.setMin(desiredCount);
+      capacity.setMax(desiredCount);
+    }
+    return capacity;
+  }
+
+  private EcsServerCluster buildSpinnakerServerCluster(AmazonCredentials credentials,
+                                                       Set<LoadBalancer> loadBalancers,
+                                                       EcsServerGroup ecsServerGroup) {
+    return new EcsServerCluster()
+      .setAccountName(credentials.getName())
+      .setName(removeVersion(ecsServerGroup.getName()))
+      .setLoadBalancers(loadBalancers)
+      .setServerGroups(Sets.newHashSet(ecsServerGroup));
+  }
+
+  private EcsServerGroup buildEcsServerGroup(AmazonCredentials credentials,
+                                             String region,
+                                             String serviceName,
+                                             int desiredCount,
+                                             ServiceMetadata metadata,
+                                             Set<Instance> instances,
+                                             //ServerGroup.Capacity capacity,
+                                             long creationTime,
+                                             String ecsCluster,
+                                             com.amazonaws.services.ecs.model.TaskDefinition taskDefinition
+                                             //                                           ScalableTarget scalableTarget
+  ) {
+    ServerGroup.InstanceCounts instanceCounts = buildInstanceCount(instances);
+    TaskDefinition ecsTaskDefinition = buildTaskDefinition(taskDefinition);
+    ScalableTarget scalableTarget = retrieveScalableTarget(credentials, region, serviceName, ecsCluster);
+    ServerGroup.Capacity capacity = buildServerGroupCapacity(desiredCount, scalableTarget);
+
+    String account = credentials.getName();
+    //vpcId and securityGroups were moved from outside of the for-loop into it. This is to potentially solve the to-do concern.
+    String vpcId = "None"; // TODO - the assumption that there is only 1 VPC associated with the cluster might not be true 100% of the time.  It should be, but I am sure some people out there are weird
+    Set<String> securityGroups = new HashSet<>();
+
+    if (!instances.isEmpty()) {
+      String taskId = instances.iterator().next().getName();
+      String taskKey = Keys.getTaskKey(account, region, taskId);
+      Task task = taskCacheClient.get(taskKey);
+      com.amazonaws.services.ec2.model.Instance ec2Instance = containerInformationService.getEc2Instance(account, region, task);
+
+      vpcId = ec2Instance.getVpcId();
+      securityGroups = ec2Instance.getSecurityGroups().stream()
+        .map(GroupIdentifier::getGroupId)
+        .collect(Collectors.toSet());
+    }
+
+
+    Set<String> metricAlarmNames = ecsCloudWatchAlarmCacheClient.getMetricAlarms(serviceName, account, region).stream()
+      .map(EcsMetricAlarm::getAlarmName)
+      .collect(Collectors.toSet());
+
+    EcsServerGroup serverGroup = new EcsServerGroup()
+      .setDisabled(capacity.getDesired() == 0)
+      .setName(constructServerGroupName(metadata))
+      .setCloudProvider(EcsCloudProvider.ID)
+      .setType(EcsCloudProvider.ID)
+      .setRegion(region)
+      .setInstances(instances)
+      .setCapacity(capacity)
+      .setInstanceCounts(instanceCounts)
+      .setCreatedTime(creationTime)
+      .setEcsCluster(ecsCluster)
+      .setTaskDefinition(ecsTaskDefinition)
+      .setVpcId(vpcId)
+      .setSecurityGroups(securityGroups)
+      .setMetricAlarms(metricAlarmNames);
+
+    if (scalableTarget != null) {
+      EcsServerGroup.AutoScalingGroup asg = new EcsServerGroup.AutoScalingGroup()
+        .setDesiredCapacity(scalableTarget.getMaxCapacity())
+        .setMaxSize(scalableTarget.getMaxCapacity())
+        .setMinSize(scalableTarget.getMinCapacity());
+
+      // TODO: Update Deck to handle an asg. Current Deck implementation uses a EC2 AutoScaling Group
+      //serverGroup.setAsg(asg);
+    }
+
+    return serverGroup;
+  }
+
+  private ScalableTarget retrieveScalableTarget(AmazonCredentials credentials, String region, String serviceName, String clusterName) {
     //TODO: Consider caching the describeScalableTargets.
-    AWSApplicationAutoScaling appASClient = getAmazonApplicationAutoScalingClient(credentials, awsRegion);
+    AWSApplicationAutoScaling appASClient = getAmazonApplicationAutoScalingClient(credentials, region);
     List<String> resourceIds = new ArrayList<>();
     resourceIds.add(String.format("service/%s/%s", clusterName, serviceName));
     DescribeScalableTargetsRequest request = new DescribeScalableTargetsRequest()
@@ -286,78 +321,14 @@ public class EcsServerClusterProvider implements ClusterProvider<EcsServerCluste
     throw new Error("Multiple Scalable Targets found");
   }
 
-  private Set<com.netflix.spinnaker.clouddriver.model.LoadBalancer> extractLoadBalancersData(
-    DescribeLoadBalancersResult loadBalancersResult) {
-    Set<com.netflix.spinnaker.clouddriver.model.LoadBalancer> loadBalancers = Sets.newHashSet();
-    for (LoadBalancer elb : loadBalancersResult.getLoadBalancers()) {
-      AmazonLoadBalancer loadBalancer = new AmazonLoadBalancer();
-      loadBalancer.setName(elb.getLoadBalancerName());
-      loadBalancers.add(loadBalancer);
-    }
-    return loadBalancers;
-  }
-
-  private EcsServerCluster generateSpinnakerServerCluster(AmazonCredentials credentials,
-                                                          Set<com.netflix.spinnaker.clouddriver.model.LoadBalancer> loadBalancers,
-                                                          EcsServerGroup ecsServerGroup) {
-    return new EcsServerCluster()
-      .setAccountName(credentials.getName())
-      .setName(removeVersion(ecsServerGroup.getName()))
-      .setLoadBalancers(loadBalancers)
-      .setServerGroups(Sets.newHashSet(ecsServerGroup));
-  }
-
-  private EcsServerGroup generateServerGroup(AmazonCredentials.AWSRegion awsRegion,
-                                             ServiceMetadata metadata,
-                                             Set<Instance> instances,
-                                             ServerGroup.Capacity capacity,
-                                             long creationTime,
-                                             String ecsCluster,
-                                             TaskDefinition taskDefinition,
-                                             String vpcId,
-                                             Set<String> securityGroups,
-                                             ScalableTarget scalableTarget,
-                                             Set<String> metricAlarms) {
-    ServerGroup.InstanceCounts instanceCounts = generateInstanceCount(instances);
-
-    EcsServerGroup serverGroup = new EcsServerGroup()
-      .setDisabled(capacity.getDesired() == 0)
-      .setName(constructServerGroupName(metadata))
-      .setCloudProvider(EcsCloudProvider.ID)
-      .setType(EcsCloudProvider.ID)
-      .setRegion(awsRegion.getName())
-      .setInstances(instances)
-      .setCapacity(capacity)
-      .setInstanceCounts(instanceCounts)
-      .setCreatedTime(creationTime)
-      .setEcsCluster(ecsCluster)
-      .setTaskDefinition(taskDefinition)
-      .setVpcId(vpcId)
-      .setSecurityGroups(securityGroups)
-      .setMetricAlarms(metricAlarms);
-
-    if (scalableTarget != null) {
-      EcsServerGroup.AutoScalingGroup asg = new EcsServerGroup.AutoScalingGroup()
-        .setDesiredCapacity(scalableTarget.getMaxCapacity())
-        .setMaxSize(scalableTarget.getMaxCapacity())
-        .setMinSize(scalableTarget.getMinCapacity());
-
-      // TODO: Update Deck to handle an asg. Current Deck implementation uses a EC2 AutoScaling Group
-      //serverGroup.setAsg(asg);
-    }
-
-    return serverGroup;
-  }
-
   private AWSApplicationAutoScaling getAmazonApplicationAutoScalingClient(AmazonCredentials credentials,
-                                                                          AmazonCredentials.AWSRegion awsRegion) {
+                                                                          String region) {
     String account = credentials.getName();
     AWSCredentialsProvider provider = credentials.getCredentialsProvider();
-    String region = awsRegion.getName();
     return amazonClientProvider.getAmazonApplicationAutoScaling(account, provider, region);
   }
 
-  private ServerGroup.InstanceCounts generateInstanceCount(Set<Instance> instances) {
+  private ServerGroup.InstanceCounts buildInstanceCount(Set<Instance> instances) {
     ServerGroup.InstanceCounts instanceCounts = new ServerGroup.InstanceCounts();
     for (Instance instance : instances) {
       switch (instance.getHealthState()) {
@@ -580,5 +551,4 @@ public class EcsServerClusterProvider implements ClusterProvider<EcsServerCluste
     String cloudDetail;
     String serverGroupVersion;
   }
-
 }
