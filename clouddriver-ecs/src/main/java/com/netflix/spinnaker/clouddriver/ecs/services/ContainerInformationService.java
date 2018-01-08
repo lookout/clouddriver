@@ -120,7 +120,6 @@ public class ContainerInformationService {
     return null;
   }
 
-  //TODO: clean up after EcsServerClusterProvider has been changed. hostPort and containerArn may be replaced with a CacheData instead.
   public String getTaskPrivateAddress(String accountName, String region, Task task) {
     if (task.getContainers().size() > 1) {
       throw new IllegalArgumentException("Multiple containers for a task is not supported.");

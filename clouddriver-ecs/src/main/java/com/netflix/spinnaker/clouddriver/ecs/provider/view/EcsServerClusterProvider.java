@@ -16,22 +16,16 @@
 
 package com.netflix.spinnaker.clouddriver.ecs.provider.view;
 
-import com.amazonaws.auth.AWSCredentialsProvider;
-import com.amazonaws.services.applicationautoscaling.AWSApplicationAutoScaling;
-import com.amazonaws.services.applicationautoscaling.model.DescribeScalableTargetsRequest;
-import com.amazonaws.services.applicationautoscaling.model.DescribeScalableTargetsResult;
-import com.amazonaws.services.applicationautoscaling.model.ScalableDimension;
 import com.amazonaws.services.applicationautoscaling.model.ScalableTarget;
-import com.amazonaws.services.applicationautoscaling.model.ServiceNamespace;
 import com.amazonaws.services.ec2.model.GroupIdentifier;
 import com.amazonaws.services.ecs.model.ContainerDefinition;
 import com.google.common.collect.Sets;
-import com.netflix.spinnaker.clouddriver.aws.security.AmazonClientProvider;
 import com.netflix.spinnaker.clouddriver.aws.security.AmazonCredentials;
 import com.netflix.spinnaker.clouddriver.ecs.EcsCloudProvider;
 import com.netflix.spinnaker.clouddriver.ecs.cache.Keys;
 import com.netflix.spinnaker.clouddriver.ecs.cache.client.EcsCloudWatchAlarmCacheClient;
 import com.netflix.spinnaker.clouddriver.ecs.cache.client.EcsLoadbalancerCacheClient;
+import com.netflix.spinnaker.clouddriver.ecs.cache.client.ScalableTargetCacheClient;
 import com.netflix.spinnaker.clouddriver.ecs.cache.client.ServiceCacheClient;
 import com.netflix.spinnaker.clouddriver.ecs.cache.client.TaskCacheClient;
 import com.netflix.spinnaker.clouddriver.ecs.cache.client.TaskDefinitionCacheClient;
@@ -49,8 +43,6 @@ import com.netflix.spinnaker.clouddriver.model.LoadBalancer;
 import com.netflix.spinnaker.clouddriver.model.ServerGroup;
 import com.netflix.spinnaker.clouddriver.security.AccountCredentials;
 import com.netflix.spinnaker.clouddriver.security.AccountCredentialsProvider;
-import lombok.Data;
-import lombok.NoArgsConstructor;
 import org.apache.commons.lang3.StringUtils;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.stereotype.Component;
@@ -69,27 +61,27 @@ public class EcsServerClusterProvider implements ClusterProvider<EcsServerCluste
 
   private final TaskCacheClient taskCacheClient;
   private final ServiceCacheClient serviceCacheClient;
+  private final ScalableTargetCacheClient scalableTargetCacheClient;
   private final TaskDefinitionCacheClient taskDefinitionCacheClient;
   private final EcsLoadbalancerCacheClient ecsLoadbalancerCacheClient;
   private final EcsCloudWatchAlarmCacheClient ecsCloudWatchAlarmCacheClient;
   private final AccountCredentialsProvider accountCredentialsProvider;
-  private final AmazonClientProvider amazonClientProvider;
   private final ContainerInformationService containerInformationService;
 
   @Autowired
   public EcsServerClusterProvider(AccountCredentialsProvider accountCredentialsProvider,
-                                  AmazonClientProvider amazonClientProvider,
                                   ContainerInformationService containerInformationService,
                                   TaskCacheClient taskCacheClient,
                                   ServiceCacheClient serviceCacheClient,
+                                  ScalableTargetCacheClient scalableTargetCacheClient,
                                   EcsLoadbalancerCacheClient ecsLoadbalancerCacheClient,
                                   TaskDefinitionCacheClient taskDefinitionCacheClient,
                                   EcsCloudWatchAlarmCacheClient ecsCloudWatchAlarmCacheClient) {
     this.accountCredentialsProvider = accountCredentialsProvider;
-    this.amazonClientProvider = amazonClientProvider;
     this.containerInformationService = containerInformationService;
     this.taskCacheClient = taskCacheClient;
     this.serviceCacheClient = serviceCacheClient;
+    this.scalableTargetCacheClient = scalableTargetCacheClient;
     this.taskDefinitionCacheClient = taskDefinitionCacheClient;
     this.ecsLoadbalancerCacheClient = ecsLoadbalancerCacheClient;
     this.ecsCloudWatchAlarmCacheClient = ecsCloudWatchAlarmCacheClient;
@@ -129,11 +121,10 @@ public class EcsServerClusterProvider implements ClusterProvider<EcsServerCluste
     Collection<Task> allTasks = taskCacheClient.getAll();
 
     for (Service service : services) {
-      String serviceArn = service.getServiceArn();
+      String applicationName = service.getApplicationName();
       String serviceName = service.getServiceName();
-      ServiceMetadata metadata = extractMetadataFromServiceArn(serviceArn);
 
-      if ((null != application) && (!application.equals(metadata.getApplicationName()))) {
+      if (application != null && !applicationName.equals(application)) {
         continue;
       }
 
@@ -150,15 +141,19 @@ public class EcsServerClusterProvider implements ClusterProvider<EcsServerCluste
         continue;
       }
 
-      EcsServerGroup ecsServerGroup = buildEcsServerGroup(credentials, awsRegion.getName(),
-        serviceName, service.getDesiredCount(), metadata, instances, service.getCreatedAt(),
+      EcsServerGroup ecsServerGroup = buildEcsServerGroup(credentials.getName(), awsRegion.getName(),
+        serviceName, service.getDesiredCount(), instances, service.getCreatedAt(),
         service.getClusterName(), taskDefinition);
 
-      if (clusterMap.containsKey(metadata.applicationName)) {
+      if (ecsServerGroup == null) {
+        continue;
+      }
+
+      if (clusterMap.containsKey(applicationName)) {
         String escClusterName = removeVersion(ecsServerGroup.getName());
         boolean found = false;
 
-        for (EcsServerCluster cluster : clusterMap.get(metadata.applicationName)) {
+        for (EcsServerCluster cluster : clusterMap.get(applicationName)) {
           if (cluster.getName().equals(escClusterName)) {
             cluster.getServerGroups().add(ecsServerGroup);
             found = true;
@@ -168,11 +163,11 @@ public class EcsServerClusterProvider implements ClusterProvider<EcsServerCluste
 
         if (!found) {
           EcsServerCluster spinnakerCluster = buildSpinnakerServerCluster(credentials, loadBalancers, ecsServerGroup);
-          clusterMap.get(metadata.applicationName).add(spinnakerCluster);
+          clusterMap.get(applicationName).add(spinnakerCluster);
         }
       } else {
         EcsServerCluster spinnakerCluster = buildSpinnakerServerCluster(credentials, loadBalancers, ecsServerGroup);
-        clusterMap.put(metadata.applicationName, Sets.newHashSet(spinnakerCluster));
+        clusterMap.put(applicationName, Sets.newHashSet(spinnakerCluster));
       }
     }
 
@@ -231,26 +226,27 @@ public class EcsServerClusterProvider implements ClusterProvider<EcsServerCluste
       .setServerGroups(Sets.newHashSet(ecsServerGroup));
   }
 
-  private EcsServerGroup buildEcsServerGroup(AmazonCredentials credentials,
+  private EcsServerGroup buildEcsServerGroup(String account,
                                              String region,
                                              String serviceName,
                                              int desiredCount,
-                                             ServiceMetadata metadata,
                                              Set<Instance> instances,
-                                             //ServerGroup.Capacity capacity,
                                              long creationTime,
                                              String ecsCluster,
-                                             com.amazonaws.services.ecs.model.TaskDefinition taskDefinition
-                                             //                                           ScalableTarget scalableTarget
-  ) {
+                                             com.amazonaws.services.ecs.model.TaskDefinition taskDefinition) {
     ServerGroup.InstanceCounts instanceCounts = buildInstanceCount(instances);
     TaskDefinition ecsTaskDefinition = buildTaskDefinition(taskDefinition);
-    ScalableTarget scalableTarget = retrieveScalableTarget(credentials, region, serviceName, ecsCluster);
+
+    String scalableTargetId = "service/" + ecsCluster + "/" + serviceName;
+    String scalableTargetKey = Keys.getScalableTargetKey(account, region, scalableTargetId);
+    ScalableTarget scalableTarget = scalableTargetCacheClient.get(scalableTargetKey);
+    if (scalableTarget == null) {
+      return null;
+    }
+
     ServerGroup.Capacity capacity = buildServerGroupCapacity(desiredCount, scalableTarget);
 
-    String account = credentials.getName();
-    //vpcId and securityGroups were moved from outside of the for-loop into it. This is to potentially solve the to-do concern.
-    String vpcId = "None"; // TODO - the assumption that there is only 1 VPC associated with the cluster might not be true 100% of the time.  It should be, but I am sure some people out there are weird
+    String vpcId = "None"; //ENI will change the way VPCs are handled.
     Set<String> securityGroups = new HashSet<>();
 
     if (!instances.isEmpty()) {
@@ -272,7 +268,7 @@ public class EcsServerClusterProvider implements ClusterProvider<EcsServerCluste
 
     EcsServerGroup serverGroup = new EcsServerGroup()
       .setDisabled(capacity.getDesired() == 0)
-      .setName(constructServerGroupName(metadata))
+      .setName(serviceName)
       .setCloudProvider(EcsCloudProvider.ID)
       .setType(EcsCloudProvider.ID)
       .setRegion(region)
@@ -286,46 +282,15 @@ public class EcsServerClusterProvider implements ClusterProvider<EcsServerCluste
       .setSecurityGroups(securityGroups)
       .setMetricAlarms(metricAlarmNames);
 
-    if (scalableTarget != null) {
-      EcsServerGroup.AutoScalingGroup asg = new EcsServerGroup.AutoScalingGroup()
-        .setDesiredCapacity(scalableTarget.getMaxCapacity())
-        .setMaxSize(scalableTarget.getMaxCapacity())
-        .setMinSize(scalableTarget.getMinCapacity());
+    EcsServerGroup.AutoScalingGroup asg = new EcsServerGroup.AutoScalingGroup()
+      .setDesiredCapacity(scalableTarget.getMaxCapacity())
+      .setMaxSize(scalableTarget.getMaxCapacity())
+      .setMinSize(scalableTarget.getMinCapacity());
 
-      // TODO: Update Deck to handle an asg. Current Deck implementation uses a EC2 AutoScaling Group
-      //serverGroup.setAsg(asg);
-    }
+    // TODO: Update Deck to handle an asg. Current Deck implementation uses a EC2 AutoScaling Group
+    //serverGroup.setAsg(asg);
 
     return serverGroup;
-  }
-
-  private ScalableTarget retrieveScalableTarget(AmazonCredentials credentials, String region, String serviceName, String clusterName) {
-    //TODO: Consider caching the describeScalableTargets.
-    AWSApplicationAutoScaling appASClient = getAmazonApplicationAutoScalingClient(credentials, region);
-    List<String> resourceIds = new ArrayList<>();
-    resourceIds.add(String.format("service/%s/%s", clusterName, serviceName));
-    DescribeScalableTargetsRequest request = new DescribeScalableTargetsRequest()
-      .withResourceIds(resourceIds)
-      .withScalableDimension(ScalableDimension.EcsServiceDesiredCount)
-      .withServiceNamespace(ServiceNamespace.Ecs);
-    DescribeScalableTargetsResult result = appASClient.describeScalableTargets(request);
-
-    if (result.getScalableTargets().isEmpty()) {
-      return null;
-    }
-
-    if (result.getScalableTargets().size() == 1) {
-      return result.getScalableTargets().get(0);
-    }
-
-    throw new Error("Multiple Scalable Targets found");
-  }
-
-  private AWSApplicationAutoScaling getAmazonApplicationAutoScalingClient(AmazonCredentials credentials,
-                                                                          String region) {
-    String account = credentials.getName();
-    AWSCredentialsProvider provider = credentials.getCredentialsProvider();
-    return amazonClientProvider.getAmazonApplicationAutoScaling(account, provider, region);
   }
 
   private ServerGroup.InstanceCounts buildInstanceCount(Set<Instance> instances) {
@@ -364,65 +329,11 @@ public class EcsServerClusterProvider implements ClusterProvider<EcsServerCluste
     return instanceCounts;
   }
 
-  private String constructServerGroupName(ServiceMetadata metadata) {
-    StringBuilder stringBuilder = new StringBuilder();
-    stringBuilder.append(metadata.applicationName).append("-");
-
-    if (metadata.cloudStack != null) {
-      stringBuilder.append(metadata.cloudStack).append("-");
-    }
-
-    if (metadata.cloudDetail != null) {
-      stringBuilder.append(metadata.cloudDetail).append("-");
-    }
-
-    if (metadata.serverGroupVersion != null) {
-      stringBuilder.append(metadata.serverGroupVersion);
-    }
-    return stringBuilder.toString();
-  }
 
   private String removeVersion(String serverGroupName) {
     return StringUtils.substringBeforeLast(serverGroupName, "-");
   }
 
-  private ServiceMetadata extractMetadataFromServiceArn(String arn) {
-    if (!arn.contains("/")) {
-      return null; // TODO - do a better verification - Regex: arn:(.*):(.*):(\d*):(.*)\/((.*)-(v\d*))
-    }
-
-    String[] splitArn = arn.split("/");
-    if (splitArn.length != 2) {
-      return null; // TODO - do a better verification,
-    }
-
-    String[] splitResourceName = splitArn[1].split("-");
-
-    if (splitResourceName.length < 2) {
-      return null; // TODO - do a better verification, and handle cases with both cloudStack and CloudDetail
-    }
-
-    ServiceMetadata serviceMetadata = new ServiceMetadata();
-    serviceMetadata.setApplicationName(splitResourceName[0]);
-
-    String versionString = splitResourceName[splitResourceName.length - 1];
-    try {
-      Integer.parseInt(versionString.replaceAll("v", ""));
-      serviceMetadata.setServerGroupVersion(versionString);
-    } catch (NumberFormatException e) {
-      // TODO - handle errorinous versions.
-    }
-
-    // An assumption is made here: Stack always appears before detail in the server group name.
-    if (splitResourceName.length >= 3) {
-      serviceMetadata.setCloudStack(splitResourceName[1]);
-    }
-    if (splitResourceName.length >= 4) {
-      serviceMetadata.setCloudDetail(splitResourceName[2]);
-    }
-
-    return serviceMetadata;
-  }
 
   /**
    * Temporary implementation to satisfy the interface's implementation.
@@ -541,14 +452,5 @@ public class EcsServerClusterProvider implements ClusterProvider<EcsServerCluste
   @Override
   public boolean supportsMinimalClusters() {
     return false;
-  }
-
-  @Data
-  @NoArgsConstructor
-  class ServiceMetadata {
-    String applicationName;
-    String cloudStack;
-    String cloudDetail;
-    String serverGroupVersion;
   }
 }
