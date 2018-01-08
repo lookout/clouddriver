@@ -16,10 +16,6 @@
 
 package com.netflix.spinnaker.clouddriver.ecs.view;
 
-import com.amazonaws.auth.AWSCredentialsProvider;
-import com.amazonaws.services.ec2.AmazonEC2;
-import com.netflix.spinnaker.clouddriver.aws.security.AmazonClientProvider;
-import com.netflix.spinnaker.clouddriver.aws.security.NetflixAmazonCredentials;
 import com.netflix.spinnaker.clouddriver.ecs.EcsCloudProvider;
 import com.netflix.spinnaker.clouddriver.ecs.cache.Keys;
 import com.netflix.spinnaker.clouddriver.ecs.cache.client.ContainerInstanceCacheClient;
@@ -29,7 +25,6 @@ import com.netflix.spinnaker.clouddriver.ecs.cache.model.Task;
 import com.netflix.spinnaker.clouddriver.ecs.model.EcsTask;
 import com.netflix.spinnaker.clouddriver.ecs.services.ContainerInformationService;
 import com.netflix.spinnaker.clouddriver.model.InstanceProvider;
-import com.netflix.spinnaker.clouddriver.security.AccountCredentialsProvider;
 import org.apache.commons.lang.StringUtils;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.stereotype.Component;
@@ -42,18 +37,12 @@ public class EcsInstanceProvider implements InstanceProvider<EcsTask> {
 
   private final TaskCacheClient taskCacheClient;
   private final ContainerInstanceCacheClient containerInstanceCacheClient;
-  private AccountCredentialsProvider accountCredentialsProvider;
-  private AmazonClientProvider amazonClientProvider;
   private ContainerInformationService containerInformationService;
 
   @Autowired
-  public EcsInstanceProvider(AccountCredentialsProvider accountCredentialsProvider,
-                             AmazonClientProvider amazonClientProvider,
-                             ContainerInformationService containerInformationService,
+  public EcsInstanceProvider(ContainerInformationService containerInformationService,
                              TaskCacheClient taskCacheClient,
                              ContainerInstanceCacheClient containerInstanceCacheClient) {
-    this.accountCredentialsProvider = accountCredentialsProvider;
-    this.amazonClientProvider = amazonClientProvider;
     this.containerInformationService = containerInformationService;
     this.taskCacheClient = taskCacheClient;
     this.containerInstanceCacheClient = containerInstanceCacheClient;
@@ -71,12 +60,6 @@ public class EcsInstanceProvider implements InstanceProvider<EcsTask> {
 
     EcsTask ecsInstance = null;
 
-    //TODO: If getTaskPrivateAddress in ContainerInformationService is refactored to the point of using cached information, setting up an EC2 client will be unnecessary.
-    NetflixAmazonCredentials netflixAmazonCredentials =
-      (NetflixAmazonCredentials) accountCredentialsProvider.getCredentials(account);
-    AWSCredentialsProvider awsCredentialsProvider = netflixAmazonCredentials.getCredentialsProvider();
-    AmazonEC2 amazonEC2 = amazonClientProvider.getAmazonEC2(account, awsCredentialsProvider, region);
-
     String key = Keys.getTaskKey(account, region, id);
     Task task = taskCacheClient.get(key);
     if (task == null) {
@@ -91,7 +74,7 @@ public class EcsInstanceProvider implements InstanceProvider<EcsTask> {
       Long launchTime = task.getStartedAt();
 
       List<Map<String, String>> healthStatus = containerInformationService.getHealthStatus(id, serviceName, account, region);
-      String address = containerInformationService.getTaskPrivateAddress(account, region, amazonEC2, task);
+      String address = containerInformationService.getTaskPrivateAddress(account, region, task);
 
       ecsInstance = new EcsTask(id, launchTime, task.getLastStatus(), task.getDesiredStatus(), containerInstance.getAvailabilityZone(), healthStatus, address);
     }

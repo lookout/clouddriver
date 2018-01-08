@@ -156,6 +156,7 @@ public class CreateServerGroupAtomicOperation implements AtomicOperation<Deploym
     String nextToken = null;
     do {
       DescribeScalingPoliciesRequest request = new DescribeScalingPoliciesRequest().withPolicyNames(actionArns.stream()
+        .filter(arn -> arn.contains(":policyName/"))
         .map(arn -> StringUtils.substringAfterLast(arn, ":policyName/"))
         .collect(Collectors.toSet()))
         .withServiceNamespace(ServiceNamespace.Ecs);
