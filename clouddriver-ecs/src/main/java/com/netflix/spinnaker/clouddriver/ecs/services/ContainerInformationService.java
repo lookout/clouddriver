@@ -138,6 +138,9 @@ public class ContainerInformationService {
     }
 
     Instance instance = getEc2Instance(accountName, region, task);
+    if(instance == null){
+      return "unknown";
+    }
 
     String hostPrivateIpAddress = instance.getPrivateIpAddress();
     return String.format("%s:%s", hostPrivateIpAddress, hostPort);
