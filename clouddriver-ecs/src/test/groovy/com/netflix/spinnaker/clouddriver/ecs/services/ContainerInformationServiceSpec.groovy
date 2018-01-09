@@ -369,4 +369,125 @@ class ContainerInformationServiceSpec extends Specification {
     then:
     returnedClusterArn == originalClusterArn
   }
+
+  def 'should return an ec2 instance'() {
+    given:
+    def task = new Task(containerInstanceArn: 'container-instance-arn')
+    def containerInstance = new ContainerInstance(ec2InstanceId: 'i-deadbeef')
+    def ecsAccount = new ECSCredentialsConfig.Account(
+      name: 'ecs-account',
+      awsAccount: 'aws-test-account'
+    )
+    def givenInstance = new Instance(
+      instanceId: 'i-deadbeef',
+      privateIpAddress: '0.0.0.0',
+      publicIpAddress: '127.0.0.1'
+    )
+
+    containerInstanceCacheClient.get(_) >> containerInstance
+    ecsCredentialsConfig.getAccounts() >> [ecsAccount]
+    ecsInstanceCacheClient.find(_, _, _) >> [givenInstance]
+
+
+    when:
+    def retrievedInstance = service.getEc2Instance('ecs-account', 'us-west-1', task)
+
+    then:
+    retrievedInstance == givenInstance
+  }
+
+  def 'should return an null when getting ec2 instance without a container instance'() {
+    given:
+    def task = new Task(containerInstanceArn: 'container-instance-arn')
+    containerInstanceCacheClient.get(_) >> null
+
+
+    when:
+    def retrievedInstance = service.getEc2Instance('ecs-account', 'us-west-1', task)
+
+    then:
+    retrievedInstance == null
+  }
+
+  def 'should return an when no ec2 instances are cached'() {
+    given:
+    def task = new Task(containerInstanceArn: 'container-instance-arn')
+    def containerInstance = new ContainerInstance(ec2InstanceId: 'i-deadbeef')
+    def ecsAccount = new ECSCredentialsConfig.Account(
+      name: 'ecs-account',
+      awsAccount: 'aws-test-account'
+    )
+
+    containerInstanceCacheClient.get(_) >> containerInstance
+    ecsCredentialsConfig.getAccounts() >> [ecsAccount]
+    ecsInstanceCacheClient.find(_, _, _) >> []
+
+
+    when:
+    def retrievedInstance = service.getEc2Instance('ecs-account', 'us-west-1', task)
+
+    then:
+    retrievedInstance == null
+  }
+
+  def 'should throw an exception when multiple ec2 instances are found for one id'() {
+    given:
+    def task = new Task(containerInstanceArn: 'container-instance-arn')
+    def containerInstance = new ContainerInstance(ec2InstanceId: 'i-deadbeef')
+    def ecsAccount = new ECSCredentialsConfig.Account(
+      name: 'ecs-account',
+      awsAccount: 'aws-test-account'
+    )
+    def givenInstances = []
+    0.upto(4, {
+      givenInstances << new Instance(
+        instanceId: "i-deadbee${it}",
+        privateIpAddress: '0.0.0.0',
+        publicIpAddress: '127.0.0.1'
+      )
+    })
+
+    containerInstanceCacheClient.get(_) >> containerInstance
+    ecsCredentialsConfig.getAccounts() >> [ecsAccount]
+    ecsInstanceCacheClient.find(_, _, _) >> givenInstances
+
+
+    when:
+    service.getEc2Instance('ecs-account', 'us-west-1', task)
+
+    then:
+    IllegalArgumentException exception = thrown()
+    exception.message == 'There cannot be more than 1 EC2 container instance for a given region and instance ID.'
+  }
+
+  def 'should return an aws account name'(){
+    given:
+    def ecsAccount = new ECSCredentialsConfig.Account(
+      name: 'ecs-account',
+      awsAccount: 'aws-test-account'
+    )
+    ecsCredentialsConfig.getAccounts() >> [ecsAccount]
+
+    when:
+    def retrievedAccountName = service.getAwsAccountName(ecsAccount.getName())
+
+    then:
+    retrievedAccountName == ecsAccount.getAwsAccount()
+  }
+
+
+  def 'should return an null when no aws account is found associated to the ecs account'(){
+    given:
+    def ecsAccount = new ECSCredentialsConfig.Account(
+      name: 'ecs-account',
+      awsAccount: 'aws-test-account'
+    )
+    ecsCredentialsConfig.getAccounts() >> [ecsAccount]
+
+    when:
+    def retrievedAccountName = service.getAwsAccountName('wrong-account')
+
+    then:
+    retrievedAccountName == null
+  }
 }
