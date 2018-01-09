@@ -28,9 +28,10 @@ class ResizeServiceAtomicOperationSpec extends CommonAtomicOperation {
     given:
     def autoscaling = Mock(AWSApplicationAutoScaling)
     def serviceName = 'myapp-kcats-liated-v007'
+    def credentials = TestCredential.named('test', [:])
 
     def operation = new ResizeServiceAtomicOperation(new ResizeServiceDescription(
-      credentials: TestCredential.named('Test', [:]),
+      credentials: credentials,
       serverGroupName: serviceName,
       capacity: new ServerGroup.Capacity(1, 2, 1)
     ))
@@ -42,7 +43,7 @@ class ResizeServiceAtomicOperationSpec extends CommonAtomicOperation {
     amazonClientProvider.getAmazonEcs(_, _, _) >> ecs
     amazonClientProvider.getAmazonApplicationAutoScaling(_, _, _) >> autoscaling
     containerInformationService.getClusterArn(_, _, _) >> 'cluster-arn'
-    accountCredentialsProvider.getCredentials(_) >> TestCredential.named("test")
+    accountCredentialsProvider.getCredentials(_) >> credentials
 
     when:
     operation.operate([])
