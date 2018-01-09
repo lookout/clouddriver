@@ -150,7 +150,7 @@ public class EcsServerClusterProvider implements ClusterProvider<EcsServerCluste
       }
 
       if (clusterMap.containsKey(applicationName)) {
-        String escClusterName = removeVersion(ecsServerGroup.getName());
+        String escClusterName = StringUtils.substringBeforeLast(ecsServerGroup.getName(), "-");
         boolean found = false;
 
         for (EcsServerCluster cluster : clusterMap.get(applicationName)) {
@@ -221,7 +221,7 @@ public class EcsServerClusterProvider implements ClusterProvider<EcsServerCluste
                                                        EcsServerGroup ecsServerGroup) {
     return new EcsServerCluster()
       .setAccountName(credentials.getName())
-      .setName(removeVersion(ecsServerGroup.getName()))
+      .setName(StringUtils.substringBeforeLast(ecsServerGroup.getName(), "-"))
       .setLoadBalancers(loadBalancers)
       .setServerGroups(Sets.newHashSet(ecsServerGroup));
   }
@@ -329,11 +329,15 @@ public class EcsServerClusterProvider implements ClusterProvider<EcsServerCluste
     return instanceCounts;
   }
 
-
-  private String removeVersion(String serverGroupName) {
-    return StringUtils.substringBeforeLast(serverGroupName, "-");
+  private List<AmazonCredentials> getEcsCredentials() {
+    List<AmazonCredentials> ecsCredentialsList = new ArrayList<>();
+    for (AccountCredentials credentials : accountCredentialsProvider.getAll()) {
+      if (credentials instanceof AmazonCredentials && credentials.getCloudProvider().equals(EcsCloudProvider.ID)) {
+        ecsCredentialsList.add((AmazonCredentials) credentials);
+      }
+    }
+    return ecsCredentialsList;
   }
-
 
   /**
    * Temporary implementation to satisfy the interface's implementation.
@@ -357,16 +361,6 @@ public class EcsServerClusterProvider implements ClusterProvider<EcsServerCluste
     }
 
     return clusterMap;
-  }
-
-  private List<AmazonCredentials> getEcsCredentials() {
-    List<AmazonCredentials> ecsCredentialsList = new ArrayList<>();
-    for (AccountCredentials credentials : accountCredentialsProvider.getAll()) {
-      if (credentials instanceof AmazonCredentials && credentials.getCloudProvider().equals(EcsCloudProvider.ID)) {
-        ecsCredentialsList.add((AmazonCredentials) credentials);
-      }
-    }
-    return ecsCredentialsList;
   }
 
   /**
@@ -393,7 +387,6 @@ public class EcsServerClusterProvider implements ClusterProvider<EcsServerCluste
    */
   @Override
   public EcsServerCluster getCluster(String application, String account, String name, boolean includeDetails) {
-
     Set<EcsServerCluster> ecsServerClusters = getClusters().get(application);
     if (ecsServerClusters != null && ecsServerClusters.size() > 0) {
       for (EcsServerCluster cluster : ecsServerClusters) {
@@ -414,10 +407,8 @@ public class EcsServerClusterProvider implements ClusterProvider<EcsServerCluste
     if (serverGroupName == null) {
       throw new Error("Invalid Server Group");
     }
-    // TODO - use a caching system, and also check for account which is currently not the case here
-
     // TODO - remove the application filter.
-    String application = serverGroupName.split("-")[0];
+    String application = StringUtils.substringBefore(serverGroupName, "-");
     Map<String, Set<EcsServerCluster>> clusterMap = new HashMap<>();
 
     for (AmazonCredentials credentials : getEcsCredentials()) {
@@ -425,7 +416,7 @@ public class EcsServerClusterProvider implements ClusterProvider<EcsServerCluste
     }
 
     for (Map.Entry<String, Set<EcsServerCluster>> entry : clusterMap.entrySet()) {
-      if (entry.getKey().equals(serverGroupName.split("-")[0])) {
+      if (entry.getKey().equals(application)) {
         for (EcsServerCluster ecsServerCluster : entry.getValue()) {
           for (ServerGroup serverGroup : ecsServerCluster.getServerGroups()) {
             if (region.equals(serverGroup.getRegion())
