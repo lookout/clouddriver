@@ -27,7 +27,7 @@ import java.util.List;
 
 @EcsOperation(AtomicOperations.RESIZE_SERVER_GROUP)
 @Component("resizeServiceAtomicOperationValidator")
-public class ResizeServiceAtomicOperationValidator extends CommonValidator {
+public class ResizeServiceDescriptionValidator extends CommonValidator {
 
   @Override
   public void validate(List priorDescriptions, Object description, Errors errors) {
@@ -59,8 +59,8 @@ public class ResizeServiceAtomicOperationValidator extends CommonValidator {
       }
 
       positivityCheck(desiredNotNull,typedDescription.getCapacity().getDesired(), "desired", errors);
-      positivityCheck(desiredNotNull,typedDescription.getCapacity().getMin(), "min", errors);
-      positivityCheck(desiredNotNull,typedDescription.getCapacity().getMax(), "max", errors);
+      positivityCheck(minNotNull,typedDescription.getCapacity().getMin(), "min", errors);
+      positivityCheck(maxNotNull,typedDescription.getCapacity().getMax(), "max", errors);
 
 
       if(minNotNull && maxNotNull){
