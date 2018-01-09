@@ -36,26 +36,12 @@ import org.springframework.beans.factory.annotation.Autowired;
 
 import java.util.List;
 
-public class ResizeServiceAtomicOperation implements AtomicOperation<Void> {
-  private static final String BASE_PHASE = "RESIZE_ECS_SERVER_GROUP";
-
-  private final ResizeServiceDescription description;
-
-  @Autowired
-  AccountCredentialsProvider accountCredentialsProvider;
-
-  @Autowired
-  AmazonClientProvider amazonClientProvider;
-
+public class ResizeServiceAtomicOperation extends AbstractEcsAtomicOperation<ResizeServiceDescription, Void> implements AtomicOperation<Void> {
   @Autowired
   ContainerInformationService containerInformationService;
 
   public ResizeServiceAtomicOperation(ResizeServiceDescription description) {
-    this.description = description;
-  }
-
-  private static Task getTask() {
-    return TaskRepository.threadLocalTask.get();
+    super(description, "RESIZE_ECS_SERVER_GROUP");
   }
 
   @Override
@@ -110,21 +96,5 @@ public class ResizeServiceAtomicOperation implements AtomicOperation<Void> {
     String credentialAccount = description.getCredentialAccount();
 
     return amazonClientProvider.getAmazonApplicationAutoScaling(credentialAccount, credentialsProvider, region);
-  }
-
-  private AmazonECS getAmazonEcsClient() {
-    AWSCredentialsProvider credentialsProvider = getCredentials().getCredentialsProvider();
-    String region = description.getRegion();
-    String credentialAccount = description.getCredentialAccount();
-
-    return amazonClientProvider.getAmazonEcs(credentialAccount, credentialsProvider, region);
-  }
-
-  private AmazonCredentials getCredentials() {
-    return (AmazonCredentials) accountCredentialsProvider.getCredentials(description.getCredentialAccount());
-  }
-
-  private void updateTaskStatus(String status) {
-    getTask().updateStatus(BASE_PHASE, status);
   }
 }
