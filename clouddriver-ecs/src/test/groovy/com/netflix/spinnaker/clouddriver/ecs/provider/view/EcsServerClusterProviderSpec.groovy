@@ -68,7 +68,6 @@ class EcsServerClusterProviderSpec extends Specification {
   def 'should produce an ecs cluster'() {
     given:
     def applicationName = 'myapp'
-    def clusterName = 'mycluster'
     def taskId = 'task-id'
     def ip = '127.0.0.0'
     def region = 'us-west-1'
@@ -126,7 +125,7 @@ class EcsServerClusterProviderSpec extends Specification {
     def scalableTarget = new ScalableTarget(
       minCapacity: 1,
       maxCapacity: 2,
-      resourceId: "service:/${clusterName}/${serviceName}"
+      resourceId: "service:/mycluster/${serviceName}"
     )
 
     def ecsServerGroupEast = makeEcsServerGroup(serviceName, 'us-east-1', startedAt.getTime(), taskId, healthStatus, ip)
@@ -159,7 +158,7 @@ class EcsServerClusterProviderSpec extends Specification {
     cacheView.getAll(TASKS.ns) >> [taskCacheData]
 
     when:
-    def retrievedCluster = provider.getCluster("myapp", "test-account", clusterName)
+    def retrievedCluster = provider.getCluster("myapp", creds.getName(), familyName)
 
     then:
     retrievedCluster == expectedCluster
