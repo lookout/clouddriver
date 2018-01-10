@@ -16,64 +16,38 @@
 
 package com.netflix.spinnaker.clouddriver.ecs.provider.view
 
+import com.amazonaws.services.applicationautoscaling.model.ScalableTarget
+import com.amazonaws.services.ec2.model.Instance
 import com.amazonaws.services.ec2.model.Placement
+import com.amazonaws.services.ecs.model.*
+import com.fasterxml.jackson.databind.DeserializationFeature
+import com.fasterxml.jackson.databind.ObjectMapper
+import com.netflix.spinnaker.cats.cache.Cache
+import com.netflix.spinnaker.cats.cache.DefaultCacheData
 import com.netflix.spinnaker.clouddriver.ecs.TestCredential
 import com.netflix.spinnaker.clouddriver.ecs.cache.client.*
 import com.netflix.spinnaker.clouddriver.ecs.cache.model.EcsLoadBalancerCache
-import com.netflix.spinnaker.clouddriver.ecs.cache.model.Service
-import com.netflix.spinnaker.clouddriver.ecs.cache.model.Task
+import com.netflix.spinnaker.clouddriver.ecs.model.EcsServerCluster
+import com.netflix.spinnaker.clouddriver.ecs.model.EcsServerGroup
 import com.netflix.spinnaker.clouddriver.ecs.model.EcsTask
-import com.netflix.spinnaker.clouddriver.ecs.model.TaskDefinition
+import com.netflix.spinnaker.clouddriver.ecs.provider.agent.ServiceCachingAgent
+import com.netflix.spinnaker.clouddriver.ecs.provider.agent.TaskCachingAgent
 import com.netflix.spinnaker.clouddriver.ecs.services.ContainerInformationService
+import com.netflix.spinnaker.clouddriver.model.ServerGroup
 import com.netflix.spinnaker.clouddriver.security.AccountCredentialsProvider
 import spock.lang.Specification
 import spock.lang.Subject
 
+import static com.netflix.spinnaker.clouddriver.ecs.cache.Keys.Namespace.SERVICES
+import static com.netflix.spinnaker.clouddriver.ecs.cache.Keys.Namespace.TASKS
+
 class EcsServerClusterProviderSpec extends Specification {
-  def account = 'test-account'
-  def region = 'us-west-1'
-  def applicationName = 'myapp'
-  def taskId = 'task-id'
-  def ip = '127.0.0.0'
-  def availabilityZone = "${region}a"
-  def serviceName = "${applicationName}-kcats-liated-v007"
-  def startedAt = System.currentTimeMillis()
+  def cacheView = Mock(Cache)
+  def objectMapper = new ObjectMapper()
+    .configure(DeserializationFeature.FAIL_ON_UNKNOWN_PROPERTIES, false)
 
-  def task = new Task(
-    taskId: taskId,
-    taskArn: 'task-arn',
-    clusterArn: 'cluster-arn',
-    containerInstanceArn: 'container-instance-arn',
-    group: 'service:' + serviceName,
-    lastStatus: 'RUNNING',
-    desiredStatus: 'RUNNING',
-    startedAt: startedAt,
-    containers: []
-  )
-
-  Map healthStatus = [
-    instanceId: taskId,
-    state     : 'RUNNING',
-    type      : 'loadbalancer'
-  ]
-
-  def ec2Instance = new com.amazonaws.services.ec2.model.Instance(
-    placement: new Placement(
-      availabilityZone: availabilityZone
-    )
-  )
-
-  def cachedService = new Service(
-    serviceName: serviceName,
-    applicationName: applicationName
-  )
-
-  def loadbalancer = new EcsLoadBalancerCache()
-
-  def taskDefinition = new TaskDefinition()
-
-  def taskCacheClient = Mock(TaskCacheClient)
-  def serviceCacheClient = Mock(ServiceCacheClient)
+  def taskCacheClient = new TaskCacheClient(cacheView, objectMapper)
+  def serviceCacheClient = new ServiceCacheClient(cacheView, objectMapper)
   def scalableTargetCacheClient = Mock(ScalableTargetCacheClient)
   def taskDefinitionCacheClient = Mock(TaskDefinitionCacheClient)
   def ecsLoadbalancerCacheClient = Mock(EcsLoadbalancerCacheClient)
@@ -91,38 +65,140 @@ class EcsServerClusterProviderSpec extends Specification {
     taskDefinitionCacheClient,
     ecsCloudWatchAlarmCacheClient)
 
+  def 'should produce an ecs cluster'() {
+    given:
+    def applicationName = 'myapp'
+    def clusterName = 'mycluster'
+    def taskId = 'task-id'
+    def ip = '127.0.0.0'
+    def region = 'us-west-1'
+    def availabilityZone = "${region}a"
+    def familyName = "${applicationName}-kcats-liated"
+    def serviceName = "${familyName}-v007"
+    def startedAt = new Date()
 
-  def setup() {
-    serviceCacheClient.getAll(_, _) >> [cachedService]
+    def creds = TestCredential.named('test', [CLOUD_PROVIDER: 'ecs'])
+
+    def cachedService = new Service(
+      serviceName: serviceName,
+      deploymentConfiguration: new DeploymentConfiguration(minimumHealthyPercent: 0, maximumPercent: 100),
+      createdAt: startedAt,
+      desiredCount: 1
+    )
+
+    def task = new Task(
+      taskArn: "task-arn/${taskId}",
+      clusterArn: 'cluster-arn',
+      containerInstanceArn: 'container-instance-arn',
+      group: 'service:' + serviceName,
+      lastStatus: 'RUNNING',
+      desiredStatus: 'RUNNING',
+      startedAt: startedAt,
+      containers: []
+    )
+
+    def loadbalancer = new EcsLoadBalancerCache()
+
+    Map healthStatus = [
+      instanceId: taskId,
+      state     : 'RUNNING',
+      type      : 'loadbalancer'
+    ]
+
+    def ec2Instance = new Instance(
+      placement: new Placement(
+        availabilityZone: availabilityZone
+      )
+    )
+
+    def taskDefinition = new TaskDefinition(
+      containerDefinitions: [
+        new ContainerDefinition(
+          image: 'my-image',
+          memoryReservation: 256,
+          cpu: 123,
+          environment: [],
+          portMappings: [new PortMapping(containerPort: 1337)]
+        )
+      ]
+    )
+
+    def scalableTarget = new ScalableTarget(
+      minCapacity: 1,
+      maxCapacity: 2,
+      resourceId: "service:/${clusterName}/${serviceName}"
+    )
+
+    def ecsServerGroupEast = makeEcsServerGroup(serviceName, 'us-east-1', startedAt.getTime(), taskId, healthStatus, ip)
+    def ecsServerGroupWest = makeEcsServerGroup(serviceName, 'us-west-1', startedAt.getTime(), taskId, healthStatus, ip)
+
+    def expectedCluster = new EcsServerCluster()
+    expectedCluster.setAccountName(creds.getName())
+    expectedCluster.setName(familyName)
+    expectedCluster.setServerGroups(new HashSet([ecsServerGroupEast, ecsServerGroupWest]))
+    expectedCluster.setLoadBalancers(Collections.singleton(loadbalancer))
+
+
+    def serviceAttributes = ServiceCachingAgent.convertServiceToAttributes(creds.getName(), creds.getRegions()[0].getName(), cachedService)
+    def taskAttributes = TaskCachingAgent.convertTaskToAttributes(task)
+
+    def serviceCacheData = new DefaultCacheData('', serviceAttributes, [:])
+    def taskCacheData = new DefaultCacheData('', taskAttributes, [:])
+
+    accountCredentialsProvider.getAll() >> [creds]
+    ecsLoadbalancerCacheClient.findAll() >> [loadbalancer]
     containerInformationService.getTaskPrivateAddress(_, _, _) >> "${ip}:1337"
     containerInformationService.getHealthStatus(_, _, _, _) >> [healthStatus]
-    containerInformationService.getEc2Instance(account, region, task) >> ec2Instance
-    taskCacheClient.getAll() >> [task]
-    ecsLoadbalancerCacheClient.findAll() >> [loadbalancer]
-    accountCredentialsProvider.getAll() >> [TestCredential.named('test', [CLOUD_PROVIDER: 'ecs'])]
+    containerInformationService.getEc2Instance(_, _, _) >> ec2Instance
     taskDefinitionCacheClient.get(_) >> taskDefinition
-  }
+    scalableTargetCacheClient.get(_) >> scalableTarget
+    ecsCloudWatchAlarmCacheClient.getMetricAlarms(_, _, _) >> []
 
-  def 'should convert to ecs task'() {
-    given:
-    def expectedEcsTask = new EcsTask(taskId, startedAt, 'RUNNING', 'RUNNING',
-      availabilityZone, [healthStatus], "${ip}:1337")
-
-    when:
-    def retrievedEcsTask = provider.convertToEcsTask(account, region, serviceName, task)
-
-    then:
-    retrievedEcsTask == expectedEcsTask
-  }
-
-  def 'should get a cluster'() {
-    given:
-    def expectedCluster = []
+    cacheView.filterIdentifiers(_, _) >> ['key']
+    cacheView.getAll(SERVICES.ns, _) >> [serviceCacheData]
+    cacheView.getAll(TASKS.ns) >> [taskCacheData]
 
     when:
-    def retrievedCluster = provider.getClusterDetails(applicationName)
+    def retrievedCluster = provider.getCluster("myapp", "test-account", clusterName)
 
     then:
     retrievedCluster == expectedCluster
+  }
+
+  def makeEcsServerGroup(String serviceName, String region, long startTime, String taskId, Map healthStatus, String ip) {
+    new EcsServerGroup(
+      name: serviceName,
+      type: 'ecs',
+      cloudProvider: 'ecs',
+      region: region,
+      disabled: false,
+      createdTime: startTime,
+      instances: [
+        new EcsTask(taskId, startTime, 'RUNNING', 'RUNNING', "us-west-1a", [healthStatus], "${ip}:1337")
+      ],
+      securityGroups: [],
+      instanceCounts: new ServerGroup.InstanceCounts(
+        total: 1,
+        up: 1,
+        down: 0,
+        unknown: 0,
+        outOfService: 0,
+        starting: 0
+      ),
+      capacity: new ServerGroup.Capacity(
+        min: 1,
+        max: 2,
+        desired: 1
+      ),
+      taskDefinition: new com.netflix.spinnaker.clouddriver.ecs.model.TaskDefinition(
+        containerImage: 'my-image',
+        containerPort: 1337,
+        cpuUnits: 123,
+        memoryReservation: 256,
+        environmentVariables: [],
+        iamRole: 'None'
+      ),
+      metricAlarms: [],
+    )
   }
 }
