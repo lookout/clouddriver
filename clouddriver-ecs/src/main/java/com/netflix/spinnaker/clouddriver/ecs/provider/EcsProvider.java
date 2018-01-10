@@ -37,6 +37,7 @@ import java.util.stream.Collectors;
 import static com.netflix.spinnaker.clouddriver.ecs.cache.Keys.Namespace.ALARMS;
 import static com.netflix.spinnaker.clouddriver.ecs.cache.Keys.Namespace.CONTAINER_INSTANCES;
 import static com.netflix.spinnaker.clouddriver.ecs.cache.Keys.Namespace.ECS_CLUSTERS;
+import static com.netflix.spinnaker.clouddriver.ecs.cache.Keys.Namespace.SCALABLE_TARGETS;
 import static com.netflix.spinnaker.clouddriver.ecs.cache.Keys.Namespace.SERVICES;
 import static com.netflix.spinnaker.clouddriver.ecs.cache.Keys.Namespace.TASKS;
 import static com.netflix.spinnaker.clouddriver.ecs.cache.Keys.Namespace.TASK_DEFINITIONS;
@@ -47,7 +48,8 @@ public class EcsProvider extends AgentSchedulerAware implements SearchableProvid
 
   private static final Set<String> defaultCaches = new HashSet<>(Arrays.asList(
     SERVICES.toString(), ECS_CLUSTERS.toString(), TASKS.toString(),
-    CONTAINER_INSTANCES.toString(), TASK_DEFINITIONS.toString(), ALARMS.toString()));
+    CONTAINER_INSTANCES.toString(), TASK_DEFINITIONS.toString(), ALARMS.toString(),
+    SCALABLE_TARGETS.toString()));
 
   private static final Map<String, String> urlMappingTemplates = new HashMap<>();
 
