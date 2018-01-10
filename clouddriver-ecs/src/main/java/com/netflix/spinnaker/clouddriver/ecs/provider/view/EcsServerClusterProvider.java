@@ -335,19 +335,12 @@ public class EcsServerClusterProvider implements ClusterProvider<EcsServerCluste
       .findFirst().get();
   }
 
-  /**
-   * Temporary implementation to satisfy the interface's implementation.
-   * This will be modified and updated properly once we finish the POC
-   */
+
   @Override
   public Map<String, Set<EcsServerCluster>> getClusterSummaries(String application) {
     return getClusters();
   }
 
-  /**
-   * Temporary implementation to satisfy the interface's implementation.
-   * This will be modified and updated properly once we finish the POC
-   */
   @Override
   public Map<String, Set<EcsServerCluster>> getClusterDetails(String application) {
     Map<String, Set<EcsServerCluster>> clusterMap = new HashMap<>();
@@ -371,8 +364,7 @@ public class EcsServerClusterProvider implements ClusterProvider<EcsServerCluste
   }
 
   /**
-   * Temporary implementation to satisfy the interface's implementation.
-   * This will be modified and updated properly once we finish the POC
+   * Gets Spinnaker clusters for a given Spinnaker application and ECS account.
    */
   @Override
   public Set<EcsServerCluster> getClusters(String application, String account) {
@@ -381,8 +373,7 @@ public class EcsServerClusterProvider implements ClusterProvider<EcsServerCluste
   }
 
   /**
-   * Temporary implementation to satisfy the interface's implementation.
-   * This will be modified and updated properly once we finish the POC
+   * Gets a Spinnaker clusters for a given Spinnaker application, ECS account, and the Spinnaker cluster name.
    */
   @Override
   public EcsServerCluster getCluster(String application, String account, String name) {
@@ -398,8 +389,8 @@ public class EcsServerClusterProvider implements ClusterProvider<EcsServerCluste
   }
 
   /**
-   * Temporary implementation to satisfy the interface's implementation.
-   * This will be modified and updated properly once we finish the POC
+   * Gets a Spinnaker clusters for a given Spinnaker application, ECS account, and the Spinnaker cluster name.
+   * TODO: Make includeDetails actually function.
    */
   @Override
   public EcsServerCluster getCluster(String application, String account, String name, boolean includeDetails) {
@@ -407,8 +398,7 @@ public class EcsServerClusterProvider implements ClusterProvider<EcsServerCluste
   }
 
   /**
-   * Temporary implementation to satisfy the interface's implementation.
-   * This will be modified and updated properly once we finish the POC
+   * Gets a Spinnaker server group for a given Spinnaker application, ECS account, and the Spinnaker server group name.
    */
   @Override
   public ServerGroup getServerGroup(String account, String region, String serverGroupName) {
@@ -440,12 +430,9 @@ public class EcsServerClusterProvider implements ClusterProvider<EcsServerCluste
     return EcsCloudProvider.ID;
   }
 
-  /**
-   * Temporary implementation to satisfy the interface's implementation.
-   * This will be modified and updated properly once we finish the POC
-   */
   @Override
   public boolean supportsMinimalClusters() {
+    //TODO: Implement if needed.
     return false;
   }
 }
