@@ -19,7 +19,6 @@ package com.netflix.spinnaker.clouddriver.ecs.cache.model;
 import com.amazonaws.services.elasticloadbalancingv2.model.Listener;
 import com.netflix.spinnaker.clouddriver.ecs.EcsCloudProvider;
 import com.netflix.spinnaker.clouddriver.model.LoadBalancer;
-import com.netflix.spinnaker.clouddriver.model.LoadBalancerProvider;
 import com.netflix.spinnaker.clouddriver.model.LoadBalancerServerGroup;
 import lombok.Data;
 
