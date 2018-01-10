@@ -54,8 +54,8 @@ public class KubernetesApiVersion {
   @JsonCreator
   public static KubernetesApiVersion fromString(String name) {
     return values.stream()
-      .filter(v -> v.name.equalsIgnoreCase(name))
-      .findAny()
-      .orElseThrow(() -> new IllegalArgumentException("API version " + name + " is not yet supported."));
+        .filter(v -> v.name.equalsIgnoreCase(name))
+        .findAny()
+        .orElseThrow(() -> new IllegalArgumentException("API version " + name + " is not yet supported."));
   }
 }

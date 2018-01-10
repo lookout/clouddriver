@@ -49,7 +49,7 @@ public interface Rule {
       if (o == null) {
         return 1;
       }
-
+      
       int res = ObjectUtils.compare(this.startPort, o.startPort);
       return res == 0 ? ObjectUtils.compare(this.endPort, o.endPort) : res;
     }
