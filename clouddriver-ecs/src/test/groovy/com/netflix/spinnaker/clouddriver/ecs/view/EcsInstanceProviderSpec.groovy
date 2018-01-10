@@ -38,8 +38,7 @@ class EcsInstanceProviderSpec extends Specification {
   def containerInstanceCacheClient = Mock(ContainerInstanceCacheClient)
 
   @Subject
-  def provider = new EcsInstanceProvider(accountCredentialsProvider, amazonClientProvider,
-                                         containerInformationService, taskCacheClient,
+  def provider = new EcsInstanceProvider(containerInformationService, taskCacheClient,
                                          containerInstanceCacheClient)
 
   def 'should return an EcsTask'() {
