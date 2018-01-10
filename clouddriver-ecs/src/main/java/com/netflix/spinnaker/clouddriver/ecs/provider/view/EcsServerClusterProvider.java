@@ -87,16 +87,6 @@ public class EcsServerClusterProvider implements ClusterProvider<EcsServerCluste
     this.ecsCloudWatchAlarmCacheClient = ecsCloudWatchAlarmCacheClient;
   }
 
-  @Override
-  public Map<String, Set<EcsServerCluster>> getClusters() {
-    Map<String, Set<EcsServerCluster>> clusterMap = new HashMap<>();
-
-    for (AmazonCredentials credentials : getEcsCredentials()) {
-      clusterMap = findClusters(clusterMap, credentials);
-    }
-    return clusterMap;
-  }
-
   private Map<String, Set<EcsServerCluster>> findClusters(Map<String, Set<EcsServerCluster>> clusterMap,
                                                           AmazonCredentials credentials) {
     return findClusters(clusterMap, credentials, null);
@@ -339,6 +329,12 @@ public class EcsServerClusterProvider implements ClusterProvider<EcsServerCluste
     return ecsCredentialsList;
   }
 
+  private AmazonCredentials getEcsCredentials(String account) {
+    return getEcsCredentials().stream()
+      .filter(credentials -> credentials.getName().equals(account))
+      .findFirst().get();
+  }
+
   /**
    * Temporary implementation to satisfy the interface's implementation.
    * This will be modified and updated properly once we finish the POC
@@ -363,13 +359,25 @@ public class EcsServerClusterProvider implements ClusterProvider<EcsServerCluste
     return clusterMap;
   }
 
+
+  @Override
+  public Map<String, Set<EcsServerCluster>> getClusters() {
+    Map<String, Set<EcsServerCluster>> clusterMap = new HashMap<>();
+
+    for (AmazonCredentials credentials : getEcsCredentials()) {
+      clusterMap = findClusters(clusterMap, credentials);
+    }
+    return clusterMap;
+  }
+
   /**
    * Temporary implementation to satisfy the interface's implementation.
    * This will be modified and updated properly once we finish the POC
    */
   @Override
   public Set<EcsServerCluster> getClusters(String application, String account) {
-    return getClusters().get(application);
+    return findClusters(new HashMap<>(), getEcsCredentials(account), application)
+      .get(application);
   }
 
   /**
@@ -378,16 +386,7 @@ public class EcsServerClusterProvider implements ClusterProvider<EcsServerCluste
    */
   @Override
   public EcsServerCluster getCluster(String application, String account, String name) {
-    return getClusters().get(application).iterator().next();
-  }
-
-  /**
-   * Temporary implementation to satisfy the interface's implementation.
-   * This will be modified and updated properly once we finish the POC
-   */
-  @Override
-  public EcsServerCluster getCluster(String application, String account, String name, boolean includeDetails) {
-    Set<EcsServerCluster> ecsServerClusters = getClusters().get(application);
+    Set<EcsServerCluster> ecsServerClusters = getClusters(application, account);
     if (ecsServerClusters != null && ecsServerClusters.size() > 0) {
       for (EcsServerCluster cluster : ecsServerClusters) {
         if (cluster.getName().equals(name)) {
@@ -403,6 +402,15 @@ public class EcsServerClusterProvider implements ClusterProvider<EcsServerCluste
    * This will be modified and updated properly once we finish the POC
    */
   @Override
+  public EcsServerCluster getCluster(String application, String account, String name, boolean includeDetails) {
+    return getCluster(application, account, name);
+  }
+
+  /**
+   * Temporary implementation to satisfy the interface's implementation.
+   * This will be modified and updated properly once we finish the POC
+   */
+  @Override
   public ServerGroup getServerGroup(String account, String region, String serverGroupName) {
     if (serverGroupName == null) {
       throw new Error("Invalid Server Group");
@@ -411,18 +419,14 @@ public class EcsServerClusterProvider implements ClusterProvider<EcsServerCluste
     String application = StringUtils.substringBefore(serverGroupName, "-");
     Map<String, Set<EcsServerCluster>> clusterMap = new HashMap<>();
 
-    for (AmazonCredentials credentials : getEcsCredentials()) {
-      clusterMap = findClusters(clusterMap, credentials, application);
-    }
+    clusterMap = findClusters(clusterMap, getEcsCredentials(account), application);
 
     for (Map.Entry<String, Set<EcsServerCluster>> entry : clusterMap.entrySet()) {
-      if (entry.getKey().equals(application)) {
-        for (EcsServerCluster ecsServerCluster : entry.getValue()) {
-          for (ServerGroup serverGroup : ecsServerCluster.getServerGroups()) {
-            if (region.equals(serverGroup.getRegion())
-              && serverGroupName.equals(serverGroup.getName())) {
-              return serverGroup;
-            }
+      for (EcsServerCluster ecsServerCluster : entry.getValue()) {
+        for (ServerGroup serverGroup : ecsServerCluster.getServerGroups()) {
+          if (region.equals(serverGroup.getRegion())
+            && serverGroupName.equals(serverGroup.getName())) {
+            return serverGroup;
           }
         }
       }
