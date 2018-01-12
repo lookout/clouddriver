@@ -16,14 +16,11 @@
 
 package com.netflix.spinnaker.clouddriver.ecs.services;
 
-import com.amazonaws.services.ec2.AmazonEC2;
-import com.amazonaws.services.ec2.model.DescribeInstanceStatusRequest;
-import com.amazonaws.services.ec2.model.DescribeInstancesRequest;
-import com.amazonaws.services.ec2.model.DescribeInstancesResult;
-import com.amazonaws.services.ec2.model.InstanceStatus;
+import com.amazonaws.services.ec2.model.Instance;
 import com.amazonaws.services.ecs.model.LoadBalancer;
 import com.netflix.spinnaker.clouddriver.ecs.cache.Keys;
 import com.netflix.spinnaker.clouddriver.ecs.cache.client.ContainerInstanceCacheClient;
+import com.netflix.spinnaker.clouddriver.ecs.cache.client.EcsInstanceCacheClient;
 import com.netflix.spinnaker.clouddriver.ecs.cache.client.ServiceCacheClient;
 import com.netflix.spinnaker.clouddriver.ecs.cache.client.TaskCacheClient;
 import com.netflix.spinnaker.clouddriver.ecs.cache.client.TaskHealthCacheClient;
@@ -31,6 +28,7 @@ import com.netflix.spinnaker.clouddriver.ecs.cache.model.ContainerInstance;
 import com.netflix.spinnaker.clouddriver.ecs.cache.model.Service;
 import com.netflix.spinnaker.clouddriver.ecs.cache.model.Task;
 import com.netflix.spinnaker.clouddriver.ecs.cache.model.TaskHealth;
+import com.netflix.spinnaker.clouddriver.ecs.security.ECSCredentialsConfig;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.stereotype.Component;
 
@@ -38,26 +36,32 @@ import java.util.ArrayList;
 import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
+import java.util.Set;
 
 @Component
 public class ContainerInformationService {
 
+  private final ECSCredentialsConfig ecsCredentialsConfig;
   private final TaskCacheClient taskCacheClient;
   private final ServiceCacheClient serviceCacheClient;
   private final TaskHealthCacheClient taskHealthCacheClient;
+  private final EcsInstanceCacheClient ecsInstanceCacheClient;
   private final ContainerInstanceCacheClient containerInstanceCacheClient;
 
   @Autowired
-  public ContainerInformationService(TaskCacheClient taskCacheClient,
+  public ContainerInformationService(ECSCredentialsConfig ecsCredentialsConfig,
+                                     TaskCacheClient taskCacheClient,
                                      ServiceCacheClient serviceCacheClient,
                                      TaskHealthCacheClient taskHealthCacheClient,
+                                     EcsInstanceCacheClient ecsInstanceCacheClient,
                                      ContainerInstanceCacheClient containerInstanceCacheClient) {
+    this.ecsCredentialsConfig = ecsCredentialsConfig;
     this.taskCacheClient = taskCacheClient;
     this.serviceCacheClient = serviceCacheClient;
     this.taskHealthCacheClient = taskHealthCacheClient;
+    this.ecsInstanceCacheClient = ecsInstanceCacheClient;
     this.containerInstanceCacheClient = containerInstanceCacheClient;
   }
-
 
   public List<Map<String, String>> getHealthStatus(String taskId, String serviceName, String accountName, String region) {
     String serviceCacheKey = Keys.getServiceKey(accountName, region, serviceName);
@@ -107,9 +111,20 @@ public class ContainerInformationService {
     return null;
   }
 
-  //TODO: clean up after EcsServerClusterProvider has been changed. hostPort and containerArn may be replaced with a CacheData instead.
-  //TODO: Use InstanceCachingAgent, write a client for it, retrieve IP and make the private address for the task.
-  public String getTaskPrivateAddress(String accountName, String region, AmazonEC2 amazonEC2, Task task) {
+  public String getClusterName(String serviceName, String accountName, String region) {
+    String serviceCachekey = Keys.getServiceKey(accountName, region, serviceName);
+    Service service = serviceCacheClient.get(serviceCachekey);
+    if (service != null) {
+      return service.getClusterName();
+    }
+    return null;
+  }
+
+  public String getTaskPrivateAddress(String accountName, String region, Task task) {
+    if (task.getContainers().size() > 1) {
+      throw new IllegalArgumentException("Multiple containers for a task is not supported.");
+    }
+
     int hostPort;
     try {
       hostPort = task.getContainers().get(0).getNetworkBindings().get(0).getHostPort();
@@ -121,62 +136,37 @@ public class ContainerInformationService {
       return "unknown";
     }
 
-    String containerInstanceCacheKey = Keys.getContainerInstanceKey(accountName, region, task.getContainerInstanceArn());
-    ContainerInstance containerInstance = containerInstanceCacheClient.get(containerInstanceCacheKey);
-    if (containerInstance == null) {
+    Instance instance = getEc2Instance(accountName, region, task);
+    if(instance == null){
       return "unknown";
     }
 
-    //TODO: describeInstances should probably be cached.
-    DescribeInstancesResult describeInstancesResult = amazonEC2.describeInstances(new DescribeInstancesRequest().withInstanceIds(containerInstance.getEc2InstanceId()));
-    String hostPrivateIpAddress = describeInstancesResult.getReservations().get(0).getInstances().get(0).getPrivateIpAddress(); // TODO - lots of assumptions are made here and need to be relaxed.  get(0) are probably all no-no's
-
+    String hostPrivateIpAddress = instance.getPrivateIpAddress();
     return String.format("%s:%s", hostPrivateIpAddress, hostPort);
   }
 
-  //TODO: Delete this method once EcsServerClusterProvider has been reworked to use the cache.
-  public String getEC2InstanceHostID(String accountName, String region, String containerArn) {
-    String containerInstanceCacheKey = Keys.getContainerInstanceKey(accountName, region, containerArn);
+  public Instance getEc2Instance(String ecsAccount, String region, Task task){
+    String containerInstanceCacheKey = Keys.getContainerInstanceKey(ecsAccount, region, task.getContainerInstanceArn());
     ContainerInstance containerInstance = containerInstanceCacheClient.get(containerInstanceCacheKey);
-    if (containerInstance != null) {
-      return containerInstance.getEc2InstanceId();
-    }
-    return null;
-  }
-
-  public InstanceStatus getEC2InstanceStatus(AmazonEC2 amazonEC2, String accountName, String region, String containerArn) {
-    if (containerArn == null) {
+    if (containerInstance == null) {
       return null;
     }
 
-    String hostEc2InstanceId = getEC2InstanceHostID(accountName, region, containerArn);
-
-    InstanceStatus instanceStatus = null;
-
-    List<String> queryList = new ArrayList<>();
-    queryList.add(hostEc2InstanceId);
-    DescribeInstanceStatusRequest request = new DescribeInstanceStatusRequest()
-      .withInstanceIds(queryList);
-    //TODO: describeInstanceStatus should probably be cached.
-    List<InstanceStatus> instanceStatusList = amazonEC2.describeInstanceStatus(request).getInstanceStatuses();
-
-    if (!instanceStatusList.isEmpty()) {
-      //TODO: return the status of the container instance (ecs call) as opposed to ec2 instance(s).
-      /*if (instanceStatusList.size() != 1) {
-        String message = "Container instances should only have only one Instance Status. Multiple found";
-        throw new InvalidParameterException(message);
-      }*/
-      instanceStatus = instanceStatusList.get(0);
+    Set<Instance> instances = ecsInstanceCacheClient.find(containerInstance.getEc2InstanceId(), getAwsAccountName(ecsAccount), region);
+    if (instances.size() > 1) {
+      throw new IllegalArgumentException("There cannot be more than 1 EC2 container instance for a given region and instance ID.");
+    } else if (instances.size() == 0) {
+      return null;
     }
 
-    return instanceStatus;
+    return instances.iterator().next();
   }
 
-  public String getClusterName(String serviceName, String accountName, String region) {
-    String serviceCachekey = Keys.getServiceKey(accountName, region, serviceName);
-    Service service = serviceCacheClient.get(serviceCachekey);
-    if (service != null) {
-      return service.getClusterName();
+  private String getAwsAccountName(String ecsAccountName) {
+    for (ECSCredentialsConfig.Account ecsAccount : ecsCredentialsConfig.getAccounts()) {
+      if (ecsAccount.getName().equals(ecsAccountName)) {
+        return ecsAccount.getAwsAccount();
+      }
     }
     return null;
   }

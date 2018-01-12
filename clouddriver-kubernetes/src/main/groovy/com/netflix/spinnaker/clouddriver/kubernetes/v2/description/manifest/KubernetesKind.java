@@ -65,8 +65,8 @@ public class KubernetesKind {
   @JsonCreator
   public static KubernetesKind fromString(String name) {
     return values.stream()
-      .filter(v -> v.name.equalsIgnoreCase(name) || (v.alias != null && v.alias.equalsIgnoreCase(name)))
-      .findAny()
-      .orElseThrow(() -> new IllegalArgumentException("Kubernetes kind '" + name + "' is not supported."));
+        .filter(v -> v.name.equalsIgnoreCase(name) || (v.alias != null && v.alias.equalsIgnoreCase(name)))
+        .findAny()
+        .orElseThrow(() -> new IllegalArgumentException("Kubernetes kind '" + name + "' is not supported."));
   }
 }

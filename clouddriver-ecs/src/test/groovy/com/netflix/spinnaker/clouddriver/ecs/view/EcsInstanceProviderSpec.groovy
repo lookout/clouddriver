@@ -38,8 +38,7 @@ class EcsInstanceProviderSpec extends Specification {
   def containerInstanceCacheClient = Mock(ContainerInstanceCacheClient)
 
   @Subject
-  def provider = new EcsInstanceProvider(accountCredentialsProvider, amazonClientProvider,
-                                         containerInformationService, taskCacheClient,
+  def provider = new EcsInstanceProvider(containerInformationService, taskCacheClient,
                                          containerInstanceCacheClient)
 
   def 'should return an EcsTask'() {
@@ -73,7 +72,7 @@ class EcsInstanceProviderSpec extends Specification {
     netflixAmazonCredentials.getCredentialsProvider() >> awsCredentialsProvider
     amazonClientProvider.getAmazonEC2(_, _, _) >> amazonEC2
     containerInstanceCacheClient.get(_) >> containerInstance
-    containerInformationService.getTaskPrivateAddress(_, _, _, _) >> address
+    containerInformationService.getTaskPrivateAddress(_, _, _) >> address
 
     when:
     def taskInstance = provider.getInstance(account, region, taskId)

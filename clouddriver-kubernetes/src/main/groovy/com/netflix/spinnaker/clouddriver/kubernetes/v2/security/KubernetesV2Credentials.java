@@ -34,10 +34,12 @@ import org.apache.commons.lang3.StringUtils;
 import javax.validation.constraints.NotNull;
 import java.io.FileNotFoundException;
 import java.io.FileReader;
-import java.util.ArrayList;
-import java.util.HashMap;
-import java.util.List;
-import java.util.Map;
+import java.io.IOException;
+import java.nio.charset.StandardCharsets;
+import java.nio.file.Files;
+import java.nio.file.Path;
+import java.nio.file.Paths;
+import java.util.*;
 import java.util.concurrent.TimeUnit;
 import java.util.function.Supplier;
 import java.util.stream.Collectors;
@@ -50,15 +52,6 @@ public class KubernetesV2Credentials implements KubernetesCredentials {
   private final ObjectMapper mapper = new ObjectMapper();
   private final List<String> namespaces;
   private final List<String> omitNamespaces;
-  private final String PRETTY = "";
-  private final String CONTINUE = null;
-  private final boolean EXACT = true;
-  private final boolean EXPORT = false;
-  private final boolean INCLUDE_UNINITIALIZED = false;
-  private final Integer LIMIT = null; // TODO(lwander): include paginination
-  private final boolean WATCH = false;
-  private final String DEFAULT_VERSION = "0";
-  private final int TIMEOUT_SECONDS = 10; // TODO(lwander) make configurable
 
   // remove when kubectl is no longer a dependency
   @Getter
@@ -76,8 +69,24 @@ public class KubernetesV2Credentials implements KubernetesCredentials {
   @Getter
   private final List<String> oAuthScopes;
 
-  @Getter
   private final String defaultNamespace = "default";
+  private final Path serviceAccountNamespacePath = Paths.get("/var/run/secrets/kubernetes.io/serviceaccount/namespace");
+  public String getDefaultNamespace() {
+    String namespace = defaultNamespace;
+    try {
+      Optional<String> serviceAccountNamespace = Files.lines(serviceAccountNamespacePath, StandardCharsets.UTF_8).findFirst();
+      namespace = serviceAccountNamespace.get();
+    } catch (IOException | NoSuchElementException e) {
+      try {
+        namespace = jobExecutor.defaultNamespace(this);
+      } catch (KubectlException e1) {
+      }
+    }
+    if (StringUtils.isEmpty(namespace)) {
+      namespace = defaultNamespace;
+    }
+    return namespace;
+  }
 
   @Getter
   private final boolean debug;
@@ -246,16 +255,20 @@ public class KubernetesV2Credentials implements KubernetesCredentials {
     return runAndRecordMetrics("logs", KubernetesKind.POD, namespace, () -> jobExecutor.logs(this, namespace, podName, containerName));
   }
 
-  public void scale(KubernetesKind kind, String namespace, String name, KubernetesSelectorList labelSelectors, int replicas) {
-    runAndRecordMetrics("scale", kind, namespace, () -> jobExecutor.scale(this, kind, namespace, name, labelSelectors, replicas));
+  public void scale(KubernetesKind kind, String namespace, String name, int replicas) {
+    runAndRecordMetrics("scale", kind, namespace, () -> jobExecutor.scale(this, kind, namespace, name, replicas));
   }
 
-  public void delete(KubernetesKind kind, String namespace, String name, KubernetesSelectorList labelSelectors, V1DeleteOptions options) {
-    runAndRecordMetrics("scale", kind, namespace, () -> jobExecutor.delete(this, kind, namespace, name, labelSelectors, options));
+  public List<String> delete(KubernetesKind kind, String namespace, String name, KubernetesSelectorList labelSelectors, V1DeleteOptions options) {
+    return runAndRecordMetrics("scale", kind, namespace, () -> jobExecutor.delete(this, kind, namespace, name, labelSelectors, options));
   }
 
   public void deploy(KubernetesManifest manifest) {
     runAndRecordMetrics("deploy", manifest.getKind(), manifest.getNamespace(), () -> jobExecutor.deploy(this, manifest));
+  }
+
+  public List<Integer> historyRollout(KubernetesKind kind, String namespace, String name) {
+    return runAndRecordMetrics("historyRollout", kind, namespace, () -> jobExecutor.historyRollout(this, kind, namespace, name));
   }
 
   public void undoRollout(KubernetesKind kind, String namespace, String name, int revision) {

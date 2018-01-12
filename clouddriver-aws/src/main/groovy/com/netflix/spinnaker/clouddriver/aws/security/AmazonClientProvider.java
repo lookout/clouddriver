@@ -291,10 +291,6 @@ public class AmazonClientProvider {
     return awsSdkClientSupplier.getClient(AmazonECSClientBuilder.class, AmazonECS.class, accountName, awsCredentialsProvider, region);
   }
 
-  public AmazonECR getAmazonEcr(String accountName, AWSCredentialsProvider awsCredentialsProvider, String region) {
-    return awsSdkClientSupplier.getClient(AmazonECRClientBuilder.class, AmazonECR.class, accountName, awsCredentialsProvider, region);
-  }
-
   public AmazonIdentityManagement getIam(String accountName, AWSCredentialsProvider awsCredentialsProvider, String region) {
     return awsSdkClientSupplier.getClient(AmazonIdentityManagementClientBuilder.class, AmazonIdentityManagement.class, accountName, awsCredentialsProvider, region);
   }
@@ -442,5 +438,9 @@ public class AmazonClientProvider {
 
   public AWSApplicationAutoScaling getAmazonApplicationAutoScaling(String accountName, AWSCredentialsProvider awsCredentialsProvider, String region) {
     return awsSdkClientSupplier.getClient(AWSApplicationAutoScalingClientBuilder.class, AWSApplicationAutoScaling.class, accountName, awsCredentialsProvider, region);
+  }
+
+  public AmazonECR getAmazonEcr(String accountName, AWSCredentialsProvider awsCredentialsProvider, String region) {
+    return awsSdkClientSupplier.getClient(AmazonECRClientBuilder.class, AmazonECR.class, accountName, awsCredentialsProvider, region);
   }
 }

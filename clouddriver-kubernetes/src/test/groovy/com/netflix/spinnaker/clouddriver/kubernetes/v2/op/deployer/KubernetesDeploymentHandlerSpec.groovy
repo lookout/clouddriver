@@ -75,7 +75,9 @@ spec:
     def result = handler.replaceArtifacts(stringToManifest(BASIC_DEPLOYMENT), [artifact])
 
     then:
-    result.spec.template.spec.containers[0].image == target
+    result.manifest.spec.template.spec.containers[0].image == target
+    result.boundArtifacts.size() == 1
+    result.boundArtifacts.contains(artifact) == true
   }
 
   void "check that image isn't replaced by the artifact replacer"() {
@@ -90,7 +92,8 @@ spec:
     def result = handler.replaceArtifacts(stringToManifest(BASIC_DEPLOYMENT), [artifact])
 
     then:
-    result.spec.template.spec.containers[0].image == IMAGE
+    result.manifest.spec.template.spec.containers[0].image == IMAGE
+    result.boundArtifacts.isEmpty() == true
   }
 
   void "check that image is found"() {
@@ -113,7 +116,7 @@ spec:
     def result = handler.replaceArtifacts(stringToManifest(BASIC_DEPLOYMENT), [artifact])
 
     then:
-    result.spec.template.spec.volumes[0].configMap.name == target
+    result.manifest.spec.template.spec.volumes[0].configMap.name == target
   }
 
   void "check that configmap volume replaced by the artifact replacer"() {
@@ -128,7 +131,7 @@ spec:
     def result = handler.replaceArtifacts(stringToManifest(BASIC_DEPLOYMENT), [artifact])
 
     then:
-    result.spec.template.spec.volumes[0].configMap.name == CONFIG_MAP_VOLUME
+    result.manifest.spec.template.spec.volumes[0].configMap.name == CONFIG_MAP_VOLUME
   }
 
   void "check that configmap volume is found"() {
