@@ -60,11 +60,11 @@ class EcsClusterProviderSpec extends Specification {
     cacheView.getAll(_) >> cacheData
 
     when:
-    List<EcsCluster> ecsClusters = ecsClusterProvider.getAllEcsClusters()
+    Collection<EcsCluster> ecsClusters = ecsClusterProvider.getAllEcsClusters()
 
     then:
     ecsClusters.size() == 1
-    ecsClusters.get(0).getName() == clusterName
+    ecsClusters[0].getName() == clusterName
   }
 
   def 'should get multiple clusters'() {
