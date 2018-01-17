@@ -34,6 +34,7 @@ public class CreateServerGroupDescription extends AbstractECSDescription {
   String targetGroup;
   List<String> securityGroups;
 
+  //TODO: Check if serverGroupVersion is needed.
   String serverGroupVersion;
   String portProtocol;
 
@@ -44,8 +45,10 @@ public class CreateServerGroupDescription extends AbstractECSDescription {
 
   ServerGroup.Capacity capacity;
 
+  //TODO: Check if source is needed.
   Source source;
 
+  //TODO: Check how availability zones are passed in.
   Map<String, List<String>> availabilityZones;
 
   List<MetricAlarm> autoscalingPolicies;

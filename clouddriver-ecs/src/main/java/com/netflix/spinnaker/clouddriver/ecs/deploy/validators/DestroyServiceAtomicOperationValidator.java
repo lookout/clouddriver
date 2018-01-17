@@ -23,4 +23,7 @@ import org.springframework.stereotype.Component;
 @EcsOperation(AtomicOperations.DESTROY_SERVER_GROUP)
 @Component("destroyServiceAtomicOperationValidator")
 public class DestroyServiceAtomicOperationValidator extends ServerGroupDescriptionValidator {
+  public DestroyServiceAtomicOperationValidator(){
+    super("destroyServiceAtomicOperation");
+  }
 }

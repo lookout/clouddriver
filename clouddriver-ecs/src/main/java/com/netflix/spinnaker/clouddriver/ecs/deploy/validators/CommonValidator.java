@@ -26,26 +26,35 @@ import java.util.Set;
 import java.util.stream.Collectors;
 
 abstract class CommonValidator extends DescriptionValidator {
+  String errorKey;
 
-  void validateRegions(AbstractAmazonCredentialsDescription credentialsDescription, Collection<String> regionNames, String errorKey, Errors errors, String attributeName) {
+  public CommonValidator(String erroryKey) {
+    this.errorKey = erroryKey;
+  }
+
+  void validateRegions(AbstractAmazonCredentialsDescription credentialsDescription, Collection<String> regionNames, Errors errors, String attributeName) {
     if (regionNames.isEmpty()) {
-      errors.rejectValue(attributeName, errorKey + "." + attributeName + ".empty");
+      rejectValue(errors, attributeName, "empty");
     } else {
       Set<String> validRegions = credentialsDescription.getCredentials().getRegions().stream()
         .map(AmazonCredentials.AWSRegion::getName)
         .collect(Collectors.toSet());
 
       if (!validRegions.isEmpty() && !validRegions.containsAll(regionNames)) {
-        errors.rejectValue(attributeName, errorKey + "." + attributeName + ".not.configured");
+        rejectValue(errors, attributeName, "not.configured");
       }
     }
   }
 
-  boolean validateCredentials(AbstractAmazonCredentialsDescription credentialsDescription, String errorKey, Errors errors, String attributeName) {
+  boolean validateCredentials(AbstractAmazonCredentialsDescription credentialsDescription, Errors errors, String attributeName) {
     if (credentialsDescription.getCredentials() == null) {
-      errors.rejectValue(attributeName, errorKey + "." + attributeName + ".not.nullable");
+      rejectValue(errors, attributeName, "not.nullable");
       return false;
     }
     return true;
+  }
+
+  void rejectValue(Errors errors, String field, String reason) {
+    errors.rejectValue(field, errorKey + "." + field + "." + reason);
   }
 }

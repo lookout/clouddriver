@@ -33,6 +33,12 @@ abstract class AbstractValidatorSpec extends Specification {
 
   abstract AbstractECSDescription getDescription()
 
+  abstract AbstractECSDescription getNulledDescription()
+
+  abstract Set<String> notNullableProperties()
+
+  abstract String getDescriptionName()
+
   def setupSpec() {
     TaskRepository.threadLocalTask.set(Mock(Task))
   }
@@ -51,17 +57,20 @@ abstract class AbstractValidatorSpec extends Specification {
     1 * errors.rejectValue('region', _)
   }
 
-  void 'should fail on missing credentials'() {
+  void 'should fail when required properties are null'() {
     given:
-    def description = getDescription()
-    description.credentials = null
+    def description = getNulledDescription()
+    def descriptionName = getDescriptionName()
     def errors = Mock(Errors)
+    def nullProperties = notNullableProperties()
 
     when:
     validator.validate([], description, errors)
 
     then:
-    1 * errors.rejectValue('credentials', _)
+    for(def nullProperty:nullProperties){
+      1 * errors.rejectValue(nullProperty, "${descriptionName}.${nullProperty}.not.nullable")
+    }
   }
 
   void 'should pass validation'() {

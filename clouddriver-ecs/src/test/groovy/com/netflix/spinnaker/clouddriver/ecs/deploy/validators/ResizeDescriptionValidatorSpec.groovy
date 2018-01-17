@@ -26,19 +26,6 @@ import org.springframework.validation.Errors
 
 class ResizeDescriptionValidatorSpec extends AbstractValidatorSpec {
 
-  void 'should fail when capacity is null'() {
-    given:
-    def description = (ResizeServiceDescription) getDescription()
-    description.capacity = null
-    def errors = Mock(Errors)
-
-    when:
-    validator.validate([], description, errors)
-
-    then:
-    1 * errors.rejectValue('capacity', 'resizeServiceDescription.capacity.not.nullable')
-  }
-
   void 'should fail when desired is null'() {
     given:
     def description = (ResizeServiceDescription) getDescription()
@@ -141,7 +128,7 @@ class ResizeDescriptionValidatorSpec extends AbstractValidatorSpec {
     validator.validate([], description, errors)
 
     then:
-    1 * errors.rejectValue('capacity', 'resizeServiceDescription.capacity.desired.exceeds.max')
+    1 * errors.rejectValue('capacity.desired', 'resizeServiceDescription.capacity.desired.exceeds.max')
   }
 
   void 'should fail when desired is less than min'() {
@@ -154,7 +141,25 @@ class ResizeDescriptionValidatorSpec extends AbstractValidatorSpec {
     validator.validate([], description, errors)
 
     then:
-    1 * errors.rejectValue('capacity', 'resizeServiceDescription.capacity.desired.less.than.min')
+    1 * errors.rejectValue('capacity.desired', 'resizeServiceDescription.capacity.desired.less.than.min')
+  }
+
+  @Override
+  AbstractECSDescription getNulledDescription() {
+    def description = (ResizeServiceDescription) getDescription()
+    description.capacity = null
+    description.credentials = null
+    return description
+  }
+
+  @Override
+  Set<String> notNullableProperties() {
+    ['capacity', 'credentials',]
+  }
+
+  @Override
+  String getDescriptionName() {
+    'resizeServiceDescription'
   }
 
   @Override

@@ -31,7 +31,7 @@ import java.util.Set;
 
 @EcsOperation(AtomicOperations.CREATE_SERVER_GROUP)
 @Component("ecsCreateServerGroupAtomicOperationValidator")
-public class EcsCreateServerGroupAtomicOperationValidator extends CommonValidator {
+public class EcsCreateServerGroupDescriptionValidator extends CommonValidator {
 
   private static final Set<String> BINPACK_VALUES = Sets.newHashSet("cpu", "memory");
   private static final Set<String> SPREAD_VALUES = Sets.newHashSet(
@@ -42,22 +42,26 @@ public class EcsCreateServerGroupAtomicOperationValidator extends CommonValidato
     "attribute:ecs.ami-id"
   );
 
+  public EcsCreateServerGroupDescriptionValidator() {
+    super("createServerGroupDescription");
+  }
+
   @Override
   public void validate(List priorDescriptions, Object description, Errors errors) {
     CreateServerGroupDescription createServerGroupDescription = (CreateServerGroupDescription) description;
 
-    boolean validCredentials = validateCredentials(createServerGroupDescription, "createServerGroupDescription", errors, "credentials");
+    boolean validCredentials = validateCredentials(createServerGroupDescription, errors, "credentials");
 
     if (validCredentials) {
-      validateRegions(createServerGroupDescription, Collections.singleton(createServerGroupDescription.getRegion()), "createServerGroupDescription", errors, "region");
+      validateRegions(createServerGroupDescription, Collections.singleton(createServerGroupDescription.getRegion()), errors, "region");
     }
 
     if (createServerGroupDescription.getAvailabilityZones() != null) {
       if (createServerGroupDescription.getAvailabilityZones().size() != 1) {
-        errors.rejectValue("availabilityZones", "createServerGroupDescription.availabilityZones.can.only.have.one");
+        rejectValue(errors, "availabilityZones", "must.have.only.one");
       }
     } else {
-      errors.rejectValue("availabilityZones", "createServerGroupDescription.availabilityZones.not.nullable");
+      rejectValue(errors, "availabilityZones", "not.nullable");
     }
 
     if (createServerGroupDescription.getPlacementStrategySequence() != null) {
@@ -66,24 +70,21 @@ public class EcsCreateServerGroupAtomicOperationValidator extends CommonValidato
         try {
           type = PlacementStrategyType.fromValue(placementStrategy.getType());
         } catch (IllegalArgumentException e) {
-          errors.rejectValue("placementStrategySequence", "createServerGroupDescription.placementStrategySequence.invalid.type");
+          rejectValue(errors, "placementStrategySequence", "invalid.type");
           continue;
         }
 
         switch (type) {
           case Random:
-            if (placementStrategy.getField().length() != 0) {
-              errors.rejectValue("placementStrategySequence", "createServerGroupDescription.placementStrategySequence.invalid.random.value");
-            }
             break;
           case Spread:
             if (!SPREAD_VALUES.contains(placementStrategy.getField())) {
-              errors.rejectValue("placementStrategySequence", "createServerGroupDescription.placementStrategySequence.invalid.spread.value");
+              rejectValue(errors, "placementStrategySequence", "invalid.spread.value");
             }
             break;
           case Binpack:
             if (!BINPACK_VALUES.contains(placementStrategy.getField())) {
-              errors.rejectValue("placementStrategySequence", "createServerGroupDescription.placementStrategySequence.invalid.binpack.value");
+              rejectValue(errors, "placementStrategySequence", "invalid.binpack.value");
             }
             break;
         }
@@ -91,56 +92,65 @@ public class EcsCreateServerGroupAtomicOperationValidator extends CommonValidato
       }
     } else {
       // This only applies to pipelines that have been created before support for placement strategies and have not been updated since.
-      errors.rejectValue("placementStrategySequence", "createServerGroupDescription.placementStrategySequence.not.nullable");
+      rejectValue(errors, "placementStrategySequence", "not.nullable");
     }
 
     if (createServerGroupDescription.getAutoscalingPolicies() == null) {
-      errors.rejectValue("autoscalingPolicies", "createServerGroupDescription.autoscalingPolicies.not.nullable");
+      rejectValue(errors, "autoscalingPolicies", "not.nullable");
     }
 
     if (createServerGroupDescription.getApplication() == null) {
-      errors.rejectValue("application", "createServerGroupDescription.application.not.nullable");
+      rejectValue(errors, "application", "not.nullable");
     }
 
     if (createServerGroupDescription.getEcsClusterName() == null) {
-      errors.rejectValue("ecsClusterName", "createServerGroupDescription.ecsClusterName.not.nullable");
+      rejectValue(errors, "ecsClusterName", "not.nullable");
+    }
+
+    if (createServerGroupDescription.getDockerImageAddress() == null) {
+      rejectValue(errors, "dockerImageAddress", "not.nullable");
     }
 
     if (createServerGroupDescription.getCapacity() != null) {
       if (createServerGroupDescription.getCapacity().getDesired() != null) {
         if (createServerGroupDescription.getCapacity().getDesired() < 0) {
-          errors.rejectValue("containerPort", "createServerGroupDescription.capacity.desired.invalid");
+          rejectValue(errors, "capacity.desired", "invalid");
         }
       } else {
-        errors.rejectValue("desired", "createServerGroupDescription.capacity.desired.not.nullable");
+        rejectValue(errors, "capacity.desired", "not.nullable");
       }
     } else {
-      errors.rejectValue("capacity", "createServerGroupDescription.capacity.not.nullable");
+      rejectValue(errors, "capacity", "not.nullable");
     }
 
     if (createServerGroupDescription.getContainerPort() != null) {
       if (createServerGroupDescription.getContainerPort() < 0 || createServerGroupDescription.getContainerPort() > 65535) {
-        errors.rejectValue("containerPort", "createServerGroupDescription.containerPort.invalid");
+        rejectValue(errors, "containerPort", "invalid");
       }
     } else {
-      errors.rejectValue("containerPort", "createServerGroupDescription.containerPort.not.nullable");
+      rejectValue(errors, "containerPort", "not.nullable");
     }
 
     if (createServerGroupDescription.getComputeUnits() != null) {
       if (createServerGroupDescription.getComputeUnits() < 0) {
-        errors.rejectValue("computeUnits", "createServerGroupDescription.computeUnits.invalid");
+        rejectValue(errors, "computeUnits", "invalid");
       }
     } else {
-      errors.rejectValue("computeUnits", "createServerGroupDescription.computeUnits.not.nullable");
+      rejectValue(errors, "computeUnits", "not.nullable");
     }
 
     if (createServerGroupDescription.getReservedMemory() != null) {
       if (createServerGroupDescription.getReservedMemory() < 0) {
-        errors.rejectValue("reservedMemory", "createServerGroupDescription.reservedMemory.invalid");
+        rejectValue(errors, "reservedMemory", "invalid");
       }
     } else {
-      errors.rejectValue("reservedMemory", "createServerGroupDescription.reservedMemory.not.nullable");
+      rejectValue(errors, "reservedMemory", "not.nullable");
     }
+
+    //create server group - validate capacity - see ResizeServiceDescriptionValidator
+    //autoscalingPolicies validate
+    //placementStrategySequence validate
+    //
 
   }
 

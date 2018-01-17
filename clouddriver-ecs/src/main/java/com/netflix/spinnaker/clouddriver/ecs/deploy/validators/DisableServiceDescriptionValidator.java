@@ -23,4 +23,7 @@ import org.springframework.stereotype.Component;
 @EcsOperation(AtomicOperations.DISABLE_SERVER_GROUP)
 @Component("disableServiceAtomicOperationValidator")
 public class DisableServiceDescriptionValidator extends ServerGroupDescriptionValidator {
+  public DisableServiceDescriptionValidator(){
+    super("disableServiceDescription");
+  }
 }

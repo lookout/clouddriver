@@ -16,9 +16,13 @@
 
 package com.netflix.spinnaker.clouddriver.ecs.deploy.converters
 
+import com.amazonaws.services.ecs.model.PlacementStrategy
+import com.amazonaws.services.ecs.model.PlacementStrategyType
+import com.fasterxml.jackson.databind.ObjectMapper
 import com.netflix.spinnaker.clouddriver.ecs.TestCredential
-import com.netflix.spinnaker.clouddriver.ecs.deploy.description.TerminateInstancesDescription
-import com.netflix.spinnaker.clouddriver.ecs.deploy.ops.TerminateInstancesAtomicOperation
+import com.netflix.spinnaker.clouddriver.ecs.deploy.description.CreateServerGroupDescription
+import com.netflix.spinnaker.clouddriver.ecs.deploy.ops.CreateServerGroupAtomicOperation
+import com.netflix.spinnaker.clouddriver.model.ServerGroup
 import com.netflix.spinnaker.clouddriver.security.AccountCredentialsProvider
 import spock.lang.Specification
 
@@ -27,11 +31,27 @@ class EcsCreateServerGroupAtomicOperationConverterSpec extends Specification {
 
   def 'should convert'() {
     given:
-    def converter = new EcsCreateServerGroupAtomicOperationConverter()
+    def converter = new EcsCreateServerGroupAtomicOperationConverter(objectMapper: new ObjectMapper())
     converter.accountCredentialsProvider = accountCredentialsProvider
 
-    def instanceIds = ['id-1', 'id-2']
-    def input = [instanceIds: instanceIds, region: 'us-west-1', credentials: 'test']
+    def input = [
+      ecsClusterName           : 'mycluster',
+      iamRole                  : 'role-arn',
+      containerPort            : 1337,
+      targetGroup              : 'target-group-arn',
+      securityGroups           : ['sg-deadbeef'],
+      serverGroupVersion       : 'v007',
+      portProtocol             : 'tc',
+      computeUnits             : 256,
+      reservedMemory           : 512,
+      dockerImageAddress       : 'docker-url',
+      capacity                 : new ServerGroup.Capacity(0, 2, 1,),
+      availabilityZones        : ['us-west-1': ['us-west-1a']],
+      autoscalingPolicies      : [],
+      placementStrategySequence: [new PlacementStrategy().withType(PlacementStrategyType.Random)],
+      region                   : 'us-west-1',
+      credentials              : 'test'
+    ]
 
     accountCredentialsProvider.getCredentials(_) >> TestCredential.named('test')
 
@@ -39,13 +59,12 @@ class EcsCreateServerGroupAtomicOperationConverterSpec extends Specification {
     def description = converter.convertDescription(input)
 
     then:
-    description instanceof TerminateInstancesDescription
-    description.getEcsTaskIds() == instanceIds
+    description instanceof CreateServerGroupDescription
 
     when:
     def operation = converter.convertOperation(input)
 
     then:
-    operation instanceof TerminateInstancesAtomicOperation
+    operation instanceof CreateServerGroupAtomicOperation
   }
 }
