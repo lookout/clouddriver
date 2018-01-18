@@ -104,20 +104,6 @@ class ResizeDescriptionValidatorSpec extends AbstractValidatorSpec {
     1 * errors.rejectValue('capacity.max', 'resizeServiceDescription.capacity.max.not.positive')
   }
 
-  void 'should fail when min-max range is invalid'() {
-    given:
-    def description = (ResizeServiceDescription) getDescription()
-    description.capacity.setMax(1)
-    description.capacity.setMin(2)
-    def errors = Mock(Errors)
-
-    when:
-    validator.validate([], description, errors)
-
-    then:
-    1 * errors.rejectValue('capacity', 'resizeServiceDescription.capacity.invalid.min.max.range')
-  }
-
   void 'should fail when desired is greater than max'() {
     given:
     def description = (ResizeServiceDescription) getDescription()
@@ -149,12 +135,25 @@ class ResizeDescriptionValidatorSpec extends AbstractValidatorSpec {
     def description = (ResizeServiceDescription) getDescription()
     description.capacity = null
     description.credentials = null
-    return description
+    description
   }
 
   @Override
   Set<String> notNullableProperties() {
     ['capacity', 'credentials',]
+  }
+
+  @Override
+  AbstractECSDescription getInvalidDescription() {
+    def description = (ResizeServiceDescription) getDescription()
+    description.capacity.setMax(1)
+    description.capacity.setMin(2)
+    description
+  }
+
+  @Override
+  Set<String> invalidProperties() {
+    ['capacity.min.max.range']
   }
 
   @Override

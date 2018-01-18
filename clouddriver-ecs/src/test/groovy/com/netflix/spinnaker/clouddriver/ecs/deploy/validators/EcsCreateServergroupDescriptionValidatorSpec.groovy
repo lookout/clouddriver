@@ -27,58 +27,6 @@ import org.springframework.validation.Errors
 
 class EcsCreateServergroupDescriptionValidatorSpec extends AbstractValidatorSpec {
 
-  void 'should fail when the reserved memory is invalid'() {
-    given:
-    def description = (CreateServerGroupDescription) getDescription()
-    description.reservedMemory = -1
-    def errors = Mock(Errors)
-
-    when:
-    validator.validate([], description, errors)
-
-    then:
-    1 * errors.rejectValue('reservedMemory', "${getDescriptionName()}.reservedMemory.invalid")
-  }
-
-  void 'should fail when the compute units is invalid'() {
-    given:
-    def description = (CreateServerGroupDescription) getDescription()
-    description.computeUnits = -1
-    def errors = Mock(Errors)
-
-    when:
-    validator.validate([], description, errors)
-
-    then:
-    1 * errors.rejectValue('computeUnits', "${getDescriptionName()}.computeUnits.invalid")
-  }
-
-  void 'should fail when the container port is invalid'() {
-    given:
-    def description = (CreateServerGroupDescription) getDescription()
-    description.containerPort = -1
-    def errors = Mock(Errors)
-
-    when:
-    validator.validate([], description, errors)
-
-    then:
-    1 * errors.rejectValue('containerPort', "${getDescriptionName()}.containerPort.invalid")
-  }
-
-  void 'should fail when the desired capacity is invalid'() {
-    given:
-    def description = (CreateServerGroupDescription) getDescription()
-    description.getCapacity().setDesired(-1)
-    def errors = Mock(Errors)
-
-    when:
-    validator.validate([], description, errors)
-
-    then:
-    1 * errors.rejectValue('capacity.desired', "${getDescriptionName()}.capacity.desired.invalid")
-  }
-
   void 'should fail when the desired capacity is null'() {
     given:
     def description = (CreateServerGroupDescription) getDescription()
@@ -90,51 +38,6 @@ class EcsCreateServergroupDescriptionValidatorSpec extends AbstractValidatorSpec
 
     then:
     1 * errors.rejectValue('capacity.desired', "${getDescriptionName()}.capacity.desired.not.nullable")
-  }
-
-  void 'should fail when a binpack placement strategy has an invalid value'() {
-    given:
-    def description = (CreateServerGroupDescription) getDescription()
-    description.placementStrategySequence = [
-      new PlacementStrategy().withType(PlacementStrategyType.Binpack).withField("invalid")
-    ]
-    def errors = Mock(Errors)
-
-    when:
-    validator.validate([], description, errors)
-
-    then:
-    1 * errors.rejectValue('placementStrategySequence', "${getDescriptionName()}.placementStrategySequence.invalid.binpack.value")
-  }
-
-  void 'should fail when a spread placement strategy has an invalid value'() {
-    given:
-    def description = (CreateServerGroupDescription) getDescription()
-    description.placementStrategySequence = [
-      new PlacementStrategy().withType(PlacementStrategyType.Spread).withField("invalid")
-    ]
-    def errors = Mock(Errors)
-
-    when:
-    validator.validate([], description, errors)
-
-    then:
-    1 * errors.rejectValue('placementStrategySequence', "${getDescriptionName()}.placementStrategySequence.invalid.spread.value")
-  }
-
-  void 'should fail when a placement strategy type is invalid'() {
-    given:
-    def description = (CreateServerGroupDescription) getDescription()
-    description.placementStrategySequence = [
-      new PlacementStrategy().withType("invalid-type")
-    ]
-    def errors = Mock(Errors)
-
-    when:
-    validator.validate([], description, errors)
-
-    then:
-    1 * errors.rejectValue('placementStrategySequence', "${getDescriptionName()}.placementStrategySequence.invalid.type")
   }
 
   void 'should fail when more than one availability zones is present'() {
@@ -171,6 +74,27 @@ class EcsCreateServergroupDescriptionValidatorSpec extends AbstractValidatorSpec
     ['placementStrategySequence', 'availabilityZones', 'autoscalingPolicies', 'application',
      'ecsClusterName', 'dockerImageAddress', 'credentials', 'containerPort', 'computeUnits',
      'reservedMemory']
+  }
+
+  @Override
+  AbstractECSDescription getInvalidDescription() {
+    def description = (CreateServerGroupDescription) getDescription()
+    description.reservedMemory = -1
+    description.computeUnits = -1
+    description.containerPort = -1
+    description.getCapacity().setDesired(-1)
+    description.placementStrategySequence = [
+      new PlacementStrategy().withType("invalid-type"),
+      new PlacementStrategy().withType(PlacementStrategyType.Binpack).withField("invalid"),
+      new PlacementStrategy().withType(PlacementStrategyType.Spread).withField("invalid")
+    ]
+    return description
+  }
+
+  @Override
+  Set<String> invalidProperties() {
+    ['reservedMemory', 'computeUnits', 'containerPort', 'placementStrategySequence.binpack',
+     'placementStrategySequence.type', 'capacity.desired', 'placementStrategySequence.spread']
   }
 
   @Override

@@ -69,7 +69,7 @@ public class ResizeServiceDescriptionValidator extends CommonValidator {
 
       if(minNotNull && maxNotNull){
         if(typedDescription.getCapacity().getMin() > typedDescription.getCapacity().getMax()){
-          rejectValue(errors, "capacity", "invalid.min.max.range");
+          rejectValue(errors, "capacity.min.max.range", "invalid");
         }
 
         if(desiredNotNull && typedDescription.getCapacity().getDesired() > typedDescription.getCapacity().getMax()){

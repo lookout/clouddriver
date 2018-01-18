@@ -70,7 +70,7 @@ public class EcsCreateServerGroupDescriptionValidator extends CommonValidator {
         try {
           type = PlacementStrategyType.fromValue(placementStrategy.getType());
         } catch (IllegalArgumentException e) {
-          rejectValue(errors, "placementStrategySequence", "invalid.type");
+          rejectValue(errors, "placementStrategySequence.type", "invalid");
           continue;
         }
 
@@ -79,12 +79,12 @@ public class EcsCreateServerGroupDescriptionValidator extends CommonValidator {
             break;
           case Spread:
             if (!SPREAD_VALUES.contains(placementStrategy.getField())) {
-              rejectValue(errors, "placementStrategySequence", "invalid.spread.value");
+              rejectValue(errors, "placementStrategySequence.spread", "invalid");
             }
             break;
           case Binpack:
             if (!BINPACK_VALUES.contains(placementStrategy.getField())) {
-              rejectValue(errors, "placementStrategySequence", "invalid.binpack.value");
+              rejectValue(errors, "placementStrategySequence.binpack", "invalid");
             }
             break;
         }

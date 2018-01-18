@@ -19,37 +19,39 @@ package com.netflix.spinnaker.clouddriver.ecs.deploy.validators
 import com.netflix.spinnaker.clouddriver.deploy.DescriptionValidator
 import com.netflix.spinnaker.clouddriver.ecs.TestCredential
 import com.netflix.spinnaker.clouddriver.ecs.deploy.description.AbstractECSDescription
+import com.netflix.spinnaker.clouddriver.ecs.deploy.description.ModifyServiceDescription
 import com.netflix.spinnaker.clouddriver.ecs.deploy.description.ResizeServiceDescription
 import com.netflix.spinnaker.clouddriver.ecs.deploy.description.TerminateInstancesDescription
 import org.springframework.validation.Errors
 
 class TerminateInstanceDescriptionValidatorSpec extends AbstractValidatorSpec {
-
-  void 'should fail invalid ecs task ids'() {
-    given:
-    def description = (TerminateInstancesDescription) getDescription()
-    description.ecsTaskIds = ['some-invalid-task-id']
-    def errors = Mock(Errors)
-
-    when:
-    validator.validate([], description, errors)
-
-    then:
-    1 * errors.rejectValue("ecsTaskIds.${description.ecsTaskIds[0]}", "terminateInstancesDescription.ecsTaskIds.${description.ecsTaskIds[0]}.invalid")
-  }
+  def invalidTaskId = 'some-invalid-task-id'
 
   @Override
   AbstractECSDescription getNulledDescription() {
     def description = (TerminateInstancesDescription) getDescription()
     description.credentials = null
     description.ecsTaskIds = null
-    return description
+    description
   }
 
   @Override
   Set<String> notNullableProperties() {
     ['credentials', 'ecsTaskIds']
   }
+
+  @Override
+  AbstractECSDescription getInvalidDescription() {
+    def description = (TerminateInstancesDescription) getDescription()
+    description.ecsTaskIds = [invalidTaskId]
+    description
+  }
+
+  @Override
+  Set<String> invalidProperties() {
+    ["ecsTaskIds.${invalidTaskId}"]
+  }
+
 
   @Override
   String getDescriptionName() {

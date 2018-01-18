@@ -20,6 +20,7 @@ import com.netflix.spinnaker.clouddriver.deploy.DescriptionValidator
 import com.netflix.spinnaker.clouddriver.ecs.TestCredential
 import com.netflix.spinnaker.clouddriver.ecs.deploy.description.AbstractECSDescription
 import com.netflix.spinnaker.clouddriver.ecs.deploy.description.ModifyServiceDescription
+import com.netflix.spinnaker.clouddriver.ecs.deploy.description.ResizeServiceDescription
 import com.netflix.spinnaker.clouddriver.ecs.deploy.description.TerminateInstancesDescription
 import org.springframework.validation.Errors
 
@@ -30,7 +31,7 @@ class ServerGroupDescriptionValidatorSpec extends AbstractValidatorSpec {
     def description = (ModifyServiceDescription) getDescription()
     description.credentials = null
     description.serverGroupName = null
-    return description
+    description
   }
 
   @Override
@@ -42,6 +43,17 @@ class ServerGroupDescriptionValidatorSpec extends AbstractValidatorSpec {
   String getDescriptionName() {
     'modifyServiceDescription'
   }
+
+  @Override
+  AbstractECSDescription getInvalidDescription() {
+    getDescription()
+  }
+
+  @Override
+  Set<String> invalidProperties() {
+    []
+  }
+
 
   @Override
   DescriptionValidator getDescriptionValidator() {
