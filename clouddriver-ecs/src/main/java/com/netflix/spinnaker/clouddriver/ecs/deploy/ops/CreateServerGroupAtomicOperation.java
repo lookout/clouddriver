@@ -50,6 +50,7 @@ import org.springframework.beans.factory.annotation.Autowired;
 
 import java.util.Arrays;
 import java.util.Collection;
+import java.util.Collections;
 import java.util.HashMap;
 import java.util.LinkedList;
 import java.util.List;
@@ -134,7 +135,7 @@ public class CreateServerGroupAtomicOperation extends AbstractEcsAtomicOperation
     Collection<LoadBalancer> loadBalancers = new LinkedList<>();
     loadBalancers.add(retrieveLoadBalancer(version));
 
-    Integer desiredCapacity = getDesiredCapacity();
+    Integer desiredCapacity = description.getCapacity().getDesired();
     String taskDefinitionArn = taskDefinition.getTaskDefinitionArn();
 
     DeploymentConfiguration deploymentConfiguration = new DeploymentConfiguration()
@@ -174,7 +175,7 @@ public class CreateServerGroupAtomicOperation extends AbstractEcsAtomicOperation
       .withResourceId(String.format("service/%s/%s", description.getEcsClusterName(), service.getServiceName()))
       .withRoleARN(assumedRoleArn)
       .withMinCapacity(0)
-      .withMaxCapacity(getDesiredCapacity());
+      .withMaxCapacity(description.getCapacity().getDesired());
 
     updateTaskStatus("Creating Amazon Application Auto Scaling Scalable Target Definition...");
     autoScalingClient.registerScalableTarget(request);
@@ -183,6 +184,7 @@ public class CreateServerGroupAtomicOperation extends AbstractEcsAtomicOperation
     return request.getResourceId();
   }
 
+  //TODO: do a trust relationship check
   private String inferAssumedRoleArn(AmazonCredentials credentials) {
     String role;
     if (credentials instanceof AssumeRoleAmazonCredentials) {
@@ -192,7 +194,7 @@ public class CreateServerGroupAtomicOperation extends AbstractEcsAtomicOperation
     } else if (credentials instanceof NetflixAssumeRoleEcsCredentials) {
       role = ((NetflixAssumeRoleEcsCredentials) credentials).getAssumeRole();
     } else {
-      throw new UnsupportedOperationException("Support for this kind of credentials is not supported, " +
+      throw new UnsupportedOperationException("The given kind is not supported, " +
         "please report this issue to the Spinnaker project on Github");
     }
 
@@ -207,7 +209,7 @@ public class CreateServerGroupAtomicOperation extends AbstractEcsAtomicOperation
     namesByRegion.put(getRegion(), service.getServiceName());
 
     DeploymentResult result = new DeploymentResult();
-    result.setServerGroupNames(Arrays.asList(getServerGroupName(service)));
+    result.setServerGroupNames(Collections.singletonList(getServerGroupName(service)));
     result.setServerGroupNameByRegion(namesByRegion);
     return result;
   }
@@ -244,13 +246,8 @@ public class CreateServerGroupAtomicOperation extends AbstractEcsAtomicOperation
     return getRegion() + ":" + service.getServiceName();
   }
 
-  private Integer getDesiredCapacity() {
-    return description.getCapacity().getDesired();
-  }
-
   private String getNextServiceName(String versionString) {
-    String familyName = getFamilyName();
-    return familyName + "-" + versionString;
+    return getFamilyName() + "-" + versionString;
   }
 
   private String getRegion() {
