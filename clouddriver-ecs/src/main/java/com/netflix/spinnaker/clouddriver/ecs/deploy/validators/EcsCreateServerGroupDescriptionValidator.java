@@ -50,11 +50,8 @@ public class EcsCreateServerGroupDescriptionValidator extends CommonValidator {
   public void validate(List priorDescriptions, Object description, Errors errors) {
     CreateServerGroupDescription createServerGroupDescription = (CreateServerGroupDescription) description;
 
-    boolean validCredentials = validateCredentials(createServerGroupDescription, errors, "credentials");
-
-    if (validCredentials) {
-      validateRegions(createServerGroupDescription, Collections.singleton(createServerGroupDescription.getRegion()), errors, "region");
-    }
+    validateCredentials(createServerGroupDescription, errors, "credentials");
+    validateCapcity(errors, createServerGroupDescription.getCapacity());
 
     if (createServerGroupDescription.getAvailabilityZones() != null) {
       if (createServerGroupDescription.getAvailabilityZones().size() != 1) {
@@ -111,18 +108,6 @@ public class EcsCreateServerGroupDescriptionValidator extends CommonValidator {
       rejectValue(errors, "dockerImageAddress", "not.nullable");
     }
 
-    if (createServerGroupDescription.getCapacity() != null) {
-      if (createServerGroupDescription.getCapacity().getDesired() != null) {
-        if (createServerGroupDescription.getCapacity().getDesired() < 0) {
-          rejectValue(errors, "capacity.desired", "invalid");
-        }
-      } else {
-        rejectValue(errors, "capacity.desired", "not.nullable");
-      }
-    } else {
-      rejectValue(errors, "capacity", "not.nullable");
-    }
-
     if (createServerGroupDescription.getContainerPort() != null) {
       if (createServerGroupDescription.getContainerPort() < 0 || createServerGroupDescription.getContainerPort() > 65535) {
         rejectValue(errors, "containerPort", "invalid");
@@ -146,11 +131,6 @@ public class EcsCreateServerGroupDescriptionValidator extends CommonValidator {
     } else {
       rejectValue(errors, "reservedMemory", "not.nullable");
     }
-
-    //create server group - validate capacity - see ResizeServiceDescriptionValidator
-    //autoscalingPolicies validate
-    //placementStrategySequence validate
-    //
 
   }
 

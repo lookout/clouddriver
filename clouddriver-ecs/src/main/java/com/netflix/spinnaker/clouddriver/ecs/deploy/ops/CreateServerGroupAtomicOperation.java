@@ -50,7 +50,6 @@ import org.springframework.beans.factory.annotation.Autowired;
 
 import java.util.Arrays;
 import java.util.Collection;
-import java.util.Collections;
 import java.util.HashMap;
 import java.util.LinkedList;
 import java.util.List;
@@ -83,10 +82,13 @@ public class CreateServerGroupAtomicOperation extends AbstractEcsAtomicOperation
     Service service = createService(ecs, taskDefinition, ecsServiceRole, serverGroupVersion);
 
     String resourceId = createAutoScalingGroup(credentials, service);
-    List<String> alarmNames = description.getAutoscalingPolicies().stream()
-      .map(MetricAlarm::getAlarmName)
-      .collect(Collectors.toList());
-    ecsCloudMetricService.associateAsgWithMetrics(description.getCredentialAccount(), getRegion(), alarmNames, service.getServiceName(), resourceId);
+
+    if(!description.getAutoscalingPolicies().isEmpty()) {
+      List<String> alarmNames = description.getAutoscalingPolicies().stream()
+        .map(MetricAlarm::getAlarmName)
+        .collect(Collectors.toList());
+      ecsCloudMetricService.associateAsgWithMetrics(description.getCredentialAccount(), getRegion(), alarmNames, service.getServiceName(), resourceId);
+    }
 
     return makeDeploymentResult(service);
   }
@@ -209,7 +211,7 @@ public class CreateServerGroupAtomicOperation extends AbstractEcsAtomicOperation
     namesByRegion.put(getRegion(), service.getServiceName());
 
     DeploymentResult result = new DeploymentResult();
-    result.setServerGroupNames(Collections.singletonList(getServerGroupName(service)));
+    result.setServerGroupNames(Arrays.asList(getServerGroupName(service)));
     result.setServerGroupNameByRegion(namesByRegion);
     return result;
   }

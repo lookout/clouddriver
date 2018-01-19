@@ -105,7 +105,9 @@ public class EcsCloudMetricService {
       if (resourceMap.containsKey(namespace)) {
         resourceMap.get(namespace).add(service);
       } else {
-        resourceMap.put(namespace, Collections.singleton(service));
+        Set<String> serviceSet = new HashSet<>();
+        serviceSet.add(service);
+        resourceMap.put(namespace, serviceSet);
       }
     }
 

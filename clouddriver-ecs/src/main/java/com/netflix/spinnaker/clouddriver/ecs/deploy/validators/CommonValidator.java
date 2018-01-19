@@ -19,6 +19,7 @@ package com.netflix.spinnaker.clouddriver.ecs.deploy.validators;
 import com.netflix.spinnaker.clouddriver.aws.deploy.description.AbstractAmazonCredentialsDescription;
 import com.netflix.spinnaker.clouddriver.aws.security.AmazonCredentials;
 import com.netflix.spinnaker.clouddriver.deploy.DescriptionValidator;
+import com.netflix.spinnaker.clouddriver.model.ServerGroup;
 import org.springframework.validation.Errors;
 
 import java.util.Collection;
@@ -54,7 +55,53 @@ abstract class CommonValidator extends DescriptionValidator {
     return true;
   }
 
+  void validateCapcity(Errors errors, ServerGroup.Capacity capacity){
+    if(capacity != null){
+      boolean desiredNotNull = capacity.getDesired() != null;
+      boolean minNotNull = capacity.getMin() != null;
+      boolean maxNotNull = capacity.getMax() != null;
+
+      if(!desiredNotNull){
+        rejectValue(errors, "capacity.desired", "not.nullable");
+      }
+      if(!minNotNull){
+        rejectValue(errors, "capacity.min", "not.nullable");
+      }
+      if(!maxNotNull){
+        rejectValue(errors, "capacity.max", "not.nullable");
+      }
+
+      positivityCheck(desiredNotNull,capacity.getDesired(), "desired", errors);
+      positivityCheck(minNotNull,capacity.getMin(), "min", errors);
+      positivityCheck(maxNotNull,capacity.getMax(), "max", errors);
+
+
+      if(minNotNull && maxNotNull){
+        if(capacity.getMin() > capacity.getMax()){
+          rejectValue(errors, "capacity.min.max.range", "invalid");
+        }
+
+        if(desiredNotNull && capacity.getDesired() > capacity.getMax()){
+          rejectValue(errors, "capacity.desired", "exceeds.max");
+        }
+
+        if(desiredNotNull && capacity.getDesired() < capacity.getMin()){
+          rejectValue(errors, "capacity.desired", "less.than.min");
+        }
+      }
+
+    }else{
+      rejectValue(errors, "capacity", "not.nullable");
+    }
+  }
+
   void rejectValue(Errors errors, String field, String reason) {
     errors.rejectValue(field, errorKey + "." + field + "." + reason);
+  }
+
+  private void positivityCheck(boolean isNotNull, Integer capacity, String fieldName, Errors errors){
+    if(isNotNull && capacity < 0){
+      rejectValue(errors, "capacity."+fieldName, "invalid");
+    }
   }
 }

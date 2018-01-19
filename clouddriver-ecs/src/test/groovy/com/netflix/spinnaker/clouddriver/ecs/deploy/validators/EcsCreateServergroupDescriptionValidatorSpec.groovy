@@ -27,17 +27,43 @@ import org.springframework.validation.Errors
 
 class EcsCreateServergroupDescriptionValidatorSpec extends AbstractValidatorSpec {
 
-  void 'should fail when the desired capacity is null'() {
+  void 'should fail when the capacity is null'() {
     given:
     def description = (CreateServerGroupDescription) getDescription()
-    description.getCapacity().setDesired(null)
+    description.capacity = null
     def errors = Mock(Errors)
 
     when:
     validator.validate([], description, errors)
 
     then:
-    1 * errors.rejectValue('capacity.desired', "${getDescriptionName()}.capacity.desired.not.nullable")
+    1 * errors.rejectValue('capacity', "${getDescriptionName()}.capacity.not.nullable")
+  }
+
+  void 'should fail when desired is greater than max'() {
+    given:
+    def description = (CreateServerGroupDescription) getDescription()
+    description.capacity.setDesired(9001)
+    def errors = Mock(Errors)
+
+    when:
+    validator.validate([], description, errors)
+
+    then:
+    1 * errors.rejectValue('capacity.desired', "${getDescriptionName()}.capacity.desired.exceeds.max")
+  }
+
+  void 'should fail when desired is less than min'() {
+    given:
+    def description = (CreateServerGroupDescription) getDescription()
+    description.capacity.setDesired(0)
+    def errors = Mock(Errors)
+
+    when:
+    validator.validate([], description, errors)
+
+    then:
+    1 * errors.rejectValue('capacity.desired', "${getDescriptionName()}.capacity.desired.less.than.min")
   }
 
   void 'should fail when more than one availability zones is present'() {
@@ -53,6 +79,7 @@ class EcsCreateServergroupDescriptionValidatorSpec extends AbstractValidatorSpec
     1 * errors.rejectValue('availabilityZones', "${getDescriptionName()}.availabilityZones.must.have.only.one")
   }
 
+
   @Override
   AbstractECSDescription getNulledDescription() {
     def description = (CreateServerGroupDescription) getDescription()
@@ -66,6 +93,9 @@ class EcsCreateServergroupDescriptionValidatorSpec extends AbstractValidatorSpec
     description.containerPort = null
     description.computeUnits = null
     description.reservedMemory = null
+    description.capacity.setDesired(null)
+    description.capacity.setMin(null)
+    description.capacity.setMax(null)
     return description
   }
 
@@ -73,7 +103,7 @@ class EcsCreateServergroupDescriptionValidatorSpec extends AbstractValidatorSpec
   Set<String> notNullableProperties() {
     ['placementStrategySequence', 'availabilityZones', 'autoscalingPolicies', 'application',
      'ecsClusterName', 'dockerImageAddress', 'credentials', 'containerPort', 'computeUnits',
-     'reservedMemory']
+     'reservedMemory', 'capacity.desired', 'capacity.min', 'capacity.max']
   }
 
   @Override
@@ -83,6 +113,8 @@ class EcsCreateServergroupDescriptionValidatorSpec extends AbstractValidatorSpec
     description.computeUnits = -1
     description.containerPort = -1
     description.getCapacity().setDesired(-1)
+    description.getCapacity().setMax(-2)
+    description.getCapacity().setMin(-1)
     description.placementStrategySequence = [
       new PlacementStrategy().withType("invalid-type"),
       new PlacementStrategy().withType(PlacementStrategyType.Binpack).withField("invalid"),
@@ -94,7 +126,8 @@ class EcsCreateServergroupDescriptionValidatorSpec extends AbstractValidatorSpec
   @Override
   Set<String> invalidProperties() {
     ['reservedMemory', 'computeUnits', 'containerPort', 'placementStrategySequence.binpack',
-     'placementStrategySequence.type', 'capacity.desired', 'placementStrategySequence.spread']
+     'placementStrategySequence.type', 'capacity.desired', 'placementStrategySequence.spread',
+     'capacity.min', 'capacity.max', 'capacity.min.max.range']
   }
 
   @Override
@@ -119,17 +152,21 @@ class EcsCreateServergroupDescriptionValidatorSpec extends AbstractValidatorSpec
     description.containerPort = 1337
     description.targetGroup = 'target-group-arn'
     description.securityGroups = ['sg-deadbeef']
-    description.serverGroupVersion = '1'
     description.portProtocol = 'tcp'
     description.computeUnits = 256
     description.reservedMemory = 512
     description.dockerImageAddress = 'docker-image-url'
-    description.capacity = new ServerGroup.Capacity(0, 2, 1)
-    description.source = new CreateServerGroupDescription.Source()
+    description.capacity = new ServerGroup.Capacity(1, 2, 1)
     description.availabilityZones = ['us-west-1': ['us-west-1a']]
     description.autoscalingPolicies = []
     description.placementStrategySequence = [new PlacementStrategy().withType(PlacementStrategyType.Random)]
 
     description
+  }
+
+  @Override
+  def setTestRegion() {
+    //Region testing is not done in the same way as normal description.
+    testRegion = false
   }
 }

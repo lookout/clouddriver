@@ -47,48 +47,7 @@ public class ResizeServiceDescriptionValidator extends CommonValidator {
       rejectValue(errors, "serverGroupName", "not.nullable");
     }
 
-    if(typedDescription.getCapacity() != null){
-      boolean desiredNotNull = typedDescription.getCapacity().getDesired() != null;
-      boolean minNotNull = typedDescription.getCapacity().getMin() != null;
-      boolean maxNotNull = typedDescription.getCapacity().getMax() != null;
-
-      if(!desiredNotNull){
-        rejectValue(errors, "capacity.desired", "not.nullable");
-      }
-      if(!minNotNull){
-        rejectValue(errors, "capacity.min", "not.nullable");
-      }
-      if(!maxNotNull){
-        rejectValue(errors, "capacity.max", "not.nullable");
-      }
-
-      positivityCheck(desiredNotNull,typedDescription.getCapacity().getDesired(), "desired", errors);
-      positivityCheck(minNotNull,typedDescription.getCapacity().getMin(), "min", errors);
-      positivityCheck(maxNotNull,typedDescription.getCapacity().getMax(), "max", errors);
-
-
-      if(minNotNull && maxNotNull){
-        if(typedDescription.getCapacity().getMin() > typedDescription.getCapacity().getMax()){
-          rejectValue(errors, "capacity.min.max.range", "invalid");
-        }
-
-        if(desiredNotNull && typedDescription.getCapacity().getDesired() > typedDescription.getCapacity().getMax()){
-          rejectValue(errors, "capacity.desired", "exceeds.max");
-        }
-
-        if(desiredNotNull && typedDescription.getCapacity().getDesired() < typedDescription.getCapacity().getMin()){
-          rejectValue(errors, "capacity.desired", "less.than.min");
-        }
-      }
-
-    }else{
-      rejectValue(errors, "capacity", "not.nullable");
-    }
+    validateCapcity(errors, typedDescription.getCapacity());
   }
 
-  private void positivityCheck(boolean isNotNull, Integer capacity, String fieldName, Errors errors){
-    if(isNotNull && capacity < 0){
-      rejectValue(errors, "capacity."+fieldName, "not.positive");
-    }
-  }
 }

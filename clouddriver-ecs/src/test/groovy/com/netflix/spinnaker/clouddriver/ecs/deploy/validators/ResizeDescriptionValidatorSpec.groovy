@@ -26,82 +26,17 @@ import org.springframework.validation.Errors
 
 class ResizeDescriptionValidatorSpec extends AbstractValidatorSpec {
 
-  void 'should fail when desired is null'() {
+  void 'should fail when capacity is null'() {
     given:
     def description = (ResizeServiceDescription) getDescription()
-    description.capacity.setDesired(null)
+    description.capacity = null
     def errors = Mock(Errors)
 
     when:
     validator.validate([], description, errors)
 
     then:
-    1 * errors.rejectValue('capacity.desired', 'resizeServiceDescription.capacity.desired.not.nullable')
-  }
-
-  void 'should fail when min is null'() {
-    given:
-    def description = (ResizeServiceDescription) getDescription()
-    description.capacity.setMin(null)
-    def errors = Mock(Errors)
-
-    when:
-    validator.validate([], description, errors)
-
-    then:
-    1 * errors.rejectValue('capacity.min', 'resizeServiceDescription.capacity.min.not.nullable')
-  }
-
-  void 'should fail when max is null'() {
-    given:
-    def description = (ResizeServiceDescription) getDescription()
-    description.capacity.setMax(null)
-    def errors = Mock(Errors)
-
-    when:
-    validator.validate([], description, errors)
-
-    then:
-    1 * errors.rejectValue('capacity.max', 'resizeServiceDescription.capacity.max.not.nullable')
-  }
-
-  void 'should fail when desired is negative'() {
-    given:
-    def description = (ResizeServiceDescription) getDescription()
-    description.capacity.setDesired(-1)
-    def errors = Mock(Errors)
-
-    when:
-    validator.validate([], description, errors)
-
-    then:
-    1 * errors.rejectValue('capacity.desired', 'resizeServiceDescription.capacity.desired.not.positive')
-  }
-
-  void 'should fail when min is negative'() {
-    given:
-    def description = (ResizeServiceDescription) getDescription()
-    description.capacity.setMin(-1)
-    def errors = Mock(Errors)
-
-    when:
-    validator.validate([], description, errors)
-
-    then:
-    1 * errors.rejectValue('capacity.min', 'resizeServiceDescription.capacity.min.not.positive')
-  }
-
-  void 'should fail when max is negative'() {
-    given:
-    def description = (ResizeServiceDescription) getDescription()
-    description.capacity.setMax(-1)
-    def errors = Mock(Errors)
-
-    when:
-    validator.validate([], description, errors)
-
-    then:
-    1 * errors.rejectValue('capacity.max', 'resizeServiceDescription.capacity.max.not.positive')
+    1 * errors.rejectValue('capacity', 'resizeServiceDescription.capacity.not.nullable')
   }
 
   void 'should fail when desired is greater than max'() {
@@ -133,27 +68,31 @@ class ResizeDescriptionValidatorSpec extends AbstractValidatorSpec {
   @Override
   AbstractECSDescription getNulledDescription() {
     def description = (ResizeServiceDescription) getDescription()
-    description.capacity = null
     description.credentials = null
+    description.capacity.setDesired(null)
+    description.capacity.setMin(null)
+    description.capacity.setMax(null)
+    description.serverGroupName = null
     description
   }
 
   @Override
   Set<String> notNullableProperties() {
-    ['capacity', 'credentials',]
+    ['credentials', 'capacity.desired', 'capacity.min', 'capacity.max', 'serverGroupName']
   }
 
   @Override
   AbstractECSDescription getInvalidDescription() {
     def description = (ResizeServiceDescription) getDescription()
-    description.capacity.setMax(1)
-    description.capacity.setMin(2)
+    description.capacity.setMax(-2)
+    description.capacity.setMin(-1)
+    description.capacity.setDesired(-1)
     description
   }
 
   @Override
   Set<String> invalidProperties() {
-    ['capacity.min.max.range']
+    ['capacity.min.max.range', 'capacity.desired', 'capacity.min', 'capacity.max']
   }
 
   @Override

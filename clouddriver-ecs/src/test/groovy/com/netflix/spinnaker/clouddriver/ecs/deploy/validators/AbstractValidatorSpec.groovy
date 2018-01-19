@@ -29,6 +29,7 @@ import spock.lang.Subject
 abstract class AbstractValidatorSpec extends Specification {
   @Subject
   DescriptionValidator validator = getDescriptionValidator()
+  boolean testRegion
 
   abstract DescriptionValidator getDescriptionValidator()
 
@@ -46,6 +47,11 @@ abstract class AbstractValidatorSpec extends Specification {
 
   def setupSpec() {
     TaskRepository.threadLocalTask.set(Mock(Task))
+    setTestRegion()
+  }
+
+  def setTestRegion(){
+    testRegion = true
   }
 
   void 'should fail an incorrect region'() {
@@ -56,10 +62,14 @@ abstract class AbstractValidatorSpec extends Specification {
     def errors = Mock(Errors)
 
     when:
-    validator.validate([], description, errors)
+    if(testRegion) {
+      validator.validate([], description, errors)
+    }
 
     then:
-    1 * errors.rejectValue('region', _)
+    if(testRegion) {
+      1 * errors.rejectValue('region', _)
+    }
   }
 
   void 'should fail when required properties are null'() {
