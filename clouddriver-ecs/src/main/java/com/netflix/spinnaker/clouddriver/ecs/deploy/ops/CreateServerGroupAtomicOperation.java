@@ -38,11 +38,17 @@ import com.amazonaws.services.ecs.model.TaskDefinition;
 import com.amazonaws.services.elasticloadbalancingv2.AmazonElasticLoadBalancing;
 import com.amazonaws.services.elasticloadbalancingv2.model.DescribeTargetGroupsRequest;
 import com.amazonaws.services.elasticloadbalancingv2.model.DescribeTargetGroupsResult;
+import com.amazonaws.services.identitymanagement.AmazonIdentityManagement;
+import com.amazonaws.services.identitymanagement.model.GetRoleRequest;
+import com.amazonaws.services.identitymanagement.model.GetRoleResult;
+import com.amazonaws.services.identitymanagement.model.Role;
 import com.netflix.spinnaker.clouddriver.aws.security.AmazonCredentials;
 import com.netflix.spinnaker.clouddriver.aws.security.AssumeRoleAmazonCredentials;
 import com.netflix.spinnaker.clouddriver.aws.security.NetflixAssumeRoleAmazonCredentials;
 import com.netflix.spinnaker.clouddriver.deploy.DeploymentResult;
 import com.netflix.spinnaker.clouddriver.ecs.deploy.description.CreateServerGroupDescription;
+import com.netflix.spinnaker.clouddriver.ecs.provider.agent.IamPolicyReader;
+import com.netflix.spinnaker.clouddriver.ecs.provider.agent.IamTrustRelationship;
 import com.netflix.spinnaker.clouddriver.ecs.security.NetflixAssumeRoleEcsCredentials;
 import com.netflix.spinnaker.clouddriver.ecs.services.EcsCloudMetricService;
 import org.apache.commons.lang3.StringUtils;
@@ -51,14 +57,20 @@ import org.springframework.beans.factory.annotation.Autowired;
 import java.util.Arrays;
 import java.util.Collection;
 import java.util.HashMap;
+import java.util.HashSet;
 import java.util.LinkedList;
 import java.util.List;
 import java.util.Map;
+import java.util.Set;
 import java.util.stream.Collectors;
 
 public class CreateServerGroupAtomicOperation extends AbstractEcsAtomicOperation<CreateServerGroupDescription, DeploymentResult> {
+  private static final Set<String> NECESSARY_TRUST_RELATIONS = new HashSet<>(Arrays.asList("ecs-tasks.amazonaws.com", "ecs.amazonaws.com"));
+
   @Autowired
   EcsCloudMetricService ecsCloudMetricService;
+  @Autowired
+  IamPolicyReader iamPolicyReader;
 
   public CreateServerGroupAtomicOperation(CreateServerGroupDescription description) {
     super(description, "CREATE_ECS_SERVER_GROUP");
@@ -124,6 +136,7 @@ public class CreateServerGroupAtomicOperation extends AbstractEcsAtomicOperation
       .withFamily(getFamilyName());
 
     if (!description.getIamRole().equals("None (No IAM role)")) {
+      checkRoleTrustRelations(description.getIamRole());
       request.setTaskRoleArn(description.getIamRole());
     }
 
@@ -186,7 +199,6 @@ public class CreateServerGroupAtomicOperation extends AbstractEcsAtomicOperation
     return request.getResourceId();
   }
 
-  //TODO: do a trust relationship check
   private String inferAssumedRoleArn(AmazonCredentials credentials) {
     String role;
     if (credentials instanceof AssumeRoleAmazonCredentials) {
@@ -196,14 +208,30 @@ public class CreateServerGroupAtomicOperation extends AbstractEcsAtomicOperation
     } else if (credentials instanceof NetflixAssumeRoleEcsCredentials) {
       role = ((NetflixAssumeRoleEcsCredentials) credentials).getAssumeRole();
     } else {
-      throw new UnsupportedOperationException("The given kind is not supported, " +
+      throw new UnsupportedOperationException("The given kind of credentials is not supported, " +
         "please report this issue to the Spinnaker project on Github");
     }
 
-    String roleArn = String.format("arn:aws:iam::%s:%s", credentials.getAccountId(), role);
+    return  String.format("arn:aws:iam::%s:%s", credentials.getAccountId(), role);
+  }
 
+  private void checkRoleTrustRelations(String roleName) {
+    updateTaskStatus("Checking role trust relations for: " + roleName);
+    AmazonIdentityManagement iamClient = getAmazonIdentityManagementClient();
 
-    return roleArn;
+    GetRoleResult response = iamClient.getRole(new GetRoleRequest()
+      .withRoleName(roleName));
+    Role role = response.getRole();
+
+    Set<IamTrustRelationship> trustedEntities = iamPolicyReader.getTrustedEntities(role.getAssumeRolePolicyDocument());
+
+    Set<String> trustValues = trustedEntities.stream()
+      .map(IamTrustRelationship::getValue)
+      .collect(Collectors.toSet());
+
+    if (!trustValues.containsAll(NECESSARY_TRUST_RELATIONS)) {
+      throw new IllegalArgumentException("The " + roleName + " role does not have the required trust relationships.");
+    }
   }
 
   private DeploymentResult makeDeploymentResult(Service service) {
@@ -251,6 +279,13 @@ public class CreateServerGroupAtomicOperation extends AbstractEcsAtomicOperation
     String credentialAccount = description.getCredentialAccount();
 
     return amazonClientProvider.getAmazonElasticLoadBalancingV2(credentialAccount, credentialsProvider, getRegion());
+  }
+
+  private AmazonIdentityManagement getAmazonIdentityManagementClient() {
+    AWSCredentialsProvider credentialsProvider = getCredentials().getCredentialsProvider();
+    String credentialAccount = description.getCredentialAccount();
+
+    return amazonClientProvider.getAmazonIdentityManagement(credentialAccount, credentialsProvider, getRegion());
   }
 
   private String getServerGroupName(Service service) {
