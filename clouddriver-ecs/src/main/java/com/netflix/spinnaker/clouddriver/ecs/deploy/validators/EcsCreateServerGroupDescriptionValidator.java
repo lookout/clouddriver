@@ -30,7 +30,7 @@ import java.util.List;
 import java.util.Set;
 
 @EcsOperation(AtomicOperations.CREATE_SERVER_GROUP)
-@Component("ecsCreateServerGroupAtomicOperationValidator")
+@Component("ecsCreateServerGroupDescriptionValidator")
 public class EcsCreateServerGroupDescriptionValidator extends CommonValidator {
 
   private static final Set<String> BINPACK_VALUES = Sets.newHashSet("cpu", "memory");

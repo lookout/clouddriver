@@ -81,9 +81,9 @@ public class CreateServerGroupAtomicOperation extends AbstractEcsAtomicOperation
     String ecsServiceRole = inferAssumedRoleArn(credentials);
     Service service = createService(ecs, taskDefinition, ecsServiceRole, serverGroupVersion);
 
-    String resourceId = createAutoScalingGroup(credentials, service);
+    String resourceId = registerAutoScalingGroup(credentials, service);
 
-    if(!description.getAutoscalingPolicies().isEmpty()) {
+    if (!description.getAutoscalingPolicies().isEmpty()) {
       List<String> alarmNames = description.getAutoscalingPolicies().stream()
         .map(MetricAlarm::getAlarmName)
         .collect(Collectors.toList());
@@ -165,8 +165,8 @@ public class CreateServerGroupAtomicOperation extends AbstractEcsAtomicOperation
     return service;
   }
 
-  private String createAutoScalingGroup(AmazonCredentials credentials,
-                                        Service service) {
+  private String registerAutoScalingGroup(AmazonCredentials credentials,
+                                          Service service) {
 
     AWSApplicationAutoScaling autoScalingClient = getAmazonApplicationAutoScalingClient();
     String assumedRoleArn = inferAssumedRoleArn(credentials);
@@ -217,21 +217,24 @@ public class CreateServerGroupAtomicOperation extends AbstractEcsAtomicOperation
   }
 
   private LoadBalancer retrieveLoadBalancer(String version) {
-    AmazonCredentials credentials = getCredentials();
-
     LoadBalancer loadBalancer = new LoadBalancer();
     loadBalancer.setContainerName(version);
     loadBalancer.setContainerPort(description.getContainerPort());
 
     if (description.getTargetGroup() != null) {
-      AmazonElasticLoadBalancing loadBalancingV2 = amazonClientProvider.getAmazonElasticLoadBalancingV2(
-        description.getCredentialAccount(),
-        credentials.getCredentialsProvider(),
-        getRegion());
-      String targetGroupName = description.getTargetGroup();
-      DescribeTargetGroupsRequest request = new DescribeTargetGroupsRequest().withNames(targetGroupName);
+      AmazonElasticLoadBalancing loadBalancingV2 = getAmazonElasticLoadBalancingClient();
+
+      DescribeTargetGroupsRequest request = new DescribeTargetGroupsRequest().withNames(description.getTargetGroup());
       DescribeTargetGroupsResult describeTargetGroupsResult = loadBalancingV2.describeTargetGroups(request);
-      loadBalancer.setTargetGroupArn(describeTargetGroupsResult.getTargetGroups().get(0).getTargetGroupArn());
+
+      if (describeTargetGroupsResult.getTargetGroups().size() == 1) {
+        loadBalancer.setTargetGroupArn(describeTargetGroupsResult.getTargetGroups().get(0).getTargetGroupArn());
+      } else if (describeTargetGroupsResult.getTargetGroups().size() > 1) {
+        throw new IllegalArgumentException("There are multiple target groups with the name " + description.getTargetGroup() + ".");
+      } else {
+        throw new IllegalArgumentException("There is no target group with the name " + description.getTargetGroup() + ".");
+      }
+
     }
     return loadBalancer;
   }
@@ -241,6 +244,13 @@ public class CreateServerGroupAtomicOperation extends AbstractEcsAtomicOperation
     String credentialAccount = description.getCredentialAccount();
 
     return amazonClientProvider.getAmazonApplicationAutoScaling(credentialAccount, credentialsProvider, getRegion());
+  }
+
+  private AmazonElasticLoadBalancing getAmazonElasticLoadBalancingClient() {
+    AWSCredentialsProvider credentialsProvider = getCredentials().getCredentialsProvider();
+    String credentialAccount = description.getCredentialAccount();
+
+    return amazonClientProvider.getAmazonElasticLoadBalancingV2(credentialAccount, credentialsProvider, getRegion());
   }
 
   private String getServerGroupName(Service service) {
@@ -272,7 +282,8 @@ public class CreateServerGroupAtomicOperation extends AbstractEcsAtomicOperation
         if (serviceArn.contains(familyName)) {
           int currentVersion;
           try {
-            currentVersion = Integer.parseInt(StringUtils.substringAfterLast(serviceArn, "-").replaceAll("v", ""));
+            String versionString = StringUtils.substringAfterLast(serviceArn, "-").replaceAll("v", "");
+            currentVersion = Integer.parseInt(versionString);
           } catch (NumberFormatException e) {
             currentVersion = 0;
           }
