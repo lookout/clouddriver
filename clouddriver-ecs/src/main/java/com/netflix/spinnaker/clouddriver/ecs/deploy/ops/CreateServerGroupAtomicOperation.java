@@ -65,7 +65,7 @@ import java.util.Set;
 import java.util.stream.Collectors;
 
 public class CreateServerGroupAtomicOperation extends AbstractEcsAtomicOperation<CreateServerGroupDescription, DeploymentResult> {
-  private static final Set<String> NECESSARY_TRUST_RELATIONS = new HashSet<>(Arrays.asList("ecs-tasks.amazonaws.com", "ecs.amazonaws.com"));
+  private static final Set<String> NECESSARY_TRUSTED_SERVICES = new HashSet<>(Arrays.asList("ecs-tasks.amazonaws.com", "ecs.amazonaws.com"));
 
   @Autowired
   EcsCloudMetricService ecsCloudMetricService;
@@ -150,16 +150,16 @@ public class CreateServerGroupAtomicOperation extends AbstractEcsAtomicOperation
     Collection<LoadBalancer> loadBalancers = new LinkedList<>();
     loadBalancers.add(retrieveLoadBalancer(version));
 
-    Integer desiredCapacity = description.getCapacity().getDesired();
+    Integer desiredCount = description.getCapacity().getDesired();
     String taskDefinitionArn = taskDefinition.getTaskDefinitionArn();
 
     DeploymentConfiguration deploymentConfiguration = new DeploymentConfiguration()
-      .withMinimumHealthyPercent(50)
-      .withMaximumPercent(100);
+      .withMinimumHealthyPercent(100)
+      .withMaximumPercent(150);
 
     CreateServiceRequest request = new CreateServiceRequest()
       .withServiceName(serviceName)
-      .withDesiredCount(desiredCapacity != null ? desiredCapacity : 1)
+      .withDesiredCount(desiredCount)
       .withCluster(description.getEcsClusterName())
       .withRole(ecsServiceRole)
       .withLoadBalancers(loadBalancers)
@@ -168,12 +168,12 @@ public class CreateServerGroupAtomicOperation extends AbstractEcsAtomicOperation
       .withDeploymentConfiguration(deploymentConfiguration);
 
     updateTaskStatus(String.format("Creating %s of %s with %s for %s.",
-      desiredCapacity, serviceName, taskDefinitionArn, description.getCredentialAccount()));
+      desiredCount, serviceName, taskDefinitionArn, description.getCredentialAccount()));
 
     Service service = ecs.createService(request).getService();
 
     updateTaskStatus(String.format("Done creating %s of %s with %s for %s.",
-      desiredCapacity, serviceName, taskDefinitionArn, description.getCredentialAccount()));
+      desiredCount, serviceName, taskDefinitionArn, description.getCredentialAccount()));
 
     return service;
   }
@@ -189,8 +189,8 @@ public class CreateServerGroupAtomicOperation extends AbstractEcsAtomicOperation
       .withScalableDimension(ScalableDimension.EcsServiceDesiredCount)
       .withResourceId(String.format("service/%s/%s", description.getEcsClusterName(), service.getServiceName()))
       .withRoleARN(assumedRoleArn)
-      .withMinCapacity(0)
-      .withMaxCapacity(description.getCapacity().getDesired());
+      .withMinCapacity(description.getCapacity().getMin())
+      .withMaxCapacity(description.getCapacity().getMax());
 
     updateTaskStatus("Creating Amazon Application Auto Scaling Scalable Target Definition...");
     autoScalingClient.registerScalableTarget(request);
@@ -209,10 +209,10 @@ public class CreateServerGroupAtomicOperation extends AbstractEcsAtomicOperation
       role = ((NetflixAssumeRoleEcsCredentials) credentials).getAssumeRole();
     } else {
       throw new UnsupportedOperationException("The given kind of credentials is not supported, " +
-        "please report this issue to the Spinnaker project on Github");
+        "please report this issue to the Spinnaker project on Github.");
     }
 
-    return  String.format("arn:aws:iam::%s:%s", credentials.getAccountId(), role);
+    return String.format("arn:aws:iam::%s:%s", credentials.getAccountId(), role);
   }
 
   private void checkRoleTrustRelations(String roleName) {
@@ -225,11 +225,12 @@ public class CreateServerGroupAtomicOperation extends AbstractEcsAtomicOperation
 
     Set<IamTrustRelationship> trustedEntities = iamPolicyReader.getTrustedEntities(role.getAssumeRolePolicyDocument());
 
-    Set<String> trustValues = trustedEntities.stream()
+    Set<String> trustedServices = trustedEntities.stream()
+      .filter(trustRelation -> trustRelation.getType().equals("Service"))
       .map(IamTrustRelationship::getValue)
       .collect(Collectors.toSet());
 
-    if (!trustValues.containsAll(NECESSARY_TRUST_RELATIONS)) {
+    if (!trustedServices.containsAll(NECESSARY_TRUSTED_SERVICES)) {
       throw new IllegalArgumentException("The " + roleName + " role does not have the required trust relationships.");
     }
   }
