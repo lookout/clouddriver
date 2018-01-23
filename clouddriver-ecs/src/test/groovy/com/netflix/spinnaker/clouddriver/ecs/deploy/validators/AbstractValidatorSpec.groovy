@@ -21,6 +21,7 @@ import com.netflix.spinnaker.clouddriver.data.task.TaskRepository
 import com.netflix.spinnaker.clouddriver.deploy.DescriptionValidator
 import com.netflix.spinnaker.clouddriver.ecs.TestCredential
 import com.netflix.spinnaker.clouddriver.ecs.deploy.description.AbstractECSDescription
+import com.netflix.spinnaker.clouddriver.ecs.deploy.description.CreateServerGroupDescription
 import org.springframework.validation.Errors
 import spock.lang.Specification
 import spock.lang.Subject
@@ -28,13 +29,29 @@ import spock.lang.Subject
 abstract class AbstractValidatorSpec extends Specification {
   @Subject
   DescriptionValidator validator = getDescriptionValidator()
+  boolean testRegion
 
   abstract DescriptionValidator getDescriptionValidator()
 
   abstract AbstractECSDescription getDescription()
 
+  abstract AbstractECSDescription getNulledDescription()
+
+  abstract AbstractECSDescription getInvalidDescription()
+
+  abstract Set<String> notNullableProperties()
+
+  abstract Set<String> invalidProperties()
+
+  abstract String getDescriptionName()
+
   def setupSpec() {
     TaskRepository.threadLocalTask.set(Mock(Task))
+    setTestRegion()
+  }
+
+  def setTestRegion(){
+    testRegion = true
   }
 
   void 'should fail an incorrect region'() {
@@ -45,23 +62,47 @@ abstract class AbstractValidatorSpec extends Specification {
     def errors = Mock(Errors)
 
     when:
-    validator.validate([], description, errors)
+    if(testRegion) {
+      validator.validate([], description, errors)
+    }
 
     then:
-    1 * errors.rejectValue('region', _)
+    if(testRegion) {
+      1 * errors.rejectValue('region', _)
+    }
   }
 
-  void 'should fail on missing credentials'() {
+  void 'should fail when required properties are null'() {
     given:
-    def description = getDescription()
-    description.credentials = null
+    def description = getNulledDescription()
+    def descriptionName = getDescriptionName()
     def errors = Mock(Errors)
+    def nullProperties = notNullableProperties()
 
     when:
     validator.validate([], description, errors)
 
     then:
-    1 * errors.rejectValue('credentials', _)
+    for(def nullProperty:nullProperties){
+      1 * errors.rejectValue(nullProperty, "${descriptionName}.${nullProperty}.not.nullable")
+    }
+  }
+
+  void 'should fail when a property is invalid'() {
+    given:
+    def description = getInvalidDescription()
+    def descriptionName = getDescriptionName()
+    def errors = Mock(Errors)
+
+    def invalidFields = invalidProperties()
+
+    when:
+    validator.validate([], description, errors)
+
+    then:
+    for(String invalidField:invalidFields) {
+      1 * errors.rejectValue(invalidField, "${descriptionName}.${invalidField}.invalid")
+    }
   }
 
   void 'should pass validation'() {

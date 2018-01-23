@@ -19,35 +19,43 @@ package com.netflix.spinnaker.clouddriver.ecs.deploy.validators
 import com.netflix.spinnaker.clouddriver.deploy.DescriptionValidator
 import com.netflix.spinnaker.clouddriver.ecs.TestCredential
 import com.netflix.spinnaker.clouddriver.ecs.deploy.description.AbstractECSDescription
+import com.netflix.spinnaker.clouddriver.ecs.deploy.description.ModifyServiceDescription
+import com.netflix.spinnaker.clouddriver.ecs.deploy.description.ResizeServiceDescription
 import com.netflix.spinnaker.clouddriver.ecs.deploy.description.TerminateInstancesDescription
 import org.springframework.validation.Errors
 
 class TerminateInstanceDescriptionValidatorSpec extends AbstractValidatorSpec {
+  def invalidTaskId = 'some-invalid-task-id'
 
-  void 'should fail null ecs task ids'() {
-    given:
+  @Override
+  AbstractECSDescription getNulledDescription() {
     def description = (TerminateInstancesDescription) getDescription()
+    description.credentials = null
     description.ecsTaskIds = null
-    def errors = Mock(Errors)
-
-    when:
-    validator.validate([], description, errors)
-
-    then:
-    1 * errors.rejectValue('ecsTaskIds', 'terminateInstancesDescription.ecsTaskIds.not.nullable')
+    description
   }
 
-  void 'should fail invalid ecs task ids'() {
-    given:
+  @Override
+  Set<String> notNullableProperties() {
+    ['credentials', 'ecsTaskIds']
+  }
+
+  @Override
+  AbstractECSDescription getInvalidDescription() {
     def description = (TerminateInstancesDescription) getDescription()
-    description.ecsTaskIds = ['some-invalid-task-id']
-    def errors = Mock(Errors)
+    description.ecsTaskIds = [invalidTaskId]
+    description
+  }
 
-    when:
-    validator.validate([], description, errors)
+  @Override
+  Set<String> invalidProperties() {
+    ["ecsTaskIds.${invalidTaskId}"]
+  }
 
-    then:
-    1 * errors.rejectValue('ecsTaskIds', 'terminateInstancesDescription.ecsTaskIds.' + description.ecsTaskIds[0] + '.not.valid')
+
+  @Override
+  String getDescriptionName() {
+    'terminateInstancesDescription'
   }
 
   @Override

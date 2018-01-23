@@ -23,18 +23,23 @@ import java.util.Collections;
 import java.util.List;
 
 public class ServerGroupDescriptionValidator extends CommonValidator {
+
+  public ServerGroupDescriptionValidator(String errorKey) {
+    super(errorKey);
+  }
+
   @Override
   public void validate(List priorDescriptions, Object description, Errors errors) {
     ModifyServiceDescription typeDescription = (ModifyServiceDescription) description;
 
-    boolean validCredentials = validateCredentials(typeDescription, "destroyServiceDescription", errors, "credentials");
+    boolean validCredentials = validateCredentials(typeDescription, errors, "credentials");
 
     if (validCredentials) {
-      validateRegions(typeDescription, Collections.singleton(typeDescription.getRegion()), "destroyServiceDescription", errors, "region");
+      validateRegions(typeDescription, Collections.singleton(typeDescription.getRegion()), errors, "region");
     }
 
     if (typeDescription.getServerGroupName() == null) {
-      errors.rejectValue("serverGroupName", "destroyServiceDescription.serverGroupName.not.nullable");
+      rejectValue(errors, "serverGroupName", "not.nullable");
     }
   }
 }

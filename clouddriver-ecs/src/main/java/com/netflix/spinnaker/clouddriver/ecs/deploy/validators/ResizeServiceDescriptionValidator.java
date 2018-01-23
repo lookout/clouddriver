@@ -29,62 +29,25 @@ import java.util.List;
 @Component("resizeServiceAtomicOperationValidator")
 public class ResizeServiceDescriptionValidator extends CommonValidator {
 
+  public ResizeServiceDescriptionValidator() {
+    super("resizeServiceDescription");
+  }
+
   @Override
   public void validate(List priorDescriptions, Object description, Errors errors) {
     ResizeServiceDescription typedDescription = (ResizeServiceDescription) description;
 
-    boolean validCredentials = validateCredentials(typedDescription, "resizeServiceDescription", errors, "credentials");
+    boolean validCredentials = validateCredentials(typedDescription, errors, "credentials");
 
     if (validCredentials) {
-      validateRegions(typedDescription, Collections.singleton(typedDescription.getRegion()), "resizeServiceDescription", errors, "region");
+      validateRegions(typedDescription, Collections.singleton(typedDescription.getRegion()), errors, "region");
     }
 
     if(typedDescription.getServerGroupName() == null){
-      errors.rejectValue("serverGroupName", "resizeServiceDescription.serverGroupName.not.nullable");
+      rejectValue(errors, "serverGroupName", "not.nullable");
     }
 
-    if(typedDescription.getCapacity() != null){
-      boolean desiredNotNull = typedDescription.getCapacity().getDesired() != null;
-      boolean minNotNull = typedDescription.getCapacity().getMin() != null;
-      boolean maxNotNull = typedDescription.getCapacity().getMax() != null;
-
-      if(!desiredNotNull){
-        errors.rejectValue("capacity.desired", "resizeServiceDescription.capacity.desired.not.nullable");
-      }
-      if(!minNotNull){
-        errors.rejectValue("capacity.min", "resizeServiceDescription.capacity.min.not.nullable");
-      }
-      if(!maxNotNull){
-        errors.rejectValue("capacity.max", "resizeServiceDescription.capacity.max.not.nullable");
-      }
-
-      positivityCheck(desiredNotNull,typedDescription.getCapacity().getDesired(), "desired", errors);
-      positivityCheck(minNotNull,typedDescription.getCapacity().getMin(), "min", errors);
-      positivityCheck(maxNotNull,typedDescription.getCapacity().getMax(), "max", errors);
-
-
-      if(minNotNull && maxNotNull){
-        if(typedDescription.getCapacity().getMin() > typedDescription.getCapacity().getMax()){
-          errors.rejectValue("capacity", "resizeServiceDescription.capacity.invalid.min.max.range");
-        }
-
-        if(desiredNotNull && typedDescription.getCapacity().getDesired() > typedDescription.getCapacity().getMax()){
-          errors.rejectValue("capacity", "resizeServiceDescription.capacity.desired.exceeds.max");
-        }
-
-        if(desiredNotNull && typedDescription.getCapacity().getDesired() < typedDescription.getCapacity().getMin()){
-          errors.rejectValue("capacity", "resizeServiceDescription.capacity.desired.less.than.min");
-        }
-      }
-
-    }else{
-      errors.rejectValue("capacity", "resizeServiceDescription.capacity.not.nullable");
-    }
+    validateCapacity(errors, typedDescription.getCapacity());
   }
 
-  private void positivityCheck(boolean isNotNull, Integer capacity, String fieldName, Errors errors){
-    if(isNotNull && capacity < 0){
-      errors.rejectValue("capacity."+fieldName, "resizeServiceDescription.capacity."+fieldName+".not.positive");
-    }
-  }
 }

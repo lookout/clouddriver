@@ -31,24 +31,28 @@ import java.util.regex.Pattern;
 public class TerminateInstancesDescriptionValidator extends CommonValidator {
   public static final Pattern TASK_ID_PATTERN = Pattern.compile("[\\da-f]{8}-[\\da-f]{4}-[\\da-f]{4}-[\\da-f]{4}-[\\da-f]{12}");
 
+  public TerminateInstancesDescriptionValidator() {
+    super("terminateInstancesDescription");
+  }
+
   @Override
   public void validate(List priorDescriptions, Object description, Errors errors) {
     TerminateInstancesDescription typedDescription = (TerminateInstancesDescription) description;
-    boolean validCredentials = validateCredentials(typedDescription, "destroyServiceDescription", errors, "credentials");
+    boolean validCredentials = validateCredentials(typedDescription, errors, "credentials");
 
     if (validCredentials) {
-      validateRegions(typedDescription, Collections.singleton(typedDescription.getRegion()), "destroyServiceDescription", errors, "region");
+      validateRegions(typedDescription, Collections.singleton(typedDescription.getRegion()), errors, "region");
     }
 
     if (typedDescription.getEcsTaskIds() != null) {
       typedDescription.getEcsTaskIds().forEach(taskId -> {
           if (!TASK_ID_PATTERN.matcher(taskId).find()) {
-            errors.rejectValue("ecsTaskIds", "terminateInstancesDescription.ecsTaskIds." + taskId + ".not.valid");
+            rejectValue(errors, "ecsTaskIds." + taskId, "invalid");
           }
         }
       );
     } else {
-      errors.rejectValue("ecsTaskIds", "terminateInstancesDescription.ecsTaskIds.not.nullable");
+      rejectValue(errors, "ecsTaskIds", "not.nullable");
     }
   }
 }

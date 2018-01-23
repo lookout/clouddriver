@@ -23,4 +23,7 @@ import org.springframework.stereotype.Component;
 @EcsOperation(AtomicOperations.ENABLE_SERVER_GROUP)
 @Component("enableServiceAtomicOperationValidator")
 public class EnableServiceDescriptionValidator extends ServerGroupDescriptionValidator {
+  public EnableServiceDescriptionValidator(){
+    super("enableServiceDescription");
+  }
 }

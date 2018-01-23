@@ -20,26 +20,44 @@ import com.netflix.spinnaker.clouddriver.deploy.DescriptionValidator
 import com.netflix.spinnaker.clouddriver.ecs.TestCredential
 import com.netflix.spinnaker.clouddriver.ecs.deploy.description.AbstractECSDescription
 import com.netflix.spinnaker.clouddriver.ecs.deploy.description.ModifyServiceDescription
+import com.netflix.spinnaker.clouddriver.ecs.deploy.description.ResizeServiceDescription
+import com.netflix.spinnaker.clouddriver.ecs.deploy.description.TerminateInstancesDescription
 import org.springframework.validation.Errors
 
 class ServerGroupDescriptionValidatorSpec extends AbstractValidatorSpec {
 
-  void 'should fail null serverGroupName'() {
-    given:
+  @Override
+  AbstractECSDescription getNulledDescription() {
     def description = (ModifyServiceDescription) getDescription()
+    description.credentials = null
     description.serverGroupName = null
-    def errors = Mock(Errors)
-
-    when:
-    validator.validate([], description, errors)
-
-    then:
-    1 * errors.rejectValue('serverGroupName', _)
+    description
   }
 
   @Override
+  Set<String> notNullableProperties() {
+    ['credentials', 'serverGroupName']
+  }
+
+  @Override
+  String getDescriptionName() {
+    'modifyServiceDescription'
+  }
+
+  @Override
+  AbstractECSDescription getInvalidDescription() {
+    getDescription()
+  }
+
+  @Override
+  Set<String> invalidProperties() {
+    []
+  }
+
+
+  @Override
   DescriptionValidator getDescriptionValidator() {
-    new ServerGroupDescriptionValidator()
+    new ServerGroupDescriptionValidator(getDescriptionName())
   }
 
   @Override

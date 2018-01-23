@@ -34,7 +34,6 @@ public class CreateServerGroupDescription extends AbstractECSDescription {
   String targetGroup;
   List<String> securityGroups;
 
-  String serverGroupVersion;
   String portProtocol;
 
   Integer computeUnits;
@@ -44,15 +43,8 @@ public class CreateServerGroupDescription extends AbstractECSDescription {
 
   ServerGroup.Capacity capacity;
 
-  Source source;
-
   Map<String, List<String>> availabilityZones;
 
   List<MetricAlarm> autoscalingPolicies;
   List<PlacementStrategy> placementStrategySequence;
-
-  @Data
-  public class Source {
-    String asgName, serverGroupName, account, region, useSourceCapacity;
-  }
 }
