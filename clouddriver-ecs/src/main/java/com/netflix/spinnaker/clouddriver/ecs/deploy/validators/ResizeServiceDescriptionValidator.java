@@ -47,7 +47,7 @@ public class ResizeServiceDescriptionValidator extends CommonValidator {
       rejectValue(errors, "serverGroupName", "not.nullable");
     }
 
-    validateCapcity(errors, typedDescription.getCapacity());
+    validateCapacity(errors, typedDescription.getCapacity());
   }
 
 }

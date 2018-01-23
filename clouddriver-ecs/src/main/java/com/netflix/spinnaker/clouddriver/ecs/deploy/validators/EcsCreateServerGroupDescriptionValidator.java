@@ -25,7 +25,6 @@ import com.netflix.spinnaker.clouddriver.orchestration.AtomicOperations;
 import org.springframework.stereotype.Component;
 import org.springframework.validation.Errors;
 
-import java.util.Collections;
 import java.util.List;
 import java.util.Set;
 
@@ -51,7 +50,7 @@ public class EcsCreateServerGroupDescriptionValidator extends CommonValidator {
     CreateServerGroupDescription createServerGroupDescription = (CreateServerGroupDescription) description;
 
     validateCredentials(createServerGroupDescription, errors, "credentials");
-    validateCapcity(errors, createServerGroupDescription.getCapacity());
+    validateCapacity(errors, createServerGroupDescription.getCapacity());
 
     if (createServerGroupDescription.getAvailabilityZones() != null) {
       if (createServerGroupDescription.getAvailabilityZones().size() != 1) {
@@ -88,7 +87,6 @@ public class EcsCreateServerGroupDescriptionValidator extends CommonValidator {
 
       }
     } else {
-      // This only applies to pipelines that have been created before support for placement strategies and have not been updated since.
       rejectValue(errors, "placementStrategySequence", "not.nullable");
     }
 

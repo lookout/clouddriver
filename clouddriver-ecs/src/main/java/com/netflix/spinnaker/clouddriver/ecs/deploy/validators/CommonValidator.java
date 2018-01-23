@@ -55,7 +55,7 @@ abstract class CommonValidator extends DescriptionValidator {
     return true;
   }
 
-  void validateCapcity(Errors errors, ServerGroup.Capacity capacity){
+  void validateCapacity(Errors errors, ServerGroup.Capacity capacity){
     if(capacity != null){
       boolean desiredNotNull = capacity.getDesired() != null;
       boolean minNotNull = capacity.getMin() != null;
