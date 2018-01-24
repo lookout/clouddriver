@@ -18,6 +18,7 @@ package com.netflix.spinnaker.clouddriver.ecs.cache;
 
 import com.google.common.base.CaseFormat;
 import com.netflix.spinnaker.clouddriver.cache.KeyParser;
+import com.sun.org.apache.xpath.internal.operations.Bool;
 
 import java.util.HashMap;
 import java.util.Map;
@@ -61,6 +62,10 @@ public class Keys implements KeyParser {
 
   @Override
   public Boolean canParseType(String type) {
+    return canParse(type);
+  }
+
+  private static Boolean canParse(String type){
     for (Namespace key : Namespace.values()) {
       if (key.toString().equals(type)) {
         return true;
@@ -80,6 +85,12 @@ public class Keys implements KeyParser {
     result.put("provider", parts[0]);
     result.put("type", parts[1]);
     result.put("account", parts[2]);
+
+    if(!canParse(parts[1]) && parts[1].equals(HEALTH.getNs())){
+      result.put("region", parts[3]);
+      result.put("taskId", parts[4]);
+      return result;
+    }
 
 
     Namespace namespace = Namespace.valueOf(CaseFormat.LOWER_CAMEL.to(CaseFormat.UPPER_UNDERSCORE, parts[1]));

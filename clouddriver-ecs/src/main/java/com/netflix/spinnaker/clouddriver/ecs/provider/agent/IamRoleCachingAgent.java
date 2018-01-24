@@ -184,7 +184,7 @@ public class IamRoleCachingAgent implements CachingAgent {
 
   @Override
   public String getAgentType() {
-    return IamRoleCachingAgent.class.getSimpleName();
+    return accountName + "/" + getClass().getSimpleName();
   }
 
   @Override

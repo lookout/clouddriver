@@ -155,7 +155,7 @@ public class EcsCloudMetricAlarmCachingAgent implements CachingAgent {
 
   @Override
   public String getAgentType() {
-    return getClass().getSimpleName();
+    return  accountName + "/" + region + "/" + getClass().getSimpleName();
   }
 
   @Override

@@ -80,7 +80,7 @@ public class TaskDefinitionCachingAgent extends AbstractEcsOnDemandAgent<TaskDef
 
   @Override
   public String getAgentType() {
-    return TaskDefinitionCachingAgent.class.getSimpleName();
+    return accountName + "/" + region + "/" + getClass().getSimpleName();
   }
 
   @Override

@@ -69,7 +69,7 @@ public class TaskCachingAgent extends AbstractEcsOnDemandAgent<Task> {
 
   @Override
   public String getAgentType() {
-    return TaskCachingAgent.class.getSimpleName();
+    return accountName + "/" + region + "/" + getClass().getSimpleName();
   }
 
   @Override

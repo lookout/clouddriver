@@ -57,7 +57,7 @@ public class ContainerInstanceCachingAgent extends AbstractEcsOnDemandAgent<Cont
 
   @Override
   public String getAgentType() {
-    return ContainerInstanceCachingAgent.class.getSimpleName();
+    return accountName + "/" + region + "/" + getClass().getSimpleName();
   }
 
   @Override
