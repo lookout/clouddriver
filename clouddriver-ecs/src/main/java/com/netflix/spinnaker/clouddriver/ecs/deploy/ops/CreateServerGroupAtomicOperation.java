@@ -65,7 +65,8 @@ import java.util.Set;
 import java.util.stream.Collectors;
 
 public class CreateServerGroupAtomicOperation extends AbstractEcsAtomicOperation<CreateServerGroupDescription, DeploymentResult> {
-  private static final Set<String> NECESSARY_TRUSTED_SERVICES = new HashSet<>(Arrays.asList("ecs-tasks.amazonaws.com", "ecs.amazonaws.com"));
+
+  private static final String NECESSARY_TRUSTED_SERVICE = "ecs-tasks.amazonaws.com"
 
   @Autowired
   EcsCloudMetricService ecsCloudMetricService;
@@ -230,8 +231,8 @@ public class CreateServerGroupAtomicOperation extends AbstractEcsAtomicOperation
       .map(IamTrustRelationship::getValue)
       .collect(Collectors.toSet());
 
-    if (!trustedServices.containsAll(NECESSARY_TRUSTED_SERVICES)) {
-      throw new IllegalArgumentException("The " + roleName + " role does not have the required trust relationships.");
+    if (!trustedServices.contains(NECESSARY_TRUSTED_SERVICE)) {
+      throw new IllegalArgumentException("The " + roleName + " role does not have a trust relationship to ecs-tasks.amazonaws.com.");
     }
   }
 
