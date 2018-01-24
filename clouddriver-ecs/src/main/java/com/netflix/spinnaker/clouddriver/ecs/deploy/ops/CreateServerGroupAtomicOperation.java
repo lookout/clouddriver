@@ -155,7 +155,7 @@ public class CreateServerGroupAtomicOperation extends AbstractEcsAtomicOperation
 
     DeploymentConfiguration deploymentConfiguration = new DeploymentConfiguration()
       .withMinimumHealthyPercent(100)
-      .withMaximumPercent(150);
+      .withMaximumPercent(200);
 
     CreateServiceRequest request = new CreateServiceRequest()
       .withServiceName(serviceName)
