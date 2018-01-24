@@ -18,7 +18,6 @@ package com.netflix.spinnaker.clouddriver.ecs.cache;
 
 import com.google.common.base.CaseFormat;
 import com.netflix.spinnaker.clouddriver.cache.KeyParser;
-import com.sun.org.apache.xpath.internal.operations.Bool;
 
 import java.util.HashMap;
 import java.util.Map;
