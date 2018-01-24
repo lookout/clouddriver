@@ -108,7 +108,7 @@ public class EcsServerClusterProvider implements ClusterProvider<EcsServerCluste
                                                                    String application) {
 
     Collection<Service> services = serviceCacheClient.getAll(credentials.getName(), awsRegion.getName());
-    Collection<Task> allTasks = taskCacheClient.getAll();
+    Collection<Task> allTasks = taskCacheClient.getAll(credentials.getName(), awsRegion.getName());
 
     for (Service service : services) {
       String applicationName = service.getApplicationName();
@@ -118,7 +118,7 @@ public class EcsServerClusterProvider implements ClusterProvider<EcsServerCluste
         continue;
       }
 
-      Set<LoadBalancer> loadBalancers = new HashSet<>(ecsLoadbalancerCacheClient.findAll());
+      Set<LoadBalancer> loadBalancers = new HashSet<>(ecsLoadbalancerCacheClient.find(credentials.getName(), awsRegion.getName()));
 
       Set<Instance> instances = allTasks.stream()
         .filter(task -> task.getGroup().equals("service:" + serviceName))

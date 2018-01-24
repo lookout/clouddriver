@@ -80,13 +80,14 @@ public class TaskDefinitionCachingAgent extends AbstractEcsOnDemandAgent<TaskDef
 
   @Override
   public String getAgentType() {
-    return TaskDefinitionCachingAgent.class.getSimpleName();
+    return accountName + "/" + region + "/" + getClass().getSimpleName();
   }
 
   @Override
   protected List<TaskDefinition> getItems(AmazonECS ecs, ProviderCache providerCache) {
     List<TaskDefinition> taskDefinitionList = new LinkedList<>();
     Set<String> cachedArns = providerCache.getIdentifiers(TASK_DEFINITIONS.toString()).stream()
+      .filter(id -> keyAccountRegionFilter(TASK_DEFINITIONS.toString(), id))
       .map(id -> {
         Map<String, String> keyParts = Keys.parse(id);
         return keyParts.get("taskDefinitionArn");

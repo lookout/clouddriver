@@ -75,7 +75,8 @@ class TaskHealthCacheSpec extends Specification {
       containers          : Collections.singletonList(containerMap)
     ]
     def taskCacheData = new DefaultCacheData(taskKey, taskAttributes, Collections.emptyMap())
-    providerCache.getAll(TASKS.toString()) >> Collections.singletonList(taskCacheData)
+    providerCache.filterIdentifiers(_, _) >> []
+    providerCache.getAll(TASKS.toString(), _) >> Collections.singletonList(taskCacheData)
 
     def serviceAttributes = [
       loadBalancers        : Collections.singletonList(loadbalancerMap),
