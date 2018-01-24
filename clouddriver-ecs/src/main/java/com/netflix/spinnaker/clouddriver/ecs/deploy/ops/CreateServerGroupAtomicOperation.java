@@ -66,7 +66,7 @@ import java.util.stream.Collectors;
 
 public class CreateServerGroupAtomicOperation extends AbstractEcsAtomicOperation<CreateServerGroupDescription, DeploymentResult> {
 
-  private static final String NECESSARY_TRUSTED_SERVICE = "ecs-tasks.amazonaws.com"
+  private static final String NECESSARY_TRUSTED_SERVICE = "ecs-tasks.amazonaws.com";
 
   @Autowired
   EcsCloudMetricService ecsCloudMetricService;
