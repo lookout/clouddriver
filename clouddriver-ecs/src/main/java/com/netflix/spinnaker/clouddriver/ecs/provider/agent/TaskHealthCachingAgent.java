@@ -102,7 +102,7 @@ public class TaskHealthCachingAgent extends AbstractEcsCachingAgent<TaskHealth> 
     serviceEvicitions = new LinkedList<>();
     taskDefEvicitions = new LinkedList<>();
 
-    Collection<Task> tasks = taskCacheClient.getAll();
+    Collection<Task> tasks = taskCacheClient.getAll(accountName, region);
     if (tasks != null) {
       for (Task task : tasks) {
         String containerInstanceCacheKey = Keys.getContainerInstanceKey(accountName, region, task.getContainerInstanceArn());

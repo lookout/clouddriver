@@ -92,7 +92,10 @@ public class EcsCloudMetricAlarmCachingAgent implements CachingAgent {
     Collection<CacheData> newData = newDataMap.get(ALARMS.toString());
 
     Set<String> oldKeys = providerCache.getAll(ALARMS.toString()).stream()
-      .map(CacheData::getId).collect(Collectors.toSet());
+      .map(CacheData::getId)
+      .filter(this::keyAccountRegionFilter)
+      .collect(Collectors.toSet());
+
     Map<String, Collection<String>> evictionsByKey = computeEvictableData(newData, oldKeys);
 
     return new DefaultCacheResult(newDataMap, evictionsByKey);
@@ -141,6 +144,13 @@ public class EcsCloudMetricAlarmCachingAgent implements CachingAgent {
     } while (nextToken != null && nextToken.length() != 0);
 
     return cacheableMetricAlarm;
+  }
+
+  private boolean keyAccountRegionFilter(String key) {
+    Map<String, String> keyParts = Keys.parse(key);
+    return keyParts != null &&
+      keyParts.get("account").equals(accountName) &&
+      keyParts.get("region").equals(region);
   }
 
   @Override

@@ -89,7 +89,10 @@ public class ScalableTargetsCachingAgent implements CachingAgent {
     Collection<CacheData> newData = newDataMap.get(SCALABLE_TARGETS.toString());
 
     Set<String> oldKeys = providerCache.getAll(SCALABLE_TARGETS.toString()).stream()
-      .map(CacheData::getId).collect(Collectors.toSet());
+      .map(CacheData::getId)
+      .filter(this::keyAccountRegionFilter)
+      .collect(Collectors.toSet());
+
     Map<String, Collection<String>> evictionsByKey = computeEvictableData(newData, oldKeys);
 
     return new DefaultCacheResult(newDataMap, evictionsByKey);
@@ -138,6 +141,13 @@ public class ScalableTargetsCachingAgent implements CachingAgent {
     } while (nextToken != null && nextToken.length() != 0);
 
     return scalableTargets;
+  }
+
+  private boolean keyAccountRegionFilter(String key) {
+    Map<String, String> keyParts = Keys.parse(key);
+    return keyParts != null &&
+      keyParts.get("account").equals(accountName) &&
+      keyParts.get("region").equals(region);
   }
 
   @Override
