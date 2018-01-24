@@ -129,7 +129,9 @@ public class EcsApplicationProvider implements ApplicationProvider {
       applicationHashMap.put(appName, application);
     } else {
       applicationHashMap.get(appName).getAttributes().putAll(application.getAttributes());
-      applicationHashMap.get(appName).getClusterNames().get(appName).add(serviceName);
+      if (expand) {
+        applicationHashMap.get(appName).getClusterNames().get(appName).add(serviceName);
+      }
     }
 
     return applicationHashMap;
