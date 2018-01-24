@@ -145,7 +145,7 @@ class EcsServerClusterProviderSpec extends Specification {
     def taskCacheData = new DefaultCacheData('', taskAttributes, [:])
 
     accountCredentialsProvider.getAll() >> [creds]
-    ecsLoadbalancerCacheClient.findAll() >> [loadbalancer]
+    ecsLoadbalancerCacheClient.find(_, _) >> [loadbalancer]
     containerInformationService.getTaskPrivateAddress(_, _, _) >> "${ip}:1337"
     containerInformationService.getHealthStatus(_, _, _, _) >> [healthStatus]
     containerInformationService.getEc2Instance(_, _, _) >> ec2Instance
@@ -155,7 +155,7 @@ class EcsServerClusterProviderSpec extends Specification {
 
     cacheView.filterIdentifiers(_, _) >> ['key']
     cacheView.getAll(SERVICES.ns, _) >> [serviceCacheData]
-    cacheView.getAll(TASKS.ns) >> [taskCacheData]
+    cacheView.getAll(TASKS.ns, _) >> [taskCacheData]
 
     when:
     def retrievedCluster = provider.getCluster("myapp", creds.getName(), familyName)
