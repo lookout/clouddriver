@@ -299,7 +299,9 @@ public class CreateServerGroupAtomicOperation extends AbstractEcsAtomicOperation
     return getFamilyName() + "-" + versionString;
   }
 
-  private String getRegion() {
+  @Override
+  protected String getRegion() {
+    //CreateServerGroupDescription does not contain a region. Instead it has AvailabilityZones
     return description.getAvailabilityZones().keySet().iterator().next();
   }
 
