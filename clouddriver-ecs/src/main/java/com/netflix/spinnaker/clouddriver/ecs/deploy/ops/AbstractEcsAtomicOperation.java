@@ -51,16 +51,20 @@ public abstract class AbstractEcsAtomicOperation<T extends AbstractECSDescriptio
   }
 
   String getCluster(String service, String account) {
-    String region = description.getRegion();
+    String region = getRegion();
     return containerInformationService.getClusterName(service, account, region);
   }
 
   AmazonECS getAmazonEcsClient() {
     AWSCredentialsProvider credentialsProvider = getCredentials().getCredentialsProvider();
-    String region = description.getRegion();
+    String region = getRegion();
     String credentialAccount = description.getCredentialAccount();
 
     return amazonClientProvider.getAmazonEcs(credentialAccount, credentialsProvider, region);
+  }
+
+  protected String getRegion(){
+    return description.getRegion();
   }
 
   AmazonCredentials getCredentials() {
