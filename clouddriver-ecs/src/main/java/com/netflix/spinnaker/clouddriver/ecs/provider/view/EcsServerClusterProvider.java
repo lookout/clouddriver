@@ -338,9 +338,7 @@ public class EcsServerClusterProvider implements ClusterProvider<EcsServerCluste
     } catch (NoSuchElementException exception) {
       throw new NoSuchElementException(String.format("There is no ECS account by the name of '%s'", account));
     }
-
   }
-
 
   @Override
   public Map<String, Set<EcsServerCluster>> getClusterSummaries(String application) {
