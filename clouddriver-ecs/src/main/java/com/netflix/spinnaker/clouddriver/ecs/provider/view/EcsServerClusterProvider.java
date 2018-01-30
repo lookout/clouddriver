@@ -53,6 +53,7 @@ import java.util.HashMap;
 import java.util.HashSet;
 import java.util.List;
 import java.util.Map;
+import java.util.NoSuchElementException;
 import java.util.Set;
 import java.util.stream.Collectors;
 
@@ -330,11 +331,14 @@ public class EcsServerClusterProvider implements ClusterProvider<EcsServerCluste
   }
 
   private AmazonCredentials getEcsCredentials(String account) {
-    return getEcsCredentials().stream()
-      .filter(credentials -> credentials.getName().equals(account))
-      .findFirst().get();
+    try {
+      return getEcsCredentials().stream()
+        .filter(credentials -> credentials.getName().equals(account))
+        .findFirst().get();
+    } catch (NoSuchElementException exception) {
+      throw new NoSuchElementException(String.format("There is no ECS account by the name of '%s'", account));
+    }
   }
-
 
   @Override
   public Map<String, Set<EcsServerCluster>> getClusterSummaries(String application) {
