@@ -82,8 +82,8 @@ public class ResizeServiceAtomicOperation extends AbstractEcsAtomicOperation<Res
       .withScalableDimension(ScalableDimension.EcsServiceDesiredCount)
       .withResourceId(String.format("service/%s/%s", ecsClusterName, service.getServiceName()))
       .withRoleARN(service.getRoleArn())
-      .withMinCapacity(0)
-      .withMaxCapacity(desiredCount);
+      .withMinCapacity(description.getCapacity().getMin())
+      .withMaxCapacity(description.getCapacity().getMax());
 
     updateTaskStatus(String.format("Resizing Scalable Target of %s to %s instances", service.getServiceName(), desiredCount));
     autoScalingClient.registerScalableTarget(request);
