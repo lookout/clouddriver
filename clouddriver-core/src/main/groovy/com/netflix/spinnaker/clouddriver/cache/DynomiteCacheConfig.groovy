@@ -80,18 +80,6 @@ class DynomiteCacheConfig {
     )
   }
 
-  @Bean
-  CompressionStrategy compressionStrategy(ConnectionPoolConfigurationImpl connectionPoolConfiguration,
-                                          GZipCompressionStrategyProperties properties) {
-    if (!properties.enabled) {
-      return new NoopCompression()
-    }
-    return new GZipCompression(
-      properties.thresholdBytesSize,
-      properties.compressEnabled && connectionPoolConfiguration.compressionStrategy != ConnectionPoolConfiguration.CompressionStrategy.THRESHOLD
-    )
-  }
-
   @Bean(destroyMethod = "stopClient")
   DynoJedisClient dynoJedisClient(DynomiteConfigurationProperties dynomiteConfigurationProperties, ConnectionPoolConfigurationImpl connectionPoolConfiguration, Optional<DiscoveryClient> discoveryClient) {
     def builder = new DynoJedisClient.Builder()
