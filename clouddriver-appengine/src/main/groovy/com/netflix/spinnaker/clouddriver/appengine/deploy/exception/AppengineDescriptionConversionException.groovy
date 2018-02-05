@@ -1,5 +1,5 @@
 /*
- * Copyright 2017 Google, Inc.
+ * Copyright 2018 Google, Inc.
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -12,18 +12,11 @@
  * WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
  * See the License for the specific language governing permissions and
  * limitations under the License.
- *
  */
 
-package com.netflix.spinnaker.clouddriver.kubernetes.v2.op.deployer;
+package com.netflix.spinnaker.clouddriver.appengine.deploy.exception
 
-import com.netflix.spinnaker.clouddriver.kubernetes.v2.description.manifest.KubernetesKind;
-import com.netflix.spinnaker.clouddriver.kubernetes.v2.security.KubernetesV2Credentials;
+import groovy.transform.InheritConstructors
 
-public interface CanPauseRollout {
-  KubernetesKind kind();
-
-  default void pauseRollout(KubernetesV2Credentials credentials, String namespace, String name) {
-    credentials.pauseRollout(kind(), namespace, name);
-  }
-}
+@InheritConstructors
+class AppengineDescriptionConversionException extends RuntimeException { }

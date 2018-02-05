@@ -16,7 +16,6 @@
 
 package com.netflix.spinnaker.clouddriver.ecs.controllers
 
-import com.amazonaws.services.cloudwatch.model.MetricAlarm
 import com.netflix.spinnaker.clouddriver.ecs.cache.model.EcsMetricAlarm
 import com.netflix.spinnaker.clouddriver.ecs.provider.view.EcsCloudMetricProvider
 import spock.lang.Specification

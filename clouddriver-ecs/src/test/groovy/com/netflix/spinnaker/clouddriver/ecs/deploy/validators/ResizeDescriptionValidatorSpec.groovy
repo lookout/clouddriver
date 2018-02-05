@@ -1,5 +1,5 @@
 /*
- * Copyright 2017 Lookout, Inc.
+ * Copyright 2018 Lookout, Inc.
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -20,7 +20,6 @@ import com.netflix.spinnaker.clouddriver.deploy.DescriptionValidator
 import com.netflix.spinnaker.clouddriver.ecs.TestCredential
 import com.netflix.spinnaker.clouddriver.ecs.deploy.description.AbstractECSDescription
 import com.netflix.spinnaker.clouddriver.ecs.deploy.description.ResizeServiceDescription
-import com.netflix.spinnaker.clouddriver.ecs.deploy.description.TerminateInstancesDescription
 import com.netflix.spinnaker.clouddriver.model.ServerGroup
 import org.springframework.validation.Errors
 

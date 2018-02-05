@@ -49,22 +49,7 @@ public class Keys implements KeyParser {
 
   public static final String SEPARATOR = ";";
 
-  @Override
-  public String getCloudProvider() {
-    return ID;
-  }
-
-  @Override
-  public Map<String, String> parseKey(String key) {
-    return parse(key);
-  }
-
-  @Override
-  public Boolean canParseType(String type) {
-    return canParse(type);
-  }
-
-  private static Boolean canParse(String type){
+  private static Boolean canParse(String type) {
     for (Namespace key : Namespace.values()) {
       if (key.toString().equals(type)) {
         return true;
@@ -85,7 +70,7 @@ public class Keys implements KeyParser {
     result.put("type", parts[1]);
     result.put("account", parts[2]);
 
-    if(!canParse(parts[1]) && parts[1].equals(HEALTH.getNs())){
+    if (!canParse(parts[1]) && parts[1].equals(HEALTH.getNs())) {
       result.put("region", parts[3]);
       result.put("taskId", parts[4]);
       return result;
@@ -130,11 +115,6 @@ public class Keys implements KeyParser {
     return result;
   }
 
-  @Override
-  public Boolean canParseField(String type) {
-    return false;
-  }
-
   public static String getServiceKey(String account, String region, String serviceName) {
     return buildKey(Namespace.SERVICES.ns, account, region, serviceName);
   }
@@ -171,7 +151,27 @@ public class Keys implements KeyParser {
     return ID + SEPARATOR + Namespace.IAM_ROLE + SEPARATOR + account + SEPARATOR + iamRoleName;
   }
 
-  private static String buildKey(String namespace,String account, String region, String identifier){
+  private static String buildKey(String namespace, String account, String region, String identifier) {
     return ID + SEPARATOR + namespace + SEPARATOR + account + SEPARATOR + region + SEPARATOR + identifier;
+  }
+
+  @Override
+  public String getCloudProvider() {
+    return ID;
+  }
+
+  @Override
+  public Map<String, String> parseKey(String key) {
+    return parse(key);
+  }
+
+  @Override
+  public Boolean canParseType(String type) {
+    return canParse(type);
+  }
+
+  @Override
+  public Boolean canParseField(String type) {
+    return false;
   }
 }

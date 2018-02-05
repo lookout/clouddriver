@@ -1,5 +1,5 @@
 /*
- * Copyright 2017 Lookout, Inc.
+ * Copyright 2018 Lookout, Inc.
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -43,12 +43,12 @@ public class DisableServiceAtomicOperation extends AbstractEcsAtomicOperation<Mo
     String account = description.getCredentialAccount();
     String cluster = getCluster(service, account);
 
-    updateTaskStatus(String.format("Disabling %s service for %s.", service, account));
+    updateTaskStatus(String.format("Disabling %s server group for %s.", service, account));
     UpdateServiceRequest request = new UpdateServiceRequest()
       .withCluster(cluster)
       .withService(service)
       .withDesiredCount(0);
     ecs.updateService(request);
-    updateTaskStatus(String.format("Service %s disabled for %s.", service, account));
+    updateTaskStatus(String.format("Server group %s disabled for %s.", service, account));
   }
 }

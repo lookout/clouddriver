@@ -29,6 +29,7 @@ import com.netflix.spinnaker.clouddriver.security.AccountCredentials;
 import com.netflix.spinnaker.clouddriver.security.AccountCredentialsRepository;
 import com.netflix.spinnaker.clouddriver.security.ProviderVersion;
 import com.netflix.spinnaker.fiat.model.resources.Permissions;
+import com.netflix.spinnaker.moniker.Namer;
 import groovy.util.logging.Slf4j;
 import org.apache.commons.lang3.StringUtils;
 
@@ -49,6 +50,7 @@ public class KubernetesNamedAccountCredentials<C extends KubernetesCredentials> 
   final private String user;
   final private String userAgent;
   final private String kubeconfigFile;
+  final private String kubectlExecutable;
   final private Boolean serviceAccount;
   private List<String> namespaces;
   private List<String> omitNamespaces;
@@ -70,6 +72,7 @@ public class KubernetesNamedAccountCredentials<C extends KubernetesCredentials> 
                                     String cluster,
                                     String user,
                                     String kubeconfigFile,
+                                    String kubectlExecutable,
                                     Boolean serviceAccount,
                                     List<String> namespaces,
                                     List<String> omitNamespaces,
@@ -88,6 +91,7 @@ public class KubernetesNamedAccountCredentials<C extends KubernetesCredentials> 
     this.user = user;
     this.userAgent = userAgent;
     this.kubeconfigFile = kubeconfigFile;
+    this.kubectlExecutable = kubectlExecutable;
     this.serviceAccount = serviceAccount;
     this.namespaces = namespaces;
     this.omitNamespaces = omitNamespaces;
@@ -129,6 +133,10 @@ public class KubernetesNamedAccountCredentials<C extends KubernetesCredentials> 
     return credentials;
   }
 
+  public String getKubectlExecutable() {
+    return kubectlExecutable;
+  }
+
   @Override
   public String getCloudProvider() {
     return cloudProvider;
@@ -163,6 +171,7 @@ public class KubernetesNamedAccountCredentials<C extends KubernetesCredentials> 
     String user;
     String userAgent;
     String kubeconfigFile;
+    String kubectlExecutable;
     Boolean serviceAccount;
     Boolean configureImagePullSecrets;
     List<String> namespaces;
@@ -175,6 +184,7 @@ public class KubernetesNamedAccountCredentials<C extends KubernetesCredentials> 
     Registry spectatorRegistry;
     AccountCredentialsRepository accountCredentialsRepository;
     KubectlJobExecutor jobExecutor;
+    Namer namer;
     boolean debug;
 
     Builder name(String name) {
@@ -232,8 +242,13 @@ public class KubernetesNamedAccountCredentials<C extends KubernetesCredentials> 
       return this;
     }
 
+    Builder kubectlExecutable(String kubectlExecutable) {
+      this.kubectlExecutable = kubectlExecutable;
+      return this;
+    }
+
     Builder serviceAccount(Boolean serviceAccount) {
-      this.serviceAccount = serviceAccount;;
+      this.serviceAccount = serviceAccount;
       return this;
     }
 
@@ -300,6 +315,11 @@ public class KubernetesNamedAccountCredentials<C extends KubernetesCredentials> 
       return this;
     }
 
+    Builder namer(Namer namer) {
+      this.namer = namer;
+      return this;
+    }
+
     private C buildCredentials() {
       switch (providerVersion) {
         case v1:
@@ -322,10 +342,11 @@ public class KubernetesNamedAccountCredentials<C extends KubernetesCredentials> 
           NamerRegistry.lookup()
               .withProvider(KubernetesCloudProvider.getID())
               .withAccount(name)
-              .setNamer(KubernetesManifest.class, new KubernetesManifestNamer());
+              .setNamer(KubernetesManifest.class, namer);
           return (C) new KubernetesV2Credentials.Builder()
               .accountName(name)
               .kubeconfigFile(kubeconfigFile)
+              .kubectlExecutable(kubectlExecutable)
               .context(context)
               .oAuthServiceAccount(oAuthServiceAccount)
               .oAuthScopes(oAuthScopes)
@@ -387,6 +408,7 @@ public class KubernetesNamedAccountCredentials<C extends KubernetesCredentials> 
           cluster,
           user,
           kubeconfigFile,
+          kubectlExecutable,
           serviceAccount,
           namespaces,
           omitNamespaces,

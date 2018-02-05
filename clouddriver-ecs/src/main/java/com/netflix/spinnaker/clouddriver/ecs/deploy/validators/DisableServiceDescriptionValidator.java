@@ -1,5 +1,5 @@
 /*
- * Copyright 2017 Lookout, Inc.
+ * Copyright 2018 Lookout, Inc.
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -23,7 +23,7 @@ import org.springframework.stereotype.Component;
 @EcsOperation(AtomicOperations.DISABLE_SERVER_GROUP)
 @Component("disableServiceAtomicOperationValidator")
 public class DisableServiceDescriptionValidator extends ServerGroupDescriptionValidator {
-  public DisableServiceDescriptionValidator(){
+  public DisableServiceDescriptionValidator() {
     super("disableServiceDescription");
   }
 }

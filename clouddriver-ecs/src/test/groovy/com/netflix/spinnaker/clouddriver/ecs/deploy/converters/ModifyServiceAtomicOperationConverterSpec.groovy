@@ -1,5 +1,5 @@
 /*
- * Copyright 2017 Lookout, Inc.
+ * Copyright 2018 Lookout, Inc.
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -16,12 +16,9 @@
 
 package com.netflix.spinnaker.clouddriver.ecs.deploy.converters
 
-import com.fasterxml.jackson.databind.ObjectMapper
 import com.netflix.spinnaker.clouddriver.ecs.TestCredential
 import com.netflix.spinnaker.clouddriver.ecs.deploy.description.ModifyServiceDescription
 import com.netflix.spinnaker.clouddriver.ecs.deploy.ops.AbstractEcsAtomicOperation
-import com.netflix.spinnaker.clouddriver.ecs.deploy.ops.EnableServiceAtomicOperation
-import com.netflix.spinnaker.clouddriver.orchestration.AtomicOperation
 import com.netflix.spinnaker.clouddriver.security.AbstractAtomicOperationsCredentialsSupport
 import com.netflix.spinnaker.clouddriver.security.AccountCredentialsProvider
 import spock.lang.Specification

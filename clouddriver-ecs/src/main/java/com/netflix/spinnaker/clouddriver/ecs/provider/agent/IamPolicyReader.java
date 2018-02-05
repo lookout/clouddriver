@@ -43,11 +43,11 @@ public class IamPolicyReader {
     try {
       policyDocument = mapper.readValue(decodedPolicyDocument, Map.class);
       List<Map<String, Object>> statementItems = (List<Map<String, Object>>) policyDocument.get("Statement");
-      for (Map<String, Object> statementItem: statementItems) {
+      for (Map<String, Object> statementItem : statementItems) {
         if ("sts:AssumeRole".equals(statementItem.get("Action"))) {
           Map<String, Object> principal = (Map<String, Object>) statementItem.get("Principal");
 
-          for (Map.Entry<String, Object> principalEntry: principal.entrySet()) {
+          for (Map.Entry<String, Object> principalEntry : principal.entrySet()) {
             if (principalEntry.getValue() instanceof List) {
               ((List) principalEntry.getValue()).stream()
                 .forEach(o -> trustedEntities.add(new IamTrustRelationship(principalEntry.getKey(), o.toString())));

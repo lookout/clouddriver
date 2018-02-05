@@ -84,7 +84,7 @@ public class EcrImageProvider implements ImageRepositoryProvider {
     NetflixAmazonCredentials credentials = getCredentials(accountId);
 
     if (!isValidRegion(credentials, region)) {
-      throw new Error("The repository URI provided does not belong to a region that the credentials have access to or is not a valid region.");
+      throw new IllegalArgumentException("The repository URI provided does not belong to a region that the credentials have access to or the region is not valid.");
     }
 
     AmazonECR amazonECR = amazonClientProvider.getAmazonEcr(credentials.getName(), credentials.getCredentialsProvider(), region);
@@ -94,15 +94,13 @@ public class EcrImageProvider implements ImageRepositoryProvider {
 
     // TODO - what is the user interface we want to have here?  We should discuss with Lars and Ethan from the community as this whole thing will undergo a big refactoring
     List<ImageDetail> imagesWithThisIdentifier = imagesResult.getImageDetails().stream()
-      .filter(imageDetail -> isTag ?
-        imageDetail.getImageTags() != null && imageDetail.getImageTags().contains(identifier) :
-        imageDetail.getImageDigest().equals(identifier))
+      .filter(imageDetail -> imageFilter(imageDetail, identifier, isTag))
       .collect(Collectors.toList());
 
     if (imagesWithThisIdentifier.size() > 1) {
-      throw new Error("More than 1 image has this " + (isTag ? "tag" : "digest") + "!  We can't handle this in the POC!");
+      throw new IllegalArgumentException("More than 1 image has this " + (isTag ? "tag" : "digest") + "!  This is currently not supported.");
     } else if (imagesWithThisIdentifier.size() == 0) {
-      throw new Error(String.format("No image with the " + (isTag ? "tag" : "digest") + " %s was found.", identifier));
+      throw new IllegalArgumentException(String.format("No image with the " + (isTag ? "tag" : "digest") + " %s was found.", identifier));
     }
 
     ImageDetail matchedImage = imagesWithThisIdentifier.get(0);
@@ -138,6 +136,12 @@ public class EcrImageProvider implements ImageRepositoryProvider {
       region));
 
     return Collections.singletonList(ecsDockerImage);
+  }
+
+  private boolean imageFilter(ImageDetail imageDetail, String identifier, boolean isTag) {
+    return isTag ?
+      imageDetail.getImageTags() != null && imageDetail.getImageTags().contains(identifier) :
+      imageDetail.getImageDigest().equals(identifier);
   }
 
   private NetflixAmazonCredentials getCredentials(String accountId) {
@@ -183,7 +187,7 @@ public class EcrImageProvider implements ImageRepositoryProvider {
   private String extractString(Pattern pattern, String imageUrl, int group, String error) {
     Matcher matcher = pattern.matcher(imageUrl);
     if (!matcher.find()) {
-      throw new Error(error);
+      throw new IllegalArgumentException(error);
     }
     return matcher.group(group);
   }
@@ -192,7 +196,7 @@ public class EcrImageProvider implements ImageRepositoryProvider {
     final Pattern identifierPatter = Pattern.compile(repository + IDENTIFIER_PATTERN);
     Matcher matcher = identifierPatter.matcher(imageUrl);
     if (!matcher.find()) {
-      throw new Error("The repository URI provided does not contain a proper tag or sha256 digest.");
+      throw new IllegalArgumentException("The repository URI provided does not contain a proper tag or sha256 digest.");
     }
     return matcher.group(1).startsWith(":") ?
       matcher.group(2) :

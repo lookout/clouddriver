@@ -89,7 +89,7 @@ class EcsClusterProviderSpec extends Specification {
     cacheView.getAll(_) >> cacheData
 
     when:
-    List<EcsCluster> ecsClusters = ecsClusterProvider.getAllEcsClusters()
+    Collection<EcsCluster> ecsClusters = ecsClusterProvider.getAllEcsClusters()
 
     then:
     ecsClusters.size() == numberOfClusters

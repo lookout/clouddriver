@@ -62,6 +62,23 @@ public class TaskCachingAgent extends AbstractEcsOnDemandAgent<Task> {
     super(accountName, region, amazonClientProvider, awsCredentialsProvider, registry);
   }
 
+  public static Map<String, Object> convertTaskToAttributes(Task task) {
+    String taskId = StringUtils.substringAfterLast(task.getTaskArn(), "/");
+
+    Map<String, Object> attributes = new HashMap<>();
+    attributes.put("taskId", taskId);
+    attributes.put("taskArn", task.getTaskArn());
+    attributes.put("clusterArn", task.getClusterArn());
+    attributes.put("containerInstanceArn", task.getContainerInstanceArn());
+    attributes.put("group", task.getGroup());
+    attributes.put("containers", task.getContainers());
+    attributes.put("lastStatus", task.getLastStatus());
+    attributes.put("desiredStatus", task.getDesiredStatus());
+    attributes.put("startedAt", task.getStartedAt().getTime());
+
+    return attributes;
+  }
+
   @Override
   public Collection<AgentDataType> getProvidedDataTypes() {
     return types;
@@ -105,7 +122,7 @@ public class TaskCachingAgent extends AbstractEcsOnDemandAgent<Task> {
       Map<String, String> parsedKey = Keys.parse(onDemand.getId());
       if (parsedKey != null && parsedKey.get("type") != null &&
         (parsedKey.get("type").equals(SERVICES.toString()) || parsedKey.get("type").equals(TASKS.toString()) &&
-        parsedKey.get("account").equals(accountName) && parsedKey.get("region").equals(region))) {
+          parsedKey.get("account").equals(accountName) && parsedKey.get("region").equals(region))) {
 
         parsedKey.put("type", "serverGroup");
         parsedKey.put("serverGroup", parsedKey.get("serviceName"));
@@ -164,22 +181,5 @@ public class TaskCachingAgent extends AbstractEcsOnDemandAgent<Task> {
     dataMap.put(ECS_CLUSTERS.toString(), clusterDataPoints.values());
 
     return dataMap;
-  }
-
-  public static Map<String, Object> convertTaskToAttributes(Task task){
-    String taskId = StringUtils.substringAfterLast(task.getTaskArn(), "/");
-
-    Map<String, Object> attributes = new HashMap<>();
-    attributes.put("taskId", taskId);
-    attributes.put("taskArn", task.getTaskArn());
-    attributes.put("clusterArn", task.getClusterArn());
-    attributes.put("containerInstanceArn", task.getContainerInstanceArn());
-    attributes.put("group", task.getGroup());
-    attributes.put("containers", task.getContainers());
-    attributes.put("lastStatus", task.getLastStatus());
-    attributes.put("desiredStatus", task.getDesiredStatus());
-    attributes.put("startedAt", task.getStartedAt().getTime());
-
-    return attributes;
   }
 }

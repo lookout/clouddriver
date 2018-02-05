@@ -117,7 +117,9 @@ public class IamRoleCachingAgent implements CachingAgent {
 
   private Map<String, Collection<String>> computeEvictableData(Collection<CacheData> newData, Collection<String> oldKeys) {
 
-    Set<String> newKeys = newData.stream().map(CacheData::getId).collect(Collectors.toSet());
+    Set<String> newKeys = newData.stream()
+      .map(CacheData::getId)
+      .collect(Collectors.toSet());
 
     Set<String> evictedKeys = new HashSet<>();
     for (String oldKey : oldKeys) {
@@ -176,6 +178,7 @@ public class IamRoleCachingAgent implements CachingAgent {
 
     return cacheableRoles;
   }
+
   private boolean keyAccountFilter(String key) {
     Map<String, String> keyParts = Keys.parse(key);
     return keyParts != null &&

@@ -142,10 +142,10 @@ public class EcsCloudMetricService {
   }
 
   private PutMetricAlarmRequest buildPutMetricAlarmRequest(MetricAlarm metricAlarm,
-                                                          String serviceName,
-                                                          Set<String> insufficientActionPolicyArns,
-                                                          Set<String> okActionPolicyArns,
-                                                          Set<String> alarmActionPolicyArns) {
+                                                           String serviceName,
+                                                           Set<String> insufficientActionPolicyArns,
+                                                           Set<String> okActionPolicyArns,
+                                                           Set<String> alarmActionPolicyArns) {
     return new PutMetricAlarmRequest()
       .withAlarmName(metricAlarm.getAlarmName() + "-" + serviceName)
       .withEvaluationPeriods(metricAlarm.getEvaluationPeriods())

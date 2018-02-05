@@ -21,6 +21,7 @@ import com.amazonaws.services.identitymanagement.AmazonIdentityManagement;
 import com.amazonaws.services.identitymanagement.model.ListRolesRequest;
 import com.amazonaws.services.identitymanagement.model.ListRolesResult;
 import com.amazonaws.services.identitymanagement.model.Role;
+import com.fasterxml.jackson.databind.ObjectMapper;
 import com.netflix.spinnaker.cats.agent.CacheResult;
 import com.netflix.spinnaker.cats.cache.CacheData;
 import com.netflix.spinnaker.clouddriver.ecs.cache.Keys;
@@ -53,6 +54,7 @@ public class IamRoleCacheTest extends CommonCachingAgent {
   public void shouldRetrieveFromWrittenCache() {
     //Given
     when(clientProvider.getIam(anyString(), any(AWSCredentialsProvider.class), anyString())).thenReturn(iam);
+    ObjectMapper mapper = new ObjectMapper();
     String name = "iam-role-name";
     String roleArn = "iam-role-arn";
     String key = Keys.getIamRoleKey(ACCOUNT, name);
