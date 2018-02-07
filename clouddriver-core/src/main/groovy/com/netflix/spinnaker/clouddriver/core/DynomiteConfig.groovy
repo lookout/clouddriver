@@ -56,7 +56,7 @@ class DynomiteConfig {
   @Bean
   @ConfigurationProperties("dynomite.connectionPool")
   ConnectionPoolConfigurationImpl connectionPoolConfiguration(DynomiteConfigurationProperties dynomiteConfigurationProperties) {
-    new ConnectionPoolConfigurationImpl(dynomiteConfigurationProperties.applicationName)
+    new ConnectionPoolConfigurationImpl(dynomiteConfigurationProperties.applicationName).withHashtag("{}")
   }
 
   @Bean(destroyMethod = "stopClient")

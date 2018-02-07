@@ -33,7 +33,7 @@ public class EcsLoadBalancerSummary implements Item {
   private String name;
   private Map<String, EcsLoadBalancerSummaryByAccount> byAccounts = new HashMap<>();
 
-  public EcsLoadBalancerSummary withName(String name){
+  public EcsLoadBalancerSummary withName(String name) {
     setName(name);
     return this;
   }

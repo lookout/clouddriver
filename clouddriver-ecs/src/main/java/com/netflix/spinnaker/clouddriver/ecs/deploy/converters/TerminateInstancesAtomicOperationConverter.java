@@ -1,5 +1,5 @@
 /*
- * Copyright 2017 Lookout, Inc.
+ * Copyright 2018 Lookout, Inc.
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -42,7 +42,7 @@ public class TerminateInstancesAtomicOperationConverter extends AbstractAtomicOp
     converted.setCredentials(getCredentialsObject(input.get("credentials").toString()));
     converted.setRegion(input.get("region").toString());
     List<String> ecsTaskIds = new ArrayList<>();
-    for (Object id: (List) input.get("instanceIds")) {
+    for (Object id : (List) input.get("instanceIds")) {
       ecsTaskIds.add(id.toString());
     }
     converted.setEcsTaskIds(ecsTaskIds);

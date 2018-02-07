@@ -68,7 +68,6 @@ class EcsCloudMetricAlarmCachingAgentSpec extends Specification {
     def cacheData = agent.generateFreshData(metricAlarms)
 
     then:
-    cacheData.size() == 1
     cacheData.get(ALARMS.ns).size() == metricAlarms.size()
     metricAlarms*.alarmName.containsAll(cacheData.get(ALARMS.ns)*.getAttributes().alarmName)
     metricAlarms*.alarmArn.containsAll(cacheData.get(ALARMS.ns)*.getAttributes().alarmArn)

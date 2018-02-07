@@ -1,5 +1,5 @@
 /*
- * Copyright 2016 Google, Inc.
+ * Copyright 2018 Netflix, Inc.
  *
  * Licensed under the Apache License, Version 2.0 (the "License")
  * you may not use this file except in compliance with the License.
@@ -14,21 +14,23 @@
  * limitations under the License.
  */
 
-package com.netflix.spinnaker.clouddriver.model;
+apply plugin: "nebula.kotlin"
 
-import lombok.AllArgsConstructor;
-import lombok.Builder;
-import lombok.Data;
-import lombok.NoArgsConstructor;
+def kotlinVersion = "${spinnaker.version('kotlin')}"
 
-import java.util.Map;
+configurations.all {
+  resolutionStrategy {
+    eachDependency { details ->
+      if (details.requested.group == "org.jetbrains.kotlin") {
+        details.useVersion kotlinVersion
+      }
+    }
+  }
+}
 
-@Data
-@Builder
-@AllArgsConstructor
-@NoArgsConstructor
-public class LoadBalancerInstance {
-  String id;
-  String zone;
-  Map<String, String> health;
+compileKotlin {
+  kotlinOptions {
+    languageVersion = "1.2"
+    jvmTarget = "1.8"
+  }
 }

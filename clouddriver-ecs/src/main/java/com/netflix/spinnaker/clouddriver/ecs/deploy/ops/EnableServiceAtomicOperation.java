@@ -1,5 +1,5 @@
 /*
- * Copyright 2017 Lookout, Inc.
+ * Copyright 2018 Lookout, Inc.
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -55,9 +55,9 @@ public class EnableServiceAtomicOperation extends AbstractEcsAtomicOperation<Mod
       .withService(service)
       .withDesiredCount(getMaxCapacity(cluster));
 
-    updateTaskStatus(String.format("Enabling %s service for %s.", service, account));
+    updateTaskStatus(String.format("Enabling %s server group for %s.", service, account));
     ecsClient.updateService(request);
-    updateTaskStatus(String.format("Service %s enabled for %s.", service, account));
+    updateTaskStatus(String.format("Server group %s enabled for %s.", service, account));
   }
 
   private Integer getMaxCapacity(String cluster) {

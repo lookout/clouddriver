@@ -26,6 +26,7 @@ import org.springframework.context.MessageSource
 import org.springframework.web.bind.annotation.PathVariable
 import org.springframework.web.bind.annotation.RequestMapping
 import org.springframework.web.bind.annotation.RequestMethod
+import org.springframework.web.bind.annotation.RequestParam
 import org.springframework.web.bind.annotation.RestController
 
 @RestController
@@ -45,48 +46,18 @@ class CredentialsController {
   MessageSource messageSource
 
   @RequestMapping(method = RequestMethod.GET)
-  List<Map> list() {
-    def listOfMaps = accountCredentialsProvider.all.collect(this.&renderSummary)
-
-    //temporaryWorkaroundForPOC(listOfMaps)
-    return listOfMaps
-  }
-
-  private void temporaryWorkaroundForPOC(List<Map> listOfMaps) {
-    LinkedHashMap<String, Object> ecsAccount = new LinkedHashMap<>();
-
-    for (Map.Entry entry : listOfMaps.get(0).entrySet()) {
-
-      if (entry.getKey().equals("cloudProvider")) {
-        ecsAccount.put(entry.getKey(), "ecs")
-      } else if (entry.getKey().equals("name")) {
-        ecsAccount.put(entry.getKey(), "ecs-acct")
-      } else if (entry.getKey().equals("type")) {
-        ecsAccount.put(entry.getKey(), "ecs")
-      } else {
-        ecsAccount.put(entry.getKey(), entry.getValue())
-      }
-    }
-
-    listOfMaps.add(ecsAccount)
+  List<Map> list(@RequestParam(value = "expand", required = false) boolean expand) {
+    accountCredentialsProvider.all.collect { render(expand, it) }
   }
 
   @RequestMapping(value = "/{name:.+}", method = RequestMethod.GET)
   Map getAccount(@PathVariable("name") String name) {
-    def accountDetail = renderDetail(accountCredentialsProvider.getCredentials(name))
+    def accountDetail = render(true, accountCredentialsProvider.getCredentials(name))
     if (!accountDetail) {
-      return renderDetail(accountCredentialsProvider.getAll().iterator().next())  // TODO - implement the ECS accounts properly, so we don't need to do this shenanigan
+      throw new NotFoundException("Account does not exist (name: ${name})")
     }
 
     return accountDetail
-  }
-
-  Map renderSummary(AccountCredentials accountCredentials) {
-    render(false, accountCredentials)
-  }
-
-  Map renderDetail(AccountCredentials accountCredentials) {
-    render(true, accountCredentials)
   }
 
   Map render(boolean includeDetail, AccountCredentials accountCredentials) {

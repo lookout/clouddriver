@@ -1,5 +1,5 @@
 /*
- * Copyright 2017 Lookout, Inc.
+ * Copyright 2018 Lookout, Inc.
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -21,7 +21,6 @@ import com.netflix.spinnaker.clouddriver.data.task.TaskRepository
 import com.netflix.spinnaker.clouddriver.deploy.DescriptionValidator
 import com.netflix.spinnaker.clouddriver.ecs.TestCredential
 import com.netflix.spinnaker.clouddriver.ecs.deploy.description.AbstractECSDescription
-import com.netflix.spinnaker.clouddriver.ecs.deploy.description.CreateServerGroupDescription
 import org.springframework.validation.Errors
 import spock.lang.Specification
 import spock.lang.Subject
@@ -50,7 +49,7 @@ abstract class AbstractValidatorSpec extends Specification {
     setTestRegion()
   }
 
-  def setTestRegion(){
+  def setTestRegion() {
     testRegion = true
   }
 
@@ -62,12 +61,12 @@ abstract class AbstractValidatorSpec extends Specification {
     def errors = Mock(Errors)
 
     when:
-    if(testRegion) {
+    if (testRegion) {
       validator.validate([], description, errors)
     }
 
     then:
-    if(testRegion) {
+    if (testRegion) {
       1 * errors.rejectValue('region', _)
     }
   }
@@ -83,7 +82,7 @@ abstract class AbstractValidatorSpec extends Specification {
     validator.validate([], description, errors)
 
     then:
-    for(def nullProperty:nullProperties){
+    for (def nullProperty : nullProperties) {
       1 * errors.rejectValue(nullProperty, "${descriptionName}.${nullProperty}.not.nullable")
     }
   }
@@ -100,7 +99,7 @@ abstract class AbstractValidatorSpec extends Specification {
     validator.validate([], description, errors)
 
     then:
-    for(String invalidField:invalidFields) {
+    for (String invalidField : invalidFields) {
       1 * errors.rejectValue(invalidField, "${descriptionName}.${invalidField}.invalid")
     }
   }

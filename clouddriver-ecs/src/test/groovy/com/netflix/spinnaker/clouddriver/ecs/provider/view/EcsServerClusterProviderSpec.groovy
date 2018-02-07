@@ -24,7 +24,8 @@ import com.fasterxml.jackson.databind.DeserializationFeature
 import com.fasterxml.jackson.databind.ObjectMapper
 import com.netflix.spinnaker.cats.cache.Cache
 import com.netflix.spinnaker.cats.cache.DefaultCacheData
-import com.netflix.spinnaker.clouddriver.ecs.TestCredential
+import com.netflix.spinnaker.clouddriver.aws.security.AmazonCredentials
+import com.netflix.spinnaker.clouddriver.ecs.cache.Keys
 import com.netflix.spinnaker.clouddriver.ecs.cache.client.*
 import com.netflix.spinnaker.clouddriver.ecs.cache.model.EcsLoadBalancerCache
 import com.netflix.spinnaker.clouddriver.ecs.model.EcsServerCluster
@@ -37,9 +38,6 @@ import com.netflix.spinnaker.clouddriver.model.ServerGroup
 import com.netflix.spinnaker.clouddriver.security.AccountCredentialsProvider
 import spock.lang.Specification
 import spock.lang.Subject
-
-import static com.netflix.spinnaker.clouddriver.ecs.cache.Keys.Namespace.SERVICES
-import static com.netflix.spinnaker.clouddriver.ecs.cache.Keys.Namespace.TASKS
 
 class EcsServerClusterProviderSpec extends Specification {
   def cacheView = Mock(Cache)
@@ -76,7 +74,12 @@ class EcsServerClusterProviderSpec extends Specification {
     def serviceName = "${familyName}-v007"
     def startedAt = new Date()
 
-    def creds = TestCredential.named('test', [CLOUD_PROVIDER: 'ecs'])
+    def creds = Mock(AmazonCredentials)
+    creds.getCloudProvider() >> 'ecs'
+    creds.getName() >> 'test'
+    creds.getRegions() >> [new AmazonCredentials.AWSRegion('us-east-1', ['us-east-1b', 'us-east-1c', 'us-east-1d']),
+                           new AmazonCredentials.AWSRegion('us-west-1', ['us-west-1b', 'us-west-1c', 'us-west-1d'])]
+
 
     def cachedService = new Service(
       serviceName: serviceName,
@@ -154,8 +157,8 @@ class EcsServerClusterProviderSpec extends Specification {
     ecsCloudWatchAlarmCacheClient.getMetricAlarms(_, _, _) >> []
 
     cacheView.filterIdentifiers(_, _) >> ['key']
-    cacheView.getAll(SERVICES.ns, _) >> [serviceCacheData]
-    cacheView.getAll(TASKS.ns, _) >> [taskCacheData]
+    cacheView.getAll(Keys.Namespace.SERVICES.ns, _) >> [serviceCacheData]
+    cacheView.getAll(Keys.Namespace.TASKS.ns, _) >> [taskCacheData]
 
     when:
     def retrievedCluster = provider.getCluster("myapp", creds.getName(), familyName)

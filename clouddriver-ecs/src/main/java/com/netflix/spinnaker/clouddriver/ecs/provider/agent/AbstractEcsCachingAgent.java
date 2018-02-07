@@ -46,12 +46,11 @@ import static com.netflix.spinnaker.clouddriver.ecs.cache.Keys.Namespace.ECS_CLU
 import static com.netflix.spinnaker.clouddriver.ecs.cache.Keys.Namespace.IAM_ROLE;
 
 abstract class AbstractEcsCachingAgent<T> implements CachingAgent {
-  private final Logger log = LoggerFactory.getLogger(getClass());
-
   final AmazonClientProvider amazonClientProvider;
   final AWSCredentialsProvider awsCredentialsProvider;
   final String region;
   final String accountName;
+  private final Logger log = LoggerFactory.getLogger(getClass());
 
   AbstractEcsCachingAgent(String accountName, String region, AmazonClientProvider amazonClientProvider, AWSCredentialsProvider awsCredentialsProvider) {
     this.accountName = accountName;
@@ -62,7 +61,8 @@ abstract class AbstractEcsCachingAgent<T> implements CachingAgent {
 
   /**
    * Fetches items from the ECS service.
-   * @param ecs The AmazonECS client that will be used to make the queries.
+   *
+   * @param ecs           The AmazonECS client that will be used to make the queries.
    * @param providerCache A ProviderCache that is used to access already existing cache.
    * @return A list of generic type objects.
    */
@@ -70,6 +70,7 @@ abstract class AbstractEcsCachingAgent<T> implements CachingAgent {
 
   /**
    * Generates a map of CacheData collections associated to a key namespace from a given collection of generic type objects.
+   *
    * @param cacheableItems A collection of generic type objects.
    * @return A map of CacheData collections belonging to a key namespace.
    */
@@ -92,14 +93,15 @@ abstract class AbstractEcsCachingAgent<T> implements CachingAgent {
   /**
    * Provides a set of ECS cluster ARNs.
    * Either uses the cache, or queries the ECS service.
-   * @param ecs The AmazonECS client to use for querying.
+   *
+   * @param ecs           The AmazonECS client to use for querying.
    * @param providerCache The ProviderCache to retrieve clusters from.
    * @return A set of ECS cluster ARNs.
    */
   Set<String> getClusters(AmazonECS ecs, ProviderCache providerCache) {
     Set<String> clusters = providerCache.getAll(ECS_CLUSTERS.toString()).stream()
-      .filter(cacheData ->  cacheData.getAttributes().get("region").equals(region) &&
-                            cacheData.getAttributes().get("account").equals(accountName))
+      .filter(cacheData -> cacheData.getAttributes().get("region").equals(region) &&
+        cacheData.getAttributes().get("account").equals(accountName))
       .map(cacheData -> (String) cacheData.getAttributes().get("clusterArn"))
       .collect(Collectors.toSet());
 
@@ -124,6 +126,7 @@ abstract class AbstractEcsCachingAgent<T> implements CachingAgent {
   /**
    * Provides the key namespace that the caching agent is authoritative of.
    * Currently only supports the caching agent being authoritative over one key namespace.
+   *
    * @return Key namespace.
    */
   String getAuthoritativeKeyName() {
@@ -160,6 +163,7 @@ abstract class AbstractEcsCachingAgent<T> implements CachingAgent {
   /**
    * Evicts cache that does not belong to an entity on the ECS service.
    * This is done by evicting old keys that are no longer found in the new keys provided by the new data.
+   *
    * @param newData New data that contains new keys.
    * @param oldKeys Old keys.
    * @return Key collection associated to the key namespace the the caching agent is authoritative of.
@@ -183,17 +187,18 @@ abstract class AbstractEcsCachingAgent<T> implements CachingAgent {
   protected boolean keyAccountRegionFilter(String authoritativeKeyName, String key) {
     Map<String, String> keyParts = Keys.parse(key);
     return keyParts != null &&
-           keyParts.get("account").equals(accountName) &&
-           //IAM role keys are not region specific, so it will be true. The region will be checked of other keys.
-           (authoritativeKeyName.equals(IAM_ROLE.ns) || keyParts.get("region").equals(region));
+      keyParts.get("account").equals(accountName) &&
+      //IAM role keys are not region specific, so it will be true. The region will be checked of other keys.
+      (authoritativeKeyName.equals(IAM_ROLE.ns) || keyParts.get("region").equals(region));
   }
 
   /**
    * This method is to be overridden in order to add extra evictions.
+   *
    * @param evictions The existing eviction map.
    * @return Eviction map with addtional keys.
    */
-  protected Map<String, Collection<String>> addExtraEvictions(Map<String, Collection<String>> evictions){
+  protected Map<String, Collection<String>> addExtraEvictions(Map<String, Collection<String>> evictions) {
     return evictions;
   }
 }

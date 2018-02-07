@@ -1,5 +1,5 @@
 /*
- * Copyright 2017 Lookout, Inc.
+ * Copyright 2018 Lookout, Inc.
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -46,11 +46,10 @@ public class TerminateInstancesDescriptionValidator extends CommonValidator {
 
     if (typedDescription.getEcsTaskIds() != null) {
       typedDescription.getEcsTaskIds().forEach(taskId -> {
-          if (!TASK_ID_PATTERN.matcher(taskId).find()) {
-            rejectValue(errors, "ecsTaskIds." + taskId, "invalid");
-          }
+        if (!TASK_ID_PATTERN.matcher(taskId).find()) {
+          rejectValue(errors, "ecsTaskIds." + taskId, "invalid");
         }
-      );
+      });
     } else {
       rejectValue(errors, "ecsTaskIds", "not.nullable");
     }

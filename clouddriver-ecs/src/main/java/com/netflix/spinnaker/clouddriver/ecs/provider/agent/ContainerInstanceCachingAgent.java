@@ -55,6 +55,18 @@ public class ContainerInstanceCachingAgent extends AbstractEcsOnDemandAgent<Cont
     super(accountName, region, amazonClientProvider, awsCredentialsProvider, registry);
   }
 
+  public static Map<String, Object> convertContainerInstanceToAttributes(ContainerInstance containerInstance) {
+    Map<String, Object> attributes = new HashMap<>();
+    attributes.put("containerInstanceArn", containerInstance.getContainerInstanceArn());
+    attributes.put("ec2InstanceId", containerInstance.getEc2InstanceId());
+    for (Attribute containerAttribute : containerInstance.getAttributes()) {
+      if (containerAttribute.getName().equals("ecs.availability-zone")) {
+        attributes.put("availabilityZone", containerAttribute.getValue());
+      }
+    }
+    return attributes;
+  }
+
   @Override
   public String getAgentType() {
     return accountName + "/" + region + "/" + getClass().getSimpleName();
@@ -110,17 +122,5 @@ public class ContainerInstanceCachingAgent extends AbstractEcsOnDemandAgent<Cont
     dataMap.put(CONTAINER_INSTANCES.toString(), dataPoints);
 
     return dataMap;
-  }
-
-  public static  Map<String, Object> convertContainerInstanceToAttributes(ContainerInstance containerInstance){
-    Map<String, Object> attributes = new HashMap<>();
-    attributes.put("containerInstanceArn", containerInstance.getContainerInstanceArn());
-    attributes.put("ec2InstanceId", containerInstance.getEc2InstanceId());
-    for(Attribute containerAttribute:containerInstance.getAttributes()){
-      if(containerAttribute.getName().equals("ecs.availability-zone")){
-        attributes.put("availabilityZone", containerAttribute.getValue());
-      }
-    }
-    return attributes;
   }
 }

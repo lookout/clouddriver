@@ -22,7 +22,6 @@ import com.netflix.spinnaker.cats.cache.Cache;
 import com.netflix.spinnaker.cats.cache.CacheData;
 import com.netflix.spinnaker.clouddriver.ecs.cache.model.Task;
 import org.springframework.beans.factory.annotation.Autowired;
-import org.springframework.beans.factory.annotation.Qualifier;
 import org.springframework.stereotype.Component;
 
 import java.util.ArrayList;
@@ -34,12 +33,12 @@ import static com.netflix.spinnaker.clouddriver.ecs.cache.Keys.Namespace.TASKS;
 
 @Component
 public class TaskCacheClient extends AbstractCacheClient<Task> {
-  private ObjectMapper mapper;
+  private ObjectMapper objectMapper;
 
   @Autowired
-  public TaskCacheClient(Cache cacheView, @Qualifier("objectMapper") ObjectMapper mapper) {
+  public TaskCacheClient(Cache cacheView, ObjectMapper objectMapper) {
     super(cacheView, TASKS.toString());
-    this.mapper = mapper;
+    this.objectMapper = objectMapper;
   }
 
   @Override
@@ -61,7 +60,7 @@ public class TaskCacheClient extends AbstractCacheClient<Task> {
 
       for (Map<String, Object> serializedContainer : containers) {
         if (serializedContainer != null) {
-          deserializedLoadbalancers.add(mapper.convertValue(serializedContainer, Container.class));
+          deserializedLoadbalancers.add(objectMapper.convertValue(serializedContainer, Container.class));
         }
       }
 

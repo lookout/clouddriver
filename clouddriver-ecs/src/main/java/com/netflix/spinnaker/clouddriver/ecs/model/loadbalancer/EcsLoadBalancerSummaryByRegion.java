@@ -18,21 +18,17 @@ package com.netflix.spinnaker.clouddriver.ecs.model.loadbalancer;
 
 import lombok.Data;
 
-import java.util.HashMap;
 import java.util.LinkedList;
 import java.util.List;
-import java.util.Map;
-import java.util.stream.Collectors;
 
 import static com.netflix.spinnaker.clouddriver.model.LoadBalancerProvider.ByRegion;
-import static com.netflix.spinnaker.clouddriver.model.LoadBalancerProvider.Details;
 
 @Data
 public class EcsLoadBalancerSummaryByRegion implements ByRegion {
   private String name;
   private List<EcsLoadBalancerSummary> loadBalancers = new LinkedList<>();
 
-  public EcsLoadBalancerSummaryByRegion withName(String name){
+  public EcsLoadBalancerSummaryByRegion withName(String name) {
     setName(name);
     return this;
   }

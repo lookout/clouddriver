@@ -42,7 +42,7 @@ public class EcsLoadBalancerProvider implements LoadBalancerProvider<AmazonLoadB
 
     for (EcsLoadBalancerCache lb : loadBalancers) {
       String account = getEcsAccountName(lb.getAccount());
-      if(account == null){
+      if (account == null) {
         continue;
       }
 
@@ -112,9 +112,9 @@ public class EcsLoadBalancerProvider implements LoadBalancerProvider<AmazonLoadB
     return null;  //TODO - Implement this.  This is used to show load balancers and reveals other buttons
   }
 
-  private String getEcsAccountName(String awsAccountName){
-    for(ECSCredentialsConfig.Account ecsAccount: ecsCredentialsConfig.getAccounts()){
-      if(ecsAccount.getAwsAccount().equals(awsAccountName)){
+  private String getEcsAccountName(String awsAccountName) {
+    for (ECSCredentialsConfig.Account ecsAccount : ecsCredentialsConfig.getAccounts()) {
+      if (ecsAccount.getAwsAccount().equals(awsAccountName)) {
         return ecsAccount.getName();
       }
     }

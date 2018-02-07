@@ -1,5 +1,5 @@
 /*
- * Copyright 2017 Lookout, Inc.
+ * Copyright 2018 Lookout, Inc.
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -24,7 +24,7 @@ import com.netflix.spinnaker.clouddriver.ecs.services.ContainerInformationServic
 import com.netflix.spinnaker.clouddriver.security.AccountCredentialsProvider
 import spock.lang.Specification
 
-class CommonAtomicOperation extends Specification{
+class CommonAtomicOperation extends Specification {
   def amazonClientProvider = Mock(AmazonClientProvider)
   def accountCredentialsProvider = Mock(AccountCredentialsProvider)
   def containerInformationService = Mock(ContainerInformationService)

@@ -21,6 +21,7 @@ import com.amazonaws.services.ecs.model.DescribeTaskDefinitionResult;
 import com.amazonaws.services.ecs.model.ListTaskDefinitionsRequest;
 import com.amazonaws.services.ecs.model.ListTaskDefinitionsResult;
 import com.amazonaws.services.ecs.model.TaskDefinition;
+import com.fasterxml.jackson.databind.ObjectMapper;
 import com.netflix.spinnaker.cats.agent.CacheResult;
 import com.netflix.spinnaker.cats.cache.CacheData;
 import com.netflix.spinnaker.clouddriver.ecs.cache.Keys;
@@ -39,11 +40,11 @@ import static org.mockito.Mockito.when;
 
 
 public class TaskDefinitionCacheTest extends CommonCachingAgent {
-  @Subject
-  private final TaskDefinitionCacheClient client = new TaskDefinitionCacheClient(providerCache, mapper);
+  private final ObjectMapper mapper = new ObjectMapper();
   @Subject
   private final TaskDefinitionCachingAgent agent = new TaskDefinitionCachingAgent(ACCOUNT, REGION, clientProvider, credentialsProvider, registry, mapper);
-
+  @Subject
+  private final TaskDefinitionCacheClient client = new TaskDefinitionCacheClient(providerCache, mapper);
 
   @Test
   public void shouldRetrieveFromWrittenCache() {
@@ -52,7 +53,6 @@ public class TaskDefinitionCacheTest extends CommonCachingAgent {
 
     TaskDefinition taskDefinition = new TaskDefinition();
     taskDefinition.setTaskDefinitionArn(TASK_DEFINITION_ARN_1);
-    taskDefinition.setTaskRoleArn(ROLE_ARN);
     taskDefinition.setContainerDefinitions(Collections.emptyList());
 
     when(ecs.listTaskDefinitions(any(ListTaskDefinitionsRequest.class))).thenReturn(new ListTaskDefinitionsResult().withTaskDefinitionArns(TASK_DEFINITION_ARN_1));
