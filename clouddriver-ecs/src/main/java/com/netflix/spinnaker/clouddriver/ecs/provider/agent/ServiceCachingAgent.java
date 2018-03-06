@@ -22,6 +22,7 @@ import com.amazonaws.services.ecs.model.DescribeServicesRequest;
 import com.amazonaws.services.ecs.model.ListServicesRequest;
 import com.amazonaws.services.ecs.model.ListServicesResult;
 import com.amazonaws.services.ecs.model.Service;
+import com.fasterxml.jackson.databind.ObjectMapper;
 import com.netflix.spectator.api.Registry;
 import com.netflix.spinnaker.cats.agent.AgentDataType;
 import com.netflix.spinnaker.cats.cache.CacheData;
@@ -54,8 +55,8 @@ public class ServiceCachingAgent extends AbstractEcsOnDemandAgent<Service> {
   ));
   private final Logger log = LoggerFactory.getLogger(getClass());
 
-  public ServiceCachingAgent(String accountName, String region, AmazonClientProvider amazonClientProvider, AWSCredentialsProvider awsCredentialsProvider, Registry registry) {
-    super(accountName, region, amazonClientProvider, awsCredentialsProvider, registry);
+  public ServiceCachingAgent(String accountName, String region, AmazonClientProvider amazonClientProvider, AWSCredentialsProvider awsCredentialsProvider, Registry registry, ObjectMapper objectMapper) {
+    super(accountName, region, amazonClientProvider, awsCredentialsProvider, registry, objectMapper);
   }
 
   public static Map<String, Object> convertServiceToAttributes(String accountName, String region, Service service) {
@@ -143,5 +144,10 @@ public class ServiceCachingAgent extends AbstractEcsOnDemandAgent<Service> {
     dataMap.put(ECS_CLUSTERS.toString(), clusterDataPoints.values());
 
     return dataMap;
+  }
+
+  @Override
+  protected String getCachingKey(String id) {
+    return Keys.getServiceKey(accountName, region, id);
   }
 }

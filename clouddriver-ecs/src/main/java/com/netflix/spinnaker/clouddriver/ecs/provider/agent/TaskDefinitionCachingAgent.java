@@ -61,7 +61,7 @@ public class TaskDefinitionCachingAgent extends AbstractEcsOnDemandAgent<TaskDef
                                     AWSCredentialsProvider awsCredentialsProvider,
                                     Registry registry,
                                     ObjectMapper objectMapper) {
-    super(accountName, region, amazonClientProvider, awsCredentialsProvider, registry);
+    super(accountName, region, amazonClientProvider, awsCredentialsProvider, registry, objectMapper);
     this.objectMapper = objectMapper;
   }
 
@@ -157,5 +157,10 @@ public class TaskDefinitionCachingAgent extends AbstractEcsOnDemandAgent<TaskDef
     dataMap.put(TASK_DEFINITIONS.toString(), dataPoints);
 
     return dataMap;
+  }
+
+  @Override
+  protected String getCachingKey(String id) {
+    return Keys.getTaskDefinitionKey(accountName, region, id);
   }
 }

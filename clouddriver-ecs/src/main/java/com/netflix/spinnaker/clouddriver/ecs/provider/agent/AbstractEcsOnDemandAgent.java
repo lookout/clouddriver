@@ -18,26 +18,39 @@ package com.netflix.spinnaker.clouddriver.ecs.provider.agent;
 
 import com.amazonaws.auth.AWSCredentialsProvider;
 import com.amazonaws.services.ecs.AmazonECS;
+import com.amazonaws.services.ecs.model.Task;
+import com.fasterxml.jackson.core.JsonProcessingException;
+import com.fasterxml.jackson.databind.ObjectMapper;
 import com.netflix.spectator.api.Registry;
 import com.netflix.spinnaker.cats.agent.CacheResult;
+import com.netflix.spinnaker.cats.cache.CacheData;
+import com.netflix.spinnaker.cats.cache.DefaultCacheData;
 import com.netflix.spinnaker.cats.provider.ProviderCache;
 import com.netflix.spinnaker.clouddriver.aws.security.AmazonClientProvider;
 import com.netflix.spinnaker.clouddriver.cache.OnDemandAgent;
 import com.netflix.spinnaker.clouddriver.cache.OnDemandMetricsSupport;
 import com.netflix.spinnaker.clouddriver.ecs.EcsCloudProvider;
+import com.netflix.spinnaker.clouddriver.ecs.cache.Keys;
 import groovy.lang.Closure;
 
 import java.util.Collection;
+import java.util.Collections;
+import java.util.Date;
+import java.util.HashMap;
 import java.util.LinkedList;
 import java.util.List;
 import java.util.Map;
 
+import static com.netflix.spinnaker.clouddriver.core.provider.agent.Namespace.ON_DEMAND;
+
 abstract class AbstractEcsOnDemandAgent<T> extends AbstractEcsCachingAgent<T> implements OnDemandAgent {
   final OnDemandMetricsSupport metricsSupport;
+  private ObjectMapper objectMapper;
 
-  AbstractEcsOnDemandAgent(String accountName, String region, AmazonClientProvider amazonClientProvider, AWSCredentialsProvider awsCredentialsProvider, Registry registry) {
+  AbstractEcsOnDemandAgent(String accountName, String region, AmazonClientProvider amazonClientProvider, AWSCredentialsProvider awsCredentialsProvider, Registry registry, ObjectMapper objectMapper) {
     super(accountName, region, amazonClientProvider, awsCredentialsProvider);
     this.metricsSupport = new OnDemandMetricsSupport(registry, this, EcsCloudProvider.ID + ":" + EcsCloudProvider.ID + ":${OnDemandAgent.OnDemandType.ServerGroup}");
+    this.objectMapper = objectMapper;
   }
 
   @Override
@@ -52,8 +65,10 @@ abstract class AbstractEcsOnDemandAgent<T> extends AbstractEcsCachingAgent<T> im
 
   @Override
   public String getOnDemandAgentType() {
-    return getAgentType();
+    return getAgentType() + "-OnDemand";
   }
+
+  protected abstract String getCachingKey(String id);
 
   @Override
   public boolean handles(OnDemandType type, String cloudProvider) {
@@ -74,18 +89,31 @@ abstract class AbstractEcsOnDemandAgent<T> extends AbstractEcsCachingAgent<T> im
       }
     });
 
-    storeOnDemand(providerCache, data);
-
     CacheResult cacheResult = metricsSupport.transformData(new Closure<CacheResult>(this, this) {
       public CacheResult doCall() {
         return buildCacheResult(getAuthoritativeKeyName(), items, providerCache);
       }
     });
 
-    return new OnDemandResult(getAgentType(), cacheResult, null); // TODO(Bruno Carrier) - evictions should happen properly instead of having a null here
-  }
+    metricsSupport.onDemandStore(new Closure<List<Task>>(this, this) {
+      public void doCall() {
+        //Cache data will be stored in the ON_DEMAND, but using a key of the caching agent type.
+        String keyString = getCachingKey((String) data.get("serverGroupName"));
+          //Keys.getServiceKey(accountName, region, (String) data.get("serverGroupName"));
+        Map<String, Object> att = new HashMap<>();
+        att.put("cacheTime", new Date());
+        try {
+          att.put("cacheResults", objectMapper.writeValueAsString(cacheResult));
+        } catch (JsonProcessingException e) {
+          att.put("cacheResults", null);
+        }
+        att.put("processedCount", 0);
+        att.put("processedTime", 0);
+        CacheData cacheData = new DefaultCacheData(keyString, 600, att, Collections.emptyMap());
+        providerCache.putCacheData(ON_DEMAND.toString(), cacheData);
+      }
+    });
 
-  void storeOnDemand(ProviderCache providerCache, Map<String, ?> data) {
-    // TODO: Overwrite if needed.
+    return new OnDemandResult(getAgentType(), cacheResult, cacheResult.getEvictions());
   }
 }

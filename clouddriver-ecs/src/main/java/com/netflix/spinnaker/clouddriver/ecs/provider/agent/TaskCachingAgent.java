@@ -22,6 +22,7 @@ import com.amazonaws.services.ecs.model.DescribeTasksRequest;
 import com.amazonaws.services.ecs.model.ListTasksRequest;
 import com.amazonaws.services.ecs.model.ListTasksResult;
 import com.amazonaws.services.ecs.model.Task;
+import com.fasterxml.jackson.databind.ObjectMapper;
 import com.netflix.spectator.api.Registry;
 import com.netflix.spinnaker.cats.agent.AgentDataType;
 import com.netflix.spinnaker.cats.cache.CacheData;
@@ -58,8 +59,8 @@ public class TaskCachingAgent extends AbstractEcsOnDemandAgent<Task> {
   ));
   private final Logger log = LoggerFactory.getLogger(getClass());
 
-  public TaskCachingAgent(String accountName, String region, AmazonClientProvider amazonClientProvider, AWSCredentialsProvider awsCredentialsProvider, Registry registry) {
-    super(accountName, region, amazonClientProvider, awsCredentialsProvider, registry);
+  public TaskCachingAgent(String accountName, String region, AmazonClientProvider amazonClientProvider, AWSCredentialsProvider awsCredentialsProvider, Registry registry, ObjectMapper objectMapper) {
+    super(accountName, region, amazonClientProvider, awsCredentialsProvider, registry, objectMapper);
   }
 
   public static Map<String, Object> convertTaskToAttributes(Task task) {
@@ -74,7 +75,9 @@ public class TaskCachingAgent extends AbstractEcsOnDemandAgent<Task> {
     attributes.put("containers", task.getContainers());
     attributes.put("lastStatus", task.getLastStatus());
     attributes.put("desiredStatus", task.getDesiredStatus());
-    attributes.put("startedAt", task.getStartedAt().getTime());
+    if(task.getStartedAt() != null) {
+      attributes.put("startedAt", task.getStartedAt().getTime());
+    }
 
     return attributes;
   }
@@ -143,16 +146,8 @@ public class TaskCachingAgent extends AbstractEcsOnDemandAgent<Task> {
   }
 
   @Override
-  void storeOnDemand(ProviderCache providerCache, Map<String, ?> data) {
-    metricsSupport.onDemandStore(new Closure<List<Task>>(this, this) {
-      public void doCall() {
-        String keyString = Keys.getServiceKey(accountName, region, (String) data.get("serverGroupName"));
-        Map<String, Object> att = new HashMap<>();
-        att.put("cacheTime", new Date());
-        CacheData cacheData = new DefaultCacheData(keyString, att, Collections.emptyMap());
-        providerCache.putCacheData(ON_DEMAND.toString(), cacheData);
-      }
-    });
+  protected String getCachingKey(String id) {
+    return Keys.getTaskKey(accountName, region, id);
   }
 
   @Override

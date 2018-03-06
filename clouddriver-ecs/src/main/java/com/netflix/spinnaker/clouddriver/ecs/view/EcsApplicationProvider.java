@@ -51,7 +51,7 @@ public class EcsApplicationProvider implements ApplicationProvider {
   @Override
   public Application getApplication(String name) {
 
-    for (Application application : getApplications(true)) {
+    for (Application application : getApplications(false)) {
       if (name.equals(application.getName())) {
         return application;
       }

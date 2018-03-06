@@ -23,6 +23,7 @@ import com.amazonaws.services.ecs.model.ContainerInstance;
 import com.amazonaws.services.ecs.model.DescribeContainerInstancesRequest;
 import com.amazonaws.services.ecs.model.ListContainerInstancesRequest;
 import com.amazonaws.services.ecs.model.ListContainerInstancesResult;
+import com.fasterxml.jackson.databind.ObjectMapper;
 import com.netflix.spectator.api.Registry;
 import com.netflix.spinnaker.cats.agent.AgentDataType;
 import com.netflix.spinnaker.cats.cache.CacheData;
@@ -51,8 +52,8 @@ public class ContainerInstanceCachingAgent extends AbstractEcsOnDemandAgent<Cont
   ));
   private final Logger log = LoggerFactory.getLogger(getClass());
 
-  public ContainerInstanceCachingAgent(String accountName, String region, AmazonClientProvider amazonClientProvider, AWSCredentialsProvider awsCredentialsProvider, Registry registry) {
-    super(accountName, region, amazonClientProvider, awsCredentialsProvider, registry);
+  public ContainerInstanceCachingAgent(String accountName, String region, AmazonClientProvider amazonClientProvider, AWSCredentialsProvider awsCredentialsProvider, Registry registry, ObjectMapper objectMapper) {
+    super(accountName, region, amazonClientProvider, awsCredentialsProvider, registry, objectMapper);
   }
 
   public static Map<String, Object> convertContainerInstanceToAttributes(ContainerInstance containerInstance) {
@@ -122,5 +123,10 @@ public class ContainerInstanceCachingAgent extends AbstractEcsOnDemandAgent<Cont
     dataMap.put(CONTAINER_INSTANCES.toString(), dataPoints);
 
     return dataMap;
+  }
+
+  @Override
+  protected String getCachingKey(String id) {
+    return Keys.getContainerInstanceKey(accountName, region, id);
   }
 }
